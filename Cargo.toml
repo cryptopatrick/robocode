@@ -10,7 +10,8 @@ documentation = "https://docs.rs/robocode"
 homepage = "https://github.com/cryptopatrick/robocode"
 repository = "https://github.com/cryptopatrick/robocode"
 readme = "README.md"
-keywords = ["<KEYWORD1>", "<KEYWORD2>" ]
+keywords = ["Simulator"]
+categories = ["development-tools"]
 license = "MIT"
 autotests = false
 
