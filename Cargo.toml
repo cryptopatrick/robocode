@@ -1,0 +1,27 @@
+[package]
+name = "robocode"
+version = "0.1.0"
+edition = "2024"
+authors = ["CryptoPatrick <cryptopatrick@gmail.com>"]
+
+###############################################################################
+description = "Tank Combat Model Interface"
+documentation = "https://docs.rs/robocode"
+homepage = "https://github.com/cryptopatrick/robocode"
+repository = "https://github.com/cryptopatrick/robocode"
+readme = "README.md"
+keywords = ["<KEYWORD1>", "<KEYWORD2>" ]
+license = "MIT"
+autotests = false
+
+###############################################################################
+[lib]
+name = "robocode"
+path = "src/lib.rs"
+
+[[test]]
+name = "tests"
+path = "tests/test.rs"
+
+###############################################################################
+[dependencies]
