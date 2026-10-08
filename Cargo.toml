@@ -13,16 +13,9 @@ readme = "README.md"
 keywords = ["Simulator"]
 categories = ["development-tools"]
 license = "MIT"
-autotests = false
-
-###############################################################################
+autotests = true
 [lib]
 name = "robocode"
 path = "src/lib.rs"
 
-[[test]]
-name = "tests"
-path = "tests/test.rs"
-
-###############################################################################
 [dependencies]
