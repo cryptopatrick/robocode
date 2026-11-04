@@ -4,7 +4,6 @@
 //! [`Observation`], asks the strategy to `decide`, and applies the returned
 //! [`Action`] as engine commands.
 
-use crate::geometry::Battlefield;
 use crate::physics::{
     BattleConfig, BattleState, RobotId, RobotState, ScannedRobot, SpawnSpec,
     TurnEvents,
@@ -14,16 +13,22 @@ use crate::units::{Angle, Energy, GunHeat};
 
 /// Builds the fixed-point observation for `robot`. `last_scan` is the most
 /// recent scan of a target together with its age in turns.
+///
+/// Gun heat is reported **after** this turn's cooling, because the engine
+/// cools the gun before it checks whether a shot can be fired. So
+/// `gun_heat == GunHeat(0)` exactly when the engine would accept a shot.
 pub fn observe(
     robot: &RobotState,
-    field: Battlefield,
+    config: &BattleConfig,
     turn: u64,
     last_scan: Option<(&ScannedRobot, u32)>,
 ) -> Observation {
+    let field = config.battlefield;
+    let heat_when_firing = (robot.gun_heat - config.gun_cooling_rate).max(0.0);
     Observation {
         turn: turn.min(u32::MAX as u64) as u32,
         energy: Energy::from_f64(robot.energy),
-        gun_heat: GunHeat::from_f64(robot.gun_heat),
+        gun_heat: GunHeat::from_f64(heat_when_firing),
         heading: Angle::from_degrees(robot.heading),
         gun_heading: Angle::from_degrees(robot.gun_heading),
         radar_heading: Angle::from_degrees(robot.radar_heading),
@@ -120,7 +125,7 @@ impl Battle {
     /// Runs one turn: observe → decide → apply for every living robot, then
     /// advance the engine.
     pub fn step(&mut self) -> TurnEvents {
-        let field = self.state.config.battlefield;
+        let config = self.state.config;
         let turn = self.state.turn;
         self.decisions.iter_mut().for_each(|d| *d = None);
         for i in 0..self.state.robots.len() {
@@ -141,7 +146,7 @@ impl Battle {
             let scan = self.last_scan[i]
                 .as_ref()
                 .map(|(s, seen)| (s, turn.saturating_sub(*seen).min(u32::MAX as u64) as u32));
-            let obs = observe(&self.state.robots[i], field, turn, scan);
+            let obs = observe(&self.state.robots[i], &config, turn, scan);
             let action = self.strategies[i].decide(&obs);
             apply(&mut self.state.robots[i], &action);
             self.decisions[i] = Some((obs, action));

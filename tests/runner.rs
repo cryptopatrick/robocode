@@ -39,10 +39,13 @@ fn observe_converts_units() {
     let mut r = RobotState::new(0, Point::new(100.4, 200.6));
     r.energy = 99.9996;
     r.heading = 359.96;
-    r.gun_heat = 1e-16;
-    let obs = observe(&r, Battlefield::new(800.0, 600.0), 7, None);
+    r.gun_heat = 0.1 + 1e-16;
+    let config = BattleConfig { battlefield: Battlefield::new(800.0, 600.0), ..BattleConfig::default() };
+    let obs = observe(&r, &config, 7, None);
     assert_eq!(obs.energy, Energy(99_999));
     assert_eq!(obs.heading, Angle(0));
+    // Gun heat is reported after this turn's cooling (0.1), as the engine sees
+    // it when deciding whether to fire; float residue still rounds up.
     assert_eq!(obs.gun_heat, GunHeat(1));
     assert_eq!((obs.x, obs.y), (100, 201));
     assert_eq!((obs.field_width, obs.field_height), (800, 600));
@@ -139,4 +142,22 @@ fn dead_robot_has_no_decision() {
     assert!(!battle.state().robots[0].alive);
     assert_eq!(battle.last_decision(0), None);
     assert!(battle.last_decision(1).is_some());
+}
+
+#[test]
+fn observed_cool_gun_matches_engine_firing() {
+    // Cool a gun from every possible post-shot heat and compare, turn by turn,
+    // "observation says cool" with "engine would fire" (heat <= 0 after cooling).
+    let config = BattleConfig::default();
+    for power in [0.1, 0.5, 1.0, 1.7, 3.0] {
+        let mut heat = robocode::rules::gun_heat_for_power(power);
+        for _ in 0..30 {
+            let mut r = RobotState::new(0, Point::new(400.0, 300.0));
+            r.gun_heat = heat;
+            let obs = observe(&r, &config, 0, None);
+            let engine_fires = (heat - config.gun_cooling_rate).max(0.0) <= 0.0;
+            assert_eq!(obs.gun_heat == GunHeat(0), engine_fires, "power {power}, heat {heat:e}");
+            heat = (heat - config.gun_cooling_rate).max(0.0);
+        }
+    }
 }

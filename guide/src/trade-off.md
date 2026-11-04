@@ -35,5 +35,5 @@ So a proof like "SafeShooter only fires when the gun heat is 0" stays true about
 
 A strategy decides once, at the start of a turn. The engine then runs the whole turn: turning, **movement**, scanning, firing, bullets. Anything that changes the robot's state between the observation and the shot is outside the proof:
 
-- **Gun heat is fine**: the engine only cools the gun during the turn, so a gun that was cool stays cool.
+- **Gun heat is exact**: the observation reports gun heat as the engine sees it when it checks whether to fire, after this turn's cooling. So "gun heat is 0" in a proof means exactly "the engine accepts the shot".
 - **Energy is not fully covered**: hitting a wall during movement costs energy *before* the engine fires. A robot that saw 2.0 energy, fired 1.0 and drove into a wall at full speed could end the turn dead. SafeShooter's wall avoidance makes this unlikely, but the proof doesn't promise it. Closing this gap means modelling movement too, which is a job for a later chapter on multi-turn invariants.

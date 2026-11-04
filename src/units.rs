@@ -10,7 +10,8 @@
 //!
 //! Conversions from the `f64` engine round in the *safe* direction: energy
 //! rounds down and gun heat rounds up, so a strategy never believes it has
-//! more energy, or a cooler gun, than the engine had at the start of the turn.
+//! more energy than it had at the start of the turn, or a cooler gun than the
+//! engine sees when it checks the shot.
 //! Energy lost later in the same turn (for example hitting a wall during
 //! movement, which the engine runs before firing) is not covered.
 
