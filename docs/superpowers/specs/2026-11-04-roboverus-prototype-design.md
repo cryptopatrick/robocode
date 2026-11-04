@@ -14,7 +14,7 @@ this design carries its ideas over to Verus.
 There are two deliverables:
 
 1. **The `robocode` crate**: a standalone Rust port of classic RoboCode
-   (source of truth: `_wb/robocode-VER_1_10_1`). Anyone can use it with plain
+   (source of truth: `_wb/latest_version_robocode-main`, Robocode 1.12.0; `_wb/robocode-VER_1_10_1` is a secondary reference with identical physics). Anyone can use it with plain
    `cargo`, with no knowledge of or dependency on Verus.
 2. **The RoboVerus guide**: lessons and exercises that use the crate's optional
    `verus` feature to specify and prove properties of robots and rules.
