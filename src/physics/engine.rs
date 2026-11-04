@@ -125,10 +125,7 @@ impl BattleState {
         for idx in 0..self.robots.len() {
             let fire_request = {
                 let robot = &mut self.robots[idx];
-                if !robot.alive {
-                    robot.control.fire_power = None;
-                    None
-                } else if robot.gun_heat > 0.0 || robot.energy <= 0.0 {
+                if !robot.alive || robot.gun_heat > 0.0 || robot.energy <= 0.0 {
                     robot.control.fire_power = None;
                     None
                 } else if let Some(raw_power) = robot.control.fire_power.take()

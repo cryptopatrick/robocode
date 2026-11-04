@@ -63,10 +63,10 @@ fn run_generation(
 
 fn create_output_file(path: &str) -> io::Result<File> {
     let path_obj = Path::new(path);
-    if let Some(parent) = path_obj.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = path_obj.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
     }
     File::create(path_obj)
 }
@@ -436,12 +436,12 @@ impl ManifestEntryBuilder {
         if !self.seen_any {
             return Ok(None);
         }
-        let battle_id = self.battle_id.take().ok_or_else(|| {
+        let battle_id = self.battle_id.take().ok_or(
             ManifestParseError::MissingField {
                 line: self.last_line,
                 field: "battle_id",
-            }
-        })?;
+            },
+        )?;
         let turns = self.turns.unwrap_or(32);
         let entry = ManifestEntry {
             battle_id,

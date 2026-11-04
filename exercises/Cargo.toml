@@ -17,3 +17,7 @@ verify = true
 # Assertions are erased outside Verus, leaving some variables unused in plain builds.
 unused_variables = "allow"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_only)', 'cfg(verus_keep_ghost)'] }
+
+[lints.clippy]
+# Mirrors the Verus guide's style.
+len_zero = "allow"

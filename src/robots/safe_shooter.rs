@@ -8,6 +8,16 @@
 //!
 //! With the `verus` feature, Verus proves that property about [`decide`].
 
+// This module is written in the subset of Rust that Verus verifies, which
+// rules out some idioms clippy prefers (`clamp`, `RangeInclusive::contains`,
+// match guards).
+#![allow(
+    clippy::manual_range_contains,
+    clippy::manual_clamp,
+    clippy::collapsible_match,
+    clippy::single_match
+)]
+
 #[cfg(feature = "verus")]
 use vstd::prelude::*;
 
