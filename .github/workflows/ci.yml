@@ -60,3 +60,26 @@ jobs:
             | tar -xz -C "$HOME/.cargo/bin"
       - name: Build guide
         run: mdbook build guide
+
+  web:
+    name: Battle viewer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --version 0.13.1 --locked
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install, build engine, test, build
+        working-directory: web
+        run: |
+          npm ci
+          npm run wasm
+          npm test
+          npm run build
