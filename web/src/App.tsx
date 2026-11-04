@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import ArenaCanvas from './components/ArenaCanvas';
 import Controls from './components/Controls';
+import DecisionPanel from './components/DecisionPanel';
 import NewBattle, { type BattleSetup } from './components/NewBattle';
+import RecordingFile from './components/RecordingFile';
+import Results from './components/Results';
+import RobotPanel from './components/RobotPanel';
+import ViewToggles from './components/ViewToggles';
 import type { ViewOptions } from './draw';
 import { playbackReducer } from './playback';
 import type { Recording } from './recording';
@@ -17,12 +22,14 @@ export default function App() {
   const [names, setNames] = useState<string[]>([]);
   const [recording, setRecording] = useState<Recording | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [view] = useState<ViewOptions>(DEFAULT_VIEW);
+  const [view, setView] = useState<ViewOptions>(DEFAULT_VIEW);
+  const [selected, setSelected] = useState(0);
   const [sprites, setSprites] = useState<Sprites>({});
   const [playback, dispatch] = useReducer(playbackReducer, { turn: 0, last: 0, playing: false, speed: 30 });
 
   const show = useCallback((rec: Recording) => {
     setRecording(rec);
+    setSelected(0);
     setError(null);
     dispatch({ type: 'load', last: rec.turns.length - 1 });
   }, []);
@@ -96,7 +103,35 @@ export default function App() {
           )}
         </section>
 
-        <aside className="flex flex-col gap-4">
+        <aside className="flex flex-col gap-5">
+          {recording && (
+            <>
+              <section aria-labelledby="robots-h" className="flex flex-col gap-2">
+                <h2 id="robots-h" className="text-sm font-semibold">Robots</h2>
+                <RobotPanel
+                  names={recording.robots.map((r) => r.name)}
+                  robots={recording.turns[playback.turn].robots}
+                  selected={selected}
+                  onSelect={setSelected}
+                />
+              </section>
+              <section aria-labelledby="decision-h" className="flex flex-col gap-2">
+                <h2 id="decision-h" className="text-sm font-semibold">
+                  {recording.robots[selected]?.name}'s decision this turn
+                </h2>
+                <DecisionPanel
+                  decision={recording.decisions[playback.turn][selected] ?? null}
+                  dead={playback.turn > 0 && !recording.turns[playback.turn - 1].robots[selected]?.alive}
+                />
+              </section>
+              {playback.turn === playback.last && <Results recording={recording} />}
+              <section aria-labelledby="view-h" className="flex flex-col gap-2">
+                <h2 id="view-h" className="text-sm font-semibold">Show</h2>
+                <ViewToggles view={view} onChange={setView} />
+              </section>
+            </>
+          )}
+          <RecordingFile recording={recording} onOpen={show} onError={setError} />
           <div className="flex flex-wrap gap-2">
             <label className={`${quiet} cursor-pointer`}>
               Robot images…

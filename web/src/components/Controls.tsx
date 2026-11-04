@@ -5,9 +5,11 @@ interface Props {
   dispatch: (a: PlaybackAction) => void;
 }
 
-const button =
-  'rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 ' +
-  'focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 disabled:cursor-not-allowed disabled:opacity-40';
+const base =
+  'rounded-md border px-3 py-1.5 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 ' +
+  'disabled:cursor-not-allowed disabled:opacity-40';
+const button = `${base} border-slate-300 bg-white text-slate-800 hover:bg-slate-50`;
+const primary = `${base} min-w-20 border-slate-800 bg-slate-800 text-white hover:bg-slate-700`;
 
 export default function Controls({ playback, dispatch }: Props) {
   const { turn, last, playing, speed } = playback;
@@ -21,7 +23,7 @@ export default function Controls({ playback, dispatch }: Props) {
       </button>
       <button
         type="button"
-        className={`${button} min-w-20 border-slate-800 bg-slate-800 text-white hover:bg-slate-700`}
+        className={primary}
         onClick={() => dispatch({ type: 'toggle' })}
       >
         {playing ? 'Pause' : 'Play'}

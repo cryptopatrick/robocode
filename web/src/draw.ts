@@ -143,13 +143,13 @@ export function drawArena(
       ctx.save();
       ctx.translate(r.position.x, r.position.y);
       if (Math.abs(sweep) < rad(0.5)) {
-        ctx.strokeStyle = `${color}55`;
+        ctx.strokeStyle = `${color}40`;
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.lineTo(Math.cos(start) * 1200, Math.sin(start) * 1200);
         ctx.stroke();
       } else {
-        ctx.fillStyle = `${color}22`;
+        ctx.fillStyle = `${color}12`;
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.arc(0, 0, 1200, start, start + sweep, sweep < 0);
