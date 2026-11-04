@@ -164,3 +164,19 @@ fn battles_are_deterministic() {
     let b = duel(Box::new(Spinner)).run(2000);
     assert_eq!(a, b);
 }
+
+fn energies(o: &robocode::runner::BattleOutcome) -> String {
+    format!("{:.1}/{:.1}", o.energies[0], o.energies[1])
+}
+
+#[test]
+fn golden_safe_shooter_vs_spinner() {
+    let o = duel(Box::new(Spinner)).run(5000);
+    assert_eq!((o.winner, o.turns, energies(&o)), (Some(0), 386, "77.0/-1.0".to_string()));
+}
+
+#[test]
+fn golden_safe_shooter_vs_sitting_duck() {
+    let o = duel(Box::new(SittingDuck)).run(5000);
+    assert_eq!((o.winner, o.turns, energies(&o)), (Some(0), 364, "147.0/0.0".to_string()));
+}

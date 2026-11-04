@@ -6,6 +6,7 @@ use crate::physics::robot::RobotId;
 pub struct TurnEvents {
     pub bullet_fired: Vec<BulletFired>,
     pub bullet_hits: Vec<BulletImpact>,
+    pub bullet_misses: Vec<BulletMissed>,
     pub wall_collisions: Vec<WallCollision>,
     pub robot_collisions: Vec<RobotCollision>,
     pub robot_deaths: Vec<RobotId>,
@@ -23,6 +24,14 @@ pub struct BulletFired {
 pub struct BulletImpact {
     pub shooter: RobotId,
     pub victim: RobotId,
+    pub bullet_id: BulletId,
+    pub power: f64,
+}
+
+/// A bullet that left the battlefield without hitting anything.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BulletMissed {
+    pub shooter: RobotId,
     pub bullet_id: BulletId,
     pub power: f64,
 }

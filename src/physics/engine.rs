@@ -4,7 +4,8 @@ use crate::geometry::{
 };
 use crate::physics::bullet::BulletState;
 use crate::physics::events::{
-    BulletFired, BulletImpact, ScannedRobot, TurnEvents, WallCollision,
+    BulletFired, BulletImpact, BulletMissed, ScannedRobot, TurnEvents,
+    WallCollision,
 };
 use crate::physics::robot::{RobotId, RobotState};
 use crate::physics::snapshot::TurnSnapshot;
@@ -204,6 +205,11 @@ impl BattleState {
             }
             if !is_within_field(bullet.position, self.config.battlefield) {
                 bullet.alive = false;
+                events.bullet_misses.push(BulletMissed {
+                    shooter: bullet.owner_id,
+                    bullet_id: bullet.id,
+                    power: bullet.power,
+                });
             }
         }
 

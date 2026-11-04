@@ -78,3 +78,29 @@ fn snapshot_json_writes_non_finite_numbers_as_null() {
     assert!(json.contains(r#""velocity":null"#), "{json}");
     assert!(!json.contains("NaN") && !json.contains("inf"), "{json}");
 }
+
+#[test]
+fn bullet_leaving_field_is_a_miss() {
+    let mut robot = RobotState::new(0, Point::new(400.0, 300.0));
+    robot.set_fire(3.0); // gun points up (0°), nothing in the way
+    let mut battle = BattleState::new(BattleConfig::default(), vec![robot]);
+    let misses: Vec<_> = (0..40).flat_map(|_| battle.step().bullet_misses).collect();
+    assert_eq!(misses.len(), 1);
+    assert_eq!(misses[0].shooter, 0);
+    assert_eq!(misses[0].power, 3.0);
+}
+
+#[test]
+fn hit_is_not_a_miss() {
+    let mut shooter = RobotState::new(0, Point::new(400.0, 500.0));
+    shooter.set_fire(1.0);
+    let target = RobotState::new(1, Point::new(400.0, 200.0));
+    let mut battle = BattleState::new(BattleConfig::default(), vec![shooter, target]);
+    let (mut hits, mut misses) = (0, 0);
+    for _ in 0..40 {
+        let e = battle.step();
+        hits += e.bullet_hits.len();
+        misses += e.bullet_misses.len();
+    }
+    assert_eq!((hits, misses), (1, 0));
+}
