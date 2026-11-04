@@ -8,6 +8,7 @@
 mod geometry;
 pub mod physics;
 pub mod rules;
+pub mod runner;
 pub mod strategy;
 pub mod units;
 
