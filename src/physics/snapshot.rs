@@ -260,7 +260,7 @@ fn append_f64_field(
     append_field_sep(out, first);
     push_string(out, name);
     out.push(':');
-    let _ = write!(out, "{}", value);
+    push_f64(out, value);
 }
 
 fn append_bool_field(
@@ -405,9 +405,7 @@ fn append_control_field(
     push_string(out, "fire_power");
     out.push(':');
     match control.fire_power {
-        Some(value) => {
-            let _ = write!(out, "{}", value);
-        }
+        Some(value) => push_f64(out, value),
         None => out.push_str("null"),
     }
     out.push('}');
@@ -626,5 +624,14 @@ fn escape_json(input: &str, out: &mut String) {
             }
             other => out.push(other),
         }
+    }
+}
+
+/// Writes a JSON number, or `null` for NaN and infinities (JSON has neither).
+fn push_f64(out: &mut String, value: f64) {
+    if value.is_finite() {
+        let _ = write!(out, "{}", value);
+    } else {
+        out.push_str("null");
     }
 }

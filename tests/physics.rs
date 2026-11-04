@@ -65,3 +65,16 @@ fn turn_snapshot_serializes_to_json() {
     assert!(json.contains("snapshot-test"));
     assert!(json.contains("\"robots\""));
 }
+
+#[test]
+fn snapshot_json_writes_non_finite_numbers_as_null() {
+    use robocode::physics::TurnEvents;
+    let mut robot = RobotState::new(0, Point::new(400.0, 300.0));
+    robot.energy = f64::NAN;
+    robot.velocity = f64::INFINITY;
+    let battle = BattleState::new(BattleConfig::default(), vec![robot]);
+    let json = battle.snapshot("t", &TurnEvents::default()).to_json_string();
+    assert!(json.contains(r#""energy":null"#), "{json}");
+    assert!(json.contains(r#""velocity":null"#), "{json}");
+    assert!(!json.contains("NaN") && !json.contains("inf"), "{json}");
+}
