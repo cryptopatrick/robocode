@@ -161,3 +161,20 @@ fn observed_cool_gun_matches_engine_firing() {
         }
     }
 }
+
+#[test]
+#[should_panic(expected = "battlefield must be at most 100000 px per side")]
+fn rejects_battlefield_outside_the_proof() {
+    // SafeShooter's proof assumes fields up to 100000 px (`well_formed`).
+    let config = BattleConfig { battlefield: Battlefield::new(200_000.0, 600.0), ..BattleConfig::default() };
+    let spawns = [SpawnSpec::new(0, 100.0, 100.0, 0.0), SpawnSpec::new(1, 500.0, 500.0, 0.0)];
+    Battle::new(config, &spawns, vec![idle(), idle()]);
+}
+
+#[test]
+#[should_panic(expected = "battlefield must be at most 100000 px per side")]
+fn rejects_non_finite_battlefield() {
+    let config = BattleConfig { battlefield: Battlefield::new(f64::NAN, 600.0), ..BattleConfig::default() };
+    let spawns = [SpawnSpec::new(0, 100.0, 100.0, 0.0), SpawnSpec::new(1, 500.0, 500.0, 0.0)];
+    Battle::new(config, &spawns, vec![idle(), idle()]);
+}

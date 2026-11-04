@@ -92,7 +92,12 @@ pub struct Battle {
 }
 
 impl Battle {
-    /// Panics if `spawns` and `strategies` differ in length.
+    /// Largest battlefield side the strategy proofs cover (`well_formed` in
+    /// `robots::safe_shooter`).
+    pub const MAX_FIELD_SIDE: f64 = 100_000.0;
+
+    /// Panics if `spawns` and `strategies` differ in length, or if the
+    /// battlefield is not between 1 and [`Self::MAX_FIELD_SIDE`] px per side.
     pub fn new(
         config: BattleConfig,
         spawns: &[SpawnSpec],
@@ -102,6 +107,11 @@ impl Battle {
             spawns.len(),
             strategies.len(),
             "one strategy per spawn is required"
+        );
+        let side_ok = |s: f64| (1.0..=Self::MAX_FIELD_SIDE).contains(&s);
+        assert!(
+            side_ok(config.battlefield.width) && side_ok(config.battlefield.height),
+            "battlefield must be at most 100000 px per side (and at least 1)"
         );
         let n = spawns.len();
         Battle {
