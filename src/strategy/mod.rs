@@ -5,6 +5,8 @@
 #[cfg(feature = "verus")]
 use vstd::prelude::*;
 
+pub mod targeting;
+
 use crate::units::{Angle, Energy, GunHeat, Power};
 
 /// What a robot knows about the enemy it last scanned.

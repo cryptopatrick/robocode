@@ -78,6 +78,15 @@ impl Angle {
     }
 }
 
+#[cfg(feature = "verus")]
+verus! {
+/// Specification of [`angle_diff`]: the signed shortest turn from `from` to `to`.
+pub open spec fn spec_angle_diff(to: int, from: int) -> int {
+    let d = to - from;
+    if d > 1800 { d - 3600 } else if d <= -1800 { d + 3600 } else { d }
+}
+}
+
 /// The signed shortest turn from `from` to `to`, in decidegrees, within `(-1800, 1800]`.
 /// Positive means turn right (clockwise).
 #[cfg_attr(feature = "verus", verus_verify)]
@@ -86,6 +95,7 @@ impl Angle {
         0 <= to.0 < 3600,
         0 <= from.0 < 3600,
     ensures
+        r == spec_angle_diff(to.0 as int, from.0 as int),
         -1800 < r <= 1800,
         from.0 + r == to.0 || from.0 + r == to.0 + 3600 || from.0 + r == to.0 - 3600,
 ))]

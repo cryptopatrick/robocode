@@ -53,14 +53,28 @@ use vstd::prelude::*;
 
 #[cfg_attr(feature = "verus", verus_verify)]          // on structs/enums used in specs, too
 #[cfg_attr(feature = "verus", verus_spec(r =>
-    requires power.0 <= 3000,
+    requires p.0 <= 3000,
     ensures r.0 >= 1000 && r.0 <= 1600
 ))]
-pub fn gun_heat_for_power(power: Milli) -> Milli { Milli(1000 + power.0 / 5) }
+pub fn gun_heat_for_power(p: Power) -> GunHeat { GunHeat(1000 + p.0 / 5) }
 ```
 
 - Without the feature, the attributes vanish and the function is plain Rust. With it, Verus verifies the **same** function body. Functions are written once.
 - Every type used by a verified function must also carry `#[cfg_attr(feature = "verus", verus_verify)]`, otherwise Verus reports it as "ignored".
 - Spec-only helpers (`spec fn`) and proofs live in `#[cfg(feature = "verus")]` items inside `verus! { … }`, so plain builds never see them.
+- **Loops** take their `invariant` / `decreases` in a `verus_spec` attribute on the loop itself:
+
+```rust
+#[cfg_attr(feature = "verus", verus_spec(
+    invariant 1 <= i <= targets@.len(),
+    decreases targets@.len() - i
+))]
+while i < targets.len() { /* ... */ }
+```
+
+  Attributes on loops need the unstable `proc_macro_hygiene` feature, so `src/lib.rs` has
+  `#![cfg_attr(verus_keep_ghost, feature(proc_macro_hygiene))]`. Verus sets `verus_keep_ghost`
+  itself, so plain stable builds never see this line.
+- Constants used in specs carry `#[cfg_attr(feature = "verus", verus_verify)]` too.
 - Functions that use floats (unit conversions) are left without `verus_verify`, so Verus ignores them.
 - `[package.metadata.verus] verify = true` tells `cargo verus` to verify this crate. Plain cargo ignores it.
