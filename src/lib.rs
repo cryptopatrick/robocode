@@ -8,5 +8,6 @@
 mod geometry;
 pub mod physics;
 pub mod rules;
+pub mod units;
 
 pub use geometry::{Battlefield, Point};
