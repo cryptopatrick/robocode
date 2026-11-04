@@ -1,3 +1,130 @@
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import ArenaCanvas from './components/ArenaCanvas';
+import Controls from './components/Controls';
+import NewBattle, { type BattleSetup } from './components/NewBattle';
+import type { ViewOptions } from './draw';
+import { playbackReducer } from './playback';
+import type { Recording } from './recording';
+import { loadSprites, type Sprites } from './sprites';
+import { loadEngine, robotNames, runBattle } from './wasm';
+
+const DEFAULT_VIEW: ViewOptions = { names: true, energy: true, scanArcs: true, effects: true };
+
+const quiet =
+  'rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-sky-600';
+
 export default function App() {
-  return <h1 className="p-4 text-xl font-semibold">RoboVerus Arena</h1>;
+  const [names, setNames] = useState<string[]>([]);
+  const [recording, setRecording] = useState<Recording | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [view] = useState<ViewOptions>(DEFAULT_VIEW);
+  const [sprites, setSprites] = useState<Sprites>({});
+  const [playback, dispatch] = useReducer(playbackReducer, { turn: 0, last: 0, playing: false, speed: 30 });
+
+  const show = useCallback((rec: Recording) => {
+    setRecording(rec);
+    setError(null);
+    dispatch({ type: 'load', last: rec.turns.length - 1 });
+  }, []);
+
+  const run = useCallback(
+    (setup: BattleSetup) => {
+      try {
+        show(runBattle(setup.robots, setup.width, setup.height, setup.maxTurns));
+        dispatch({ type: 'play' });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [show],
+  );
+
+  useEffect(() => {
+    loadEngine()
+      .then(() => {
+        setNames(robotNames());
+        run({ robots: ['SafeShooter', 'Spinner'], width: 800, height: 600, maxTurns: 5000 });
+      })
+      .catch((e: unknown) => setError(`Could not load the battle engine: ${e instanceof Error ? e.message : String(e)}`));
+  }, [run]);
+
+  // Advance playback at `speed` turns per second.
+  const carry = useRef(0);
+  useEffect(() => {
+    if (!playback.playing) return;
+    let frame = 0;
+    let before = performance.now();
+    const loop = (now: number) => {
+      carry.current += ((now - before) * playback.speed) / 1000;
+      before = now;
+      while (carry.current >= 1) {
+        carry.current -= 1;
+        dispatch({ type: 'tick' });
+      }
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frame);
+  }, [playback.playing, playback.speed]);
+
+  return (
+    <div className="min-h-screen bg-[#eef2f5] text-[#1b2733]">
+      <header className="border-b border-slate-300 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-4 px-4 py-3">
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight">RoboVerus Arena</h1>
+            <p className="text-sm text-slate-500">Pick robots, run a battle, and watch every decision.</p>
+          </div>
+          {names.length > 0 && <NewBattle names={names} onRun={run} />}
+        </div>
+      </header>
+
+      <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="flex flex-col gap-3">
+          {error && (
+            <p role="alert" className="rounded-md border border-[#c9433b]/40 bg-[#c9433b]/10 px-3 py-2 text-sm text-[#8f2a24]">
+              {error}
+            </p>
+          )}
+          {recording ? (
+            <>
+              <ArenaCanvas recording={recording} turn={playback.turn} view={view} sprites={sprites} />
+              <Controls playback={playback} dispatch={dispatch} />
+            </>
+          ) : (
+            !error && <p className="text-sm text-slate-500">Loading the battle engine…</p>
+          )}
+        </section>
+
+        <aside className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2">
+            <label className={`${quiet} cursor-pointer`}>
+              Robot images…
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="sr-only"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  e.target.value = '';
+                  loadSprites(files)
+                    .then((s) => {
+                      setSprites(s);
+                      setError(null);
+                    })
+                    .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+                }}
+              />
+            </label>
+            {Object.keys(sprites).length > 0 && (
+              <button type="button" className={quiet} onClick={() => setSprites({})}>
+                Reset images
+              </button>
+            )}
+          </div>
+        </aside>
+      </main>
+    </div>
+  );
 }
