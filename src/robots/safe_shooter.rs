@@ -23,7 +23,7 @@
 use vstd::prelude::*;
 
 use crate::strategy::{Action, Observation, Strategy};
-use crate::units::{Power, angle_diff};
+use crate::units::{MAX_POWER, MIN_POWER, Power, angle_diff};
 // Spec functions exist only while Verus runs, so their imports are gated on `verus_only`.
 #[cfg(verus_only)]
 use crate::units::spec_angle_diff;
@@ -64,9 +64,10 @@ pub open spec fn aimed(obs: Observation) -> bool {
         && -AIM_TOLERANCE <= spec_angle_diff(t.bearing.0 as int, obs.gun_heading.0 as int) <= AIM_TOLERANCE
 }
 
-/// Firing with power `p` is safe. Energy must stay above zero afterwards:
-/// the engine kills a robot whose energy reaches 0.
+/// Firing with power `p` is safe: the power is legal, and energy stays above
+/// zero afterwards (the engine kills a robot whose energy reaches 0).
 pub open spec fn safe_to_fire(obs: Observation, p: Power) -> bool {
+    &&& MIN_POWER.0 <= p.0 <= MAX_POWER.0
     &&& obs.energy.0 > p.0
     &&& obs.gun_heat.0 == 0
     &&& obs.target matches Some(t) && t.age == 0

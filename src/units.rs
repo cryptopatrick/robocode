@@ -39,8 +39,10 @@ pub struct Power(pub u32);
 pub struct Angle(pub i32);
 
 /// Smallest legal bullet power (0.1).
+#[cfg_attr(feature = "verus", verus_verify)]
 pub const MIN_POWER: Power = Power(100);
 /// Largest legal bullet power (3.0).
+#[cfg_attr(feature = "verus", verus_verify)]
 pub const MAX_POWER: Power = Power(3000);
 /// Gun heat removed per turn (0.1).
 pub const GUN_COOLING: GunHeat = GunHeat(100);

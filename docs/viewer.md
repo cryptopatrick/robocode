@@ -21,7 +21,7 @@ npm run dev      # open the printed http://localhost:5173 address
 - **Arena**: robots (body, gun and radar), bullets, hit rings, death bursts, and each radar's sweep this turn. Labels show name and energy, *Disabled* at 0 energy, *Dead* once removed.
 - **Playback**: Restart, step back, Play/Pause, step forward, speed (1–120 turns/s), a seek bar, and the current turn. Pressing Play on the last turn replays from the start.
 - **Robots**: energy bars; click a robot for its energy, gun heat, velocity, headings and position.
-- **Decision this turn**: what the selected robot observed (energy, gun heat, target) and what it decided, in readable units. Beneath it are the four conditions of SafeShooter's verified `safe_to_fire` spec with ✓/✗. When the robot fired, these show why the shot was safe. When it didn't, they show whether a 1.0 shot would have been.
+- **Decision this turn**: what the selected robot observed (energy, gun heat, target) and what it decided, in readable units. Beneath it are the five conditions of SafeShooter's verified `safe_to_fire` spec with ✓/✗. When the robot fired, these show why the shot was safe. When it didn't, they show whether a 1.0 shot would have been.
 - **Results**: winner, turns and final energy, shown on the last turn.
 - **Show**: toggles for names, energy, scan arcs and hit effects.
 - **Save recording / Open recording**: download the battle as JSON, or open one saved earlier.

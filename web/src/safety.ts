@@ -18,10 +18,11 @@ export interface Check {
   ok: boolean;
 }
 
-/** The four conditions of `safe_to_fire` for firing with `power` (milli-units). */
+/** The conditions of `safe_to_fire` for firing with `power` (milli-units). */
 export function safetyChecks(d: Decision, power: number): Check[] {
   const t = d.target;
   return [
+    { label: 'power is 0.1 to 3.0', ok: power >= 100 && power <= 3000 },
     { label: 'energy > power', ok: d.energy > power },
     { label: 'gun is cool', ok: d.gun_heat === 0 },
     { label: 'target seen this turn', ok: t?.age === 0 },

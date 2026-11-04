@@ -15,6 +15,7 @@ pub open spec fn aimed(obs: Observation) -> bool {
 }
 
 pub open spec fn safe_to_fire(obs: Observation, p: Power) -> bool {
+    &&& MIN_POWER.0 <= p.0 <= MAX_POWER.0         // a legal bullet power (0.1 to 3.0)
     &&& obs.energy.0 > p.0                        // energy left over after the shot
     &&& obs.gun_heat.0 == 0                       // gun is cool
     &&& obs.target matches Some(t) && t.age == 0  // target scanned this turn
