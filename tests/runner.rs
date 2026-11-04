@@ -2,7 +2,8 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use robocode::physics::{BattleConfig, RobotState, SpawnSpec};
-use robocode::runner::{Battle, apply, observe};
+use robocode::api::Robot;
+use robocode::runner::{Battle, apply, boxed, observe};
 use robocode::strategy::{Action, Observation, Strategy};
 use robocode::units::{Angle, Energy, GunHeat, Power};
 use robocode::{Battlefield, Point};
@@ -30,8 +31,8 @@ impl Strategy for Scripted {
     }
 }
 
-fn idle() -> Box<dyn Strategy> {
-    Box::new(Scripted::new(Action::default()))
+fn idle() -> Box<dyn Robot> {
+    boxed(Scripted::new(Action::default()))
 }
 
 #[test]
@@ -68,7 +69,7 @@ fn one_fire_one_bullet() {
     let mut shooter = Scripted::new(Action { fire: Some(Power(1000)), ..Action::default() });
     shooter.once = true;
     let spawns = [SpawnSpec::new(0, 100.0, 300.0, 0.0), SpawnSpec::new(1, 700.0, 300.0, 0.0)];
-    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![Box::new(shooter), idle()]);
+    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![boxed(shooter), idle()]);
     let fired: usize = (0..30).map(|_| battle.step().bullet_fired.len()).sum();
     assert_eq!(fired, 1);
 }
@@ -78,7 +79,7 @@ fn last_survivor_wins() {
     // Robot 1 sits straight above robot 0, whose gun points up (0°).
     let shooter = Scripted::new(Action { fire: Some(Power(3000)), ..Action::default() });
     let spawns = [SpawnSpec::new(0, 400.0, 500.0, 0.0), SpawnSpec::new(1, 400.0, 200.0, 0.0)];
-    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![Box::new(shooter), idle()]);
+    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![boxed(shooter), idle()]);
     battle.state_mut().robots[1].energy = 0.1;
     let outcome = battle.run(500);
     assert_eq!(outcome.winner, Some(0));
@@ -88,7 +89,7 @@ fn last_survivor_wins() {
 #[test]
 fn simultaneous_death_has_no_winner() {
     // Both drive into opposite walls on the same turn with too little energy to survive.
-    let ram = || -> Box<dyn Strategy> { Box::new(Scripted::new(Action { ahead: Some(100), ..Action::default() })) };
+    let ram = || -> Box<dyn Robot> { boxed(Scripted::new(Action { ahead: Some(100), ..Action::default() })) };
     let spawns = [SpawnSpec::new(0, 19.0, 300.0, 270.0), SpawnSpec::new(1, 781.0, 300.0, 90.0)];
     let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![ram(), ram()]);
     battle.state_mut().robots[0].energy = 0.5;
@@ -104,7 +105,7 @@ fn dead_robots_are_not_asked_to_decide() {
     let doomed = Scripted::new(Action { ahead: Some(100), ..Action::default() });
     let calls = doomed.calls.clone();
     let spawns = [SpawnSpec::new(0, 19.0, 300.0, 270.0), SpawnSpec::new(1, 400.0, 300.0, 0.0)];
-    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![Box::new(doomed), idle()]);
+    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![boxed(doomed), idle()]);
     battle.state_mut().robots[0].energy = 0.5;
     for _ in 0..10 {
         battle.step();
@@ -121,7 +122,7 @@ fn dead_robots_are_not_asked_to_decide() {
 fn decisions_are_recorded() {
     let action = Action { ahead: Some(50), turn_gun: Some(-150), ..Action::default() };
     let spawns = [SpawnSpec::new(0, 100.0, 300.0, 0.0), SpawnSpec::new(1, 700.0, 300.0, 0.0)];
-    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![Box::new(Scripted::new(action)), idle()]);
+    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![boxed(Scripted::new(action)), idle()]);
     assert_eq!(battle.last_decision(1), None);
     battle.step();
     let (obs, recorded) = battle.last_decision(0).expect("robot 0 decided");
@@ -134,7 +135,7 @@ fn decisions_are_recorded() {
 fn dead_robot_has_no_decision() {
     let doomed = Scripted::new(Action { ahead: Some(100), ..Action::default() });
     let spawns = [SpawnSpec::new(0, 19.0, 300.0, 270.0), SpawnSpec::new(1, 400.0, 300.0, 0.0)];
-    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![Box::new(doomed), idle()]);
+    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![boxed(doomed), idle()]);
     battle.state_mut().robots[0].energy = 0.5;
     for _ in 0..10 {
         battle.step();

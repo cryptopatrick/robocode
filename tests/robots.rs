@@ -1,6 +1,6 @@
 use robocode::physics::{BattleConfig, SpawnSpec};
 use robocode::robots::{SafeShooter, SittingDuck, Spinner, safe_shooter};
-use robocode::runner::Battle;
+use robocode::runner::{Battle, boxed};
 use robocode::strategy::targeting::closest_target;
 use robocode::strategy::{Observation, TargetInfo};
 use robocode::units::{Angle, Energy, GunHeat, Power};
@@ -95,7 +95,7 @@ fn firing_never_kills_the_shooter() {
     // Energy exactly 1.0 in the engine: a "safe" shot must not leave it dead.
     use robocode::physics::{BattleConfig, SpawnSpec};
     let spawns = [SpawnSpec::new(0, 400.0, 500.0, 0.0), SpawnSpec::new(1, 400.0, 200.0, 0.0)];
-    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![Box::new(SafeShooter), Box::new(SittingDuck)]);
+    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![boxed(SafeShooter), boxed(SittingDuck)]);
     for _ in 0..40 {
         battle.state_mut().robots[0].energy = 1.0;
         battle.step();
@@ -128,7 +128,7 @@ fn radar_lock_fires_more_often() {
     // With the radar locked, SafeShooter finishes SittingDuck sooner than the
     // 461 turns it needed with a spinning radar. (Gun heat caps it near 300:
     // a 1.0 shot heats the gun for 12 turns and the duck needs 25 hits.)
-    let outcome = duel(Box::new(SittingDuck)).run(5000);
+    let outcome = duel(boxed(SittingDuck)).run(5000);
     assert_eq!(outcome.winner, Some(0));
     assert!(outcome.turns < 400, "took {} turns", outcome.turns);
 }
@@ -140,28 +140,28 @@ fn closest_target_picks_min_first_on_ties() {
     assert_eq!(closest_target(&[]), None);
 }
 
-fn duel(opponent: Box<dyn robocode::strategy::Strategy>) -> Battle {
+fn duel(opponent: Box<dyn robocode::api::Robot>) -> Battle {
     let spawns = [SpawnSpec::new(0, 100.0, 100.0, 0.0), SpawnSpec::new(1, 700.0, 500.0, 0.0)];
-    Battle::new(BattleConfig::default(), &spawns, vec![Box::new(SafeShooter), opponent])
+    Battle::new(BattleConfig::default(), &spawns, vec![boxed(SafeShooter), opponent])
 }
 
 #[test]
 fn safe_shooter_beats_sitting_duck() {
-    let outcome = duel(Box::new(SittingDuck)).run(5000);
+    let outcome = duel(boxed(SittingDuck)).run(5000);
     assert_eq!(outcome.winner, Some(0), "{outcome:?}");
     assert_eq!(outcome.wall_hits[0], 0, "{outcome:?}");
 }
 
 #[test]
 fn safe_shooter_avoids_walls_against_spinner() {
-    let outcome = duel(Box::new(Spinner)).run(5000);
+    let outcome = duel(boxed(Spinner)).run(5000);
     assert_eq!(outcome.wall_hits[0], 0, "{outcome:?}");
 }
 
 #[test]
 fn battles_are_deterministic() {
-    let a = duel(Box::new(Spinner)).run(2000);
-    let b = duel(Box::new(Spinner)).run(2000);
+    let a = duel(boxed(Spinner)).run(2000);
+    let b = duel(boxed(Spinner)).run(2000);
     assert_eq!(a, b);
 }
 
@@ -171,12 +171,12 @@ fn energies(o: &robocode::runner::BattleOutcome) -> String {
 
 #[test]
 fn golden_safe_shooter_vs_spinner() {
-    let o = duel(Box::new(Spinner)).run(5000);
+    let o = duel(boxed(Spinner)).run(5000);
     assert_eq!((o.winner, o.turns, energies(&o)), (Some(0), 386, "77.0/-1.0".to_string()));
 }
 
 #[test]
 fn golden_safe_shooter_vs_sitting_duck() {
-    let o = duel(Box::new(SittingDuck)).run(5000);
+    let o = duel(boxed(SittingDuck)).run(5000);
     assert_eq!((o.winner, o.turns, energies(&o)), (Some(0), 364, "147.0/0.0".to_string()));
 }

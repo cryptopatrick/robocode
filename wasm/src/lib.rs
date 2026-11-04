@@ -8,8 +8,9 @@ use std::fmt::Write as _;
 
 use robocode::physics::{BattleConfig, SpawnSpec, TurnEvents};
 use robocode::robots::{SafeShooter, SittingDuck, Spinner};
-use robocode::runner::Battle;
-use robocode::strategy::{Action, Observation, Strategy};
+use robocode::api::Robot;
+use robocode::runner::{Battle, boxed};
+use robocode::strategy::{Action, Observation};
 use robocode::Battlefield;
 use wasm_bindgen::prelude::*;
 
@@ -25,11 +26,11 @@ pub struct BattleSpec {
     pub max_turns: u64,
 }
 
-fn strategy(name: &str) -> Option<Box<dyn Strategy>> {
+fn strategy(name: &str) -> Option<Box<dyn Robot>> {
     match name {
-        "SafeShooter" => Some(Box::new(SafeShooter)),
-        "Spinner" => Some(Box::new(Spinner)),
-        "SittingDuck" => Some(Box::new(SittingDuck)),
+        "SafeShooter" => Some(boxed(SafeShooter)),
+        "Spinner" => Some(boxed(Spinner)),
+        "SittingDuck" => Some(boxed(SittingDuck)),
         _ => None,
     }
 }
