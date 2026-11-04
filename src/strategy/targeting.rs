@@ -19,7 +19,8 @@ pub fn closest_target(targets: &[TargetInfo]) -> Option<usize> {
     }
     let mut best: usize = 0;
     let mut i: usize = 1;
-    #[cfg_attr(feature = "verus", verus_spec(
+    // `verus_only` (set by Verus): plain builds with the feature never see this loop attribute.
+    #[cfg_attr(verus_only, verus_spec(
         invariant
             1 <= i <= targets@.len(),
             best < i,

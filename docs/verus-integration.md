@@ -38,7 +38,10 @@ Without `gh`, download the zip from
 |---|---|
 | Plain build/test (no Verus crates) | `cargo build` / `cargo test` |
 | Check no Verus crate is compiled | `cargo tree -e normal \| grep -Ei 'vstd\|verus'` prints nothing |
+| Feature on, plain cargo (must build) | `cargo build --features verus` |
 | Verify the crate | `cargo verus verify --features verus` |
+| Verify the guide's solutions | `cargo verus verify -p roboverus-solutions` |
+| Exercises (build; verification fails at each `TODO` until solved) | `cargo build -p roboverus-exercises` |
 
 A successful verification ends with a line like `verification results:: N verified, 0 errors` for the `robocode` crate.
 
@@ -65,7 +68,7 @@ pub fn gun_heat_for_power(p: Power) -> GunHeat { GunHeat(1000 + p.0 / 5) }
 - **Loops** take their `invariant` / `decreases` in a `verus_spec` attribute on the loop itself:
 
 ```rust
-#[cfg_attr(feature = "verus", verus_spec(
+#[cfg_attr(verus_only, verus_spec(
     invariant 1 <= i <= targets@.len(),
     decreases targets@.len() - i
 ))]
@@ -74,7 +77,11 @@ while i < targets.len() { /* ... */ }
 
   Attributes on loops need the unstable `proc_macro_hygiene` feature, so `src/lib.rs` has
   `#![cfg_attr(verus_keep_ghost, feature(proc_macro_hygiene))]`. Verus sets `verus_keep_ghost`
-  itself, so plain stable builds never see this line.
+  itself, so plain stable builds never see this line. The loop attribute is gated on `verus_only`
+  (also set by Verus) rather than on the feature, so `cargo build --features verus` still works
+  with plain cargo.
+- **Importing spec functions** (`spec fn`, e.g. `well_formed`) needs `#[cfg(verus_only)]` on the
+  `use`, because spec functions are erased outside Verus.
 - Constants used in specs carry `#[cfg_attr(feature = "verus", verus_verify)]` too.
 - Functions that use floats (unit conversions) are left without `verus_verify`, so Verus ignores them.
 - `[package.metadata.verus] verify = true` tells `cargo verus` to verify this crate. Plain cargo ignores it.

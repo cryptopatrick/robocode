@@ -1,0 +1,7 @@
+[book]
+title = "RoboVerus: Learning Verus with RoboCode"
+authors = ["CryptoPatrick"]
+language = "en"
+src = "src"
+
+[output.html]

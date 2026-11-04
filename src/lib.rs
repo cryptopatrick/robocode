@@ -1,9 +1,22 @@
-//! RoboCode WASM physics and battle simulation primitives.
+//! RoboCode physics, battle simulation and robot strategies in Rust.
 //!
-//! The crate currently focuses on the deterministic core responsible for
-//! replicating the classic RoboCode battle loop. Higher-level robot APIs,
-//! events, or rendering layers can build on top of these modules without being
-//! coupled to any specific runtime.
+//! - [`physics`]: the deterministic `f64` engine that mirrors classic RoboCode.
+//! - [`strategy`]: robots as `decide(&Observation) -> Action`, in the
+//!   fixed-point units of [`units`].
+//! - [`runner`]: connects strategies to the engine; [`robots`] has samples.
+//!
+//! # Optional Verus support
+//!
+//! With the `verus` feature, [Verus](https://github.com/verus-lang/verus) can
+//! verify the specs attached to strategy code (see the RoboVerus guide in
+//! `guide/` and `docs/verus-integration.md`). Without it, no Verus crate is
+//! compiled and the specs vanish.
+//!
+//! **Floats vs. integers.** The `f64` physics matches Java. The fixed-point
+//! model (strategies, [`units`]) is what gets proved. The two are not the
+//! same code. Strategies use the integer units in every build, so a proved
+//! `decide` is the code that fights; the runner converts at the boundary,
+//! rounding energy down and gun heat up so proofs stay true of the engine.
 
 // Verus keeps loop-invariant attributes during verification; this unstable
 // feature is enabled only then (`verus_keep_ghost` is set by Verus itself).

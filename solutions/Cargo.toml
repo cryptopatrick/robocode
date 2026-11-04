@@ -1,0 +1,19 @@
+[package]
+name = "roboverus-solutions"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-only"
+description = "RoboVerus guide solutions"
+
+[dependencies]
+robocode = { path = "..", features = ["verus"] }
+vstd = "=0.0.0-2026-11-01-0251"
+
+[package.metadata.verus]
+verify = true
+
+[lints.rust]
+# Assertions are erased outside Verus, leaving some variables unused in plain builds.
+unused_variables = "allow"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_only)', 'cfg(verus_keep_ghost)'] }
