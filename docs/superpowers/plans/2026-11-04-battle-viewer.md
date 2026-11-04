@@ -155,7 +155,8 @@ export function scanArc(prevDeg: number, curDeg: number): { start: number; sweep
 **Files:**
 - Create: `web/src/wasm.ts` (loads `./pkg`, exposes `robotNames(): string[]` and `runBattle(robots, width, height, maxTurns): Recording`, which parses with `parseRecording`), `web/src/draw.ts`, `web/src/components/ArenaCanvas.tsx`, `web/src/components/Controls.tsx`, `web/src/components/NewBattle.tsx`
 - Modify: `web/src/App.tsx`
-- Test: `web/src/draw.test.ts`, `web/src/components/Controls.test.tsx`
+- Create: `web/src/sprites.ts`
+- Test: `web/src/draw.test.ts`, `web/src/sprites.test.ts`, `web/src/components/Controls.test.tsx`
 
 **Interfaces:**
 - `drawArena(ctx: CanvasRenderingContext2D, rec: Recording, turn: number, view: ViewOptions): void` with `ViewOptions = { names: boolean; energy: boolean; scanArcs: boolean; effects: boolean }`. It draws per the Design visual style. A robot's label reads `"Name"` and energy to 1 decimal, `"Disabled"` when alive at energy ≤ 0, and `"Dead"` when not alive. Hit rings come from `events.bullet_hits` in the previous 8 turns.
@@ -163,7 +164,9 @@ export function scanArc(prevDeg: number, curDeg: number): { start: number; sweep
 - `Controls` props: `{ playback: Playback; dispatch: (a: PlaybackAction) => void }`. It renders Restart, Step back, Play/Pause, Step forward, a speed `<select>` from `SPEEDS`, a seek range input, and "Turn n / N".
 - `App` holds the recording and playback (`useReducer`). A `requestAnimationFrame` loop dispatches `tick` at `speed` turns per second. On first load it runs SafeShooter vs Spinner at 800×600.
 
-- [ ] **Step 1: Write failing tests**: `robotLabel` (alive at 94.04 → `"SafeShooter 94.0"`, alive at 0 → `"SafeShooter Disabled"`, dead → `"SafeShooter Dead"`); `Controls` renders "Turn 0 / 10", clicking Play dispatches `{type:'toggle'}`, and step-forward is disabled at `last`.
+- **Your own robot images (optional):** a "Robot images…" button opens a multi-file picker. Files are matched by a name containing `body`, `gun` or `radar` (case-insensitive). Matched images replace the built-in body, gun and radar drawing for every robot, scaled so the body is 36 px and rotated by its heading. Missing parts fall back to the built-in look, and a "Reset images" button clears them. No images are bundled. Pure helper: `matchSpriteFiles(names: string[]): { body?: number; gun?: number; radar?: number }`, giving the index of the first match for each part.
+
+- [ ] **Step 1: Write failing tests**: `matchSpriteFiles(["tank-body.png","Gun.PNG","x.txt"])` → `{body:0, gun:1}`, and `matchSpriteFiles([])` → `{}`; `robotLabel` (alive at 94.04 → `"SafeShooter 94.0"`, alive at 0 → `"SafeShooter Disabled"`, dead → `"SafeShooter Dead"`); `Controls` renders "Turn 0 / 10", clicking Play dispatches `{type:'toggle'}`, and step-forward is disabled at `last`.
 - [ ] **Step 2: Run `npm test`.** Expected: FAIL.
 - [ ] **Step 3: Implement** the components and drawing. `NewBattle` lets you pick 2–4 robots from `robotNames()` (the same robot may be picked twice), plus width/height selects (400×400, 800×600, 1000×1000) and max turns, then Run. Errors thrown by `runBattle` show in a red message box, and the current battle stays.
 - [ ] **Step 4: Run `npm run wasm && npm test && npm run build`.** Expected: PASS. Then run `npm run dev` and load the page (curl or a browser): the HTML is served and the console shows no errors.
