@@ -24,6 +24,10 @@ jobs:
         run: cargo test --workspace --exclude roboverus-exercises --exclude roboverus-solutions
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      # The workspace run turns on robocode's `verus` feature (the exercise
+      # crates enable it), so lint the plain build on its own too.
+      - name: Clippy (robocode without the verus feature)
+        run: cargo clippy -p robocode --all-targets -- -D warnings
       - name: Default build compiles no Verus crates
         run: "! cargo tree -p robocode -e normal | grep -Ei 'vstd|verus'"
       - name: Feature `verus` builds with plain cargo

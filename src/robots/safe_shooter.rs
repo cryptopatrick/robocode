@@ -23,10 +23,10 @@
 use vstd::prelude::*;
 
 use crate::strategy::{Action, Observation, Strategy};
-use crate::units::{MAX_POWER, MIN_POWER, Power, angle_diff};
+use crate::units::{Power, angle_diff};
 // Spec functions exist only while Verus runs, so their imports are gated on `verus_only`.
 #[cfg(verus_only)]
-use crate::units::spec_angle_diff;
+use crate::units::{MAX_POWER, MIN_POWER, spec_angle_diff};
 
 /// Largest gun/target misalignment, in decidegrees (3.0°), that counts as aimed.
 #[cfg_attr(feature = "verus", verus_verify)]
