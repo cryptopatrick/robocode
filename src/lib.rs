@@ -16,7 +16,8 @@
 //! model (strategies, [`units`]) is what gets proved. The two are not the
 //! same code. Strategies use the integer units in every build, so a proved
 //! `decide` is the code that fights; the runner converts at the boundary,
-//! rounding energy down and gun heat up so proofs stay true of the engine.
+//! rounding energy down and gun heat up, so proofs hold for the engine state
+//! at the start of each turn (not for damage taken later in that turn).
 
 // Verus keeps loop-invariant attributes during verification; this unstable
 // feature is enabled only then (`verus_keep_ghost` is set by Verus itself).

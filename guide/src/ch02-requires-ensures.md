@@ -15,7 +15,7 @@ pub open spec fn aimed(obs: Observation) -> bool {
 }
 
 pub open spec fn safe_to_fire(obs: Observation, p: Power) -> bool {
-    &&& obs.energy.0 >= p.0                       // enough energy for the shot
+    &&& obs.energy.0 > p.0                        // energy left over after the shot
     &&& obs.gun_heat.0 == 0                       // gun is cool
     &&& obs.target matches Some(t) && t.age == 0  // target scanned this turn
     &&& aimed(obs)                                // gun points at it
@@ -25,6 +25,7 @@ pub open spec fn safe_to_fire(obs: Observation, p: Power) -> bool {
 - `spec fn` bodies can use mathematical integers (`int`), which never overflow.
 - `&&&` is a bulleted "and", handy for long conjunctions.
 - `x matches Some(t) && …` checks the shape and binds `t` for the rest of the expression.
+- Why `>` and not `>=`? Firing with *exactly* your remaining energy leaves you at 0, and the engine removes robots at 0. An early version of SafeShooter used `>=` and was proved "safe", and it shot itself dead. A proof is only as good as its spec.
 
 ## The theorem
 
@@ -61,7 +62,7 @@ pub fn check_safe_shooter(obs: &Observation)
     let a = decide(obs);
     if let Some(p) = a.fire {
         assert(obs.gun_heat.0 == 0);
-        assert(obs.energy.0 >= p.0);
+        assert(obs.energy.0 > p.0);
     }
 }
 ```

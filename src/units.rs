@@ -9,8 +9,10 @@
 //! | angles | [`Angle`] | decidegrees (×10), absolute angles in `0..3600` |
 //!
 //! Conversions from the `f64` engine round in the *safe* direction: energy
-//! rounds down and gun heat rounds up, so a strategy never believes it can
-//! fire when the engine would refuse.
+//! rounds down and gun heat rounds up, so a strategy never believes it has
+//! more energy, or a cooler gun, than the engine had at the start of the turn.
+//! Energy lost later in the same turn (for example hitting a wall during
+//! movement, which the engine runs before firing) is not covered.
 
 #[cfg(feature = "verus")]
 use vstd::prelude::*;

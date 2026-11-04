@@ -20,7 +20,7 @@ pub fn careful_fire(obs: &Observation) -> (r: Option<Power>)
         Some(t) => t.age == 0,
         None => false,
     };
-    if ready && obs.gun_heat.0 == 0 && obs.energy.0 >= 1000 && is_aimed(obs) {
+    if ready && obs.gun_heat.0 == 0 && obs.energy.0 > 1000 && is_aimed(obs) {
         Some(Power(1000))
     } else {
         None
@@ -33,7 +33,7 @@ pub fn check_careful_fire(obs: &Observation)
 {
     if let Some(p) = careful_fire(obs) {
         assert(obs.gun_heat.0 == 0);
-        assert(obs.energy.0 >= p.0);
+        assert(obs.energy.0 > p.0);
     }
 }
 
@@ -45,7 +45,7 @@ pub fn check_safe_shooter(obs: &Observation)
     let a = decide(obs);
     if let Some(p) = a.fire {
         assert(obs.gun_heat.0 == 0);
-        assert(obs.energy.0 >= p.0);
+        assert(obs.energy.0 > p.0);
         assert(obs.target is Some);
     }
 }

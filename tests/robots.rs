@@ -69,7 +69,10 @@ fn not_aimed_outside_tolerance() {
 #[test]
 fn energy_boundary() {
     let at = |e| safe_shooter::decide(&Observation { energy: Energy(e), ..obs() }).fire;
-    assert_eq!(at(1000), Some(Power(1000)));
+    // Firing all remaining energy would leave the robot at 0, which the
+    // engine treats as dead, so "safe" requires energy strictly above p.
+    assert_eq!(at(1001), Some(Power(1000)));
+    assert_eq!(at(1000), None);
     assert_eq!(at(999), None);
     assert_eq!(at(0), None);
 }
@@ -83,6 +86,21 @@ fn close_range_power_needs_energy() {
     }
     let rich = Observation { target: Some(target(0, 100, 0)), ..obs() };
     assert_eq!(safe_shooter::decide(&rich).fire, Some(Power(3000)));
+    let exactly_three = Observation { energy: Energy(3_000), target: Some(target(0, 100, 0)), ..obs() };
+    assert_eq!(safe_shooter::decide(&exactly_three).fire, Some(Power(1000)));
+}
+
+#[test]
+fn firing_never_kills_the_shooter() {
+    // Energy exactly 1.0 in the engine: a "safe" shot must not leave it dead.
+    use robocode::physics::{BattleConfig, SpawnSpec};
+    let spawns = [SpawnSpec::new(0, 400.0, 500.0, 0.0), SpawnSpec::new(1, 400.0, 200.0, 0.0)];
+    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![Box::new(SafeShooter), Box::new(SittingDuck)]);
+    for _ in 0..40 {
+        battle.state_mut().robots[0].energy = 1.0;
+        battle.step();
+        assert!(battle.state().robots[0].alive, "SafeShooter killed itself by firing");
+    }
 }
 
 #[test]

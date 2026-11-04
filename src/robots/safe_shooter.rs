@@ -3,7 +3,8 @@
 //! It spins its radar, swings its gun toward the target it last saw, strafes
 //! around it while keeping away from walls, and fires **only when it is safe**:
 //!
-//! > if `decide(obs).fire == Some(p)` then the energy covers `p`, the gun is
+//! > if `decide(obs).fire == Some(p)` then the energy is strictly more than `p`
+//! > (firing everything would leave the robot at 0, which the engine kills), the gun is
 //! > cool, a target was scanned this turn, and the gun is aimed at it.
 //!
 //! With the `verus` feature, Verus proves that property about [`decide`].
@@ -58,9 +59,10 @@ pub open spec fn aimed(obs: Observation) -> bool {
         && -AIM_TOLERANCE <= spec_angle_diff(t.bearing.0 as int, obs.gun_heading.0 as int) <= AIM_TOLERANCE
 }
 
-/// Firing with power `p` is safe.
+/// Firing with power `p` is safe. Energy must stay above zero afterwards:
+/// the engine kills a robot whose energy reaches 0.
 pub open spec fn safe_to_fire(obs: Observation, p: Power) -> bool {
-    &&& obs.energy.0 >= p.0
+    &&& obs.energy.0 > p.0
     &&& obs.gun_heat.0 == 0
     &&& obs.target matches Some(t) && t.age == 0
     &&& aimed(obs)
@@ -105,12 +107,12 @@ pub fn decide(obs: &Observation) -> Action {
                 } else {
                     d
                 });
-                let p = if t.distance < 150 && obs.energy.0 >= 3000 {
+                let p = if t.distance < 150 && obs.energy.0 > 3000 {
                     Power(3000)
                 } else {
                     Power(1000)
                 };
-                if obs.gun_heat.0 == 0 && t.age == 0 && is_aimed(obs) && obs.energy.0 >= p.0 {
+                if obs.gun_heat.0 == 0 && t.age == 0 && is_aimed(obs) && obs.energy.0 > p.0 {
                     fire = Some(p);
                 }
             }
