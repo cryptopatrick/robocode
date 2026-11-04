@@ -113,3 +113,30 @@ fn dead_robots_are_not_asked_to_decide() {
     }
     assert_eq!(calls.get(), at_death);
 }
+
+#[test]
+fn decisions_are_recorded() {
+    let action = Action { ahead: Some(50), turn_gun: Some(-150), ..Action::default() };
+    let spawns = [SpawnSpec::new(0, 100.0, 300.0, 0.0), SpawnSpec::new(1, 700.0, 300.0, 0.0)];
+    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![Box::new(Scripted::new(action)), idle()]);
+    assert_eq!(battle.last_decision(1), None);
+    battle.step();
+    let (obs, recorded) = battle.last_decision(0).expect("robot 0 decided");
+    assert_eq!(recorded, action);
+    assert_eq!(obs.turn, 0);
+    assert_eq!(obs.energy, Energy(100_000));
+}
+
+#[test]
+fn dead_robot_has_no_decision() {
+    let doomed = Scripted::new(Action { ahead: Some(100), ..Action::default() });
+    let spawns = [SpawnSpec::new(0, 19.0, 300.0, 270.0), SpawnSpec::new(1, 400.0, 300.0, 0.0)];
+    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![Box::new(doomed), idle()]);
+    battle.state_mut().robots[0].energy = 0.5;
+    for _ in 0..10 {
+        battle.step();
+    }
+    assert!(!battle.state().robots[0].alive);
+    assert_eq!(battle.last_decision(0), None);
+    assert!(battle.last_decision(1).is_some());
+}

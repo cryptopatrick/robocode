@@ -82,6 +82,8 @@ pub struct Battle {
     /// Latest scan per robot and the turn it happened on.
     last_scan: Vec<Option<(ScannedRobot, u64)>>,
     wall_hits: Vec<u32>,
+    /// What each robot saw and decided in the most recent step.
+    decisions: Vec<Option<(Observation, Action)>>,
 }
 
 impl Battle {
@@ -102,6 +104,7 @@ impl Battle {
             strategies,
             last_scan: vec![None; n],
             wall_hits: vec![0; n],
+            decisions: vec![None; n],
         }
     }
 
@@ -119,6 +122,7 @@ impl Battle {
     pub fn step(&mut self) -> TurnEvents {
         let field = self.state.config.battlefield;
         let turn = self.state.turn;
+        self.decisions.iter_mut().for_each(|d| *d = None);
         for i in 0..self.state.robots.len() {
             if !self.state.robots[i].alive {
                 continue;
@@ -140,6 +144,7 @@ impl Battle {
             let obs = observe(&self.state.robots[i], field, turn, scan);
             let action = self.strategies[i].decide(&obs);
             apply(&mut self.state.robots[i], &action);
+            self.decisions[i] = Some((obs, action));
         }
 
         let events = self.state.step();
@@ -182,6 +187,12 @@ impl Battle {
             energies: self.state.robots.iter().map(|r| r.energy).collect(),
             wall_hits: self.wall_hits.clone(),
         }
+    }
+
+    /// The observation and action robot `i` used in the most recent step, or
+    /// `None` if it was dead then (or no step has run yet).
+    pub fn last_decision(&self, i: usize) -> Option<(Observation, Action)> {
+        self.decisions[i]
     }
 
     /// The name of the strategy driving robot `i`.
