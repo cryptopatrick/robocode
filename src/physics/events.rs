@@ -9,6 +9,7 @@ pub struct TurnEvents {
     pub wall_collisions: Vec<WallCollision>,
     pub robot_collisions: Vec<RobotCollision>,
     pub robot_deaths: Vec<RobotId>,
+    pub scans: Vec<ScannedRobot>,
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +31,19 @@ pub struct BulletImpact {
 pub struct WallCollision {
     pub robot_id: RobotId,
     pub position: Point,
+}
+
+/// A robot detected by another robot's radar this turn.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScannedRobot {
+    pub scanner: RobotId,
+    pub target: RobotId,
+    /// Absolute bearing from scanner to target, degrees in `0..360`.
+    pub bearing: f64,
+    pub distance: f64,
+    pub energy: f64,
+    pub heading: f64,
+    pub velocity: f64,
 }
 
 #[derive(Debug, Clone)]

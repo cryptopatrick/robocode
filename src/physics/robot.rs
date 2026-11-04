@@ -10,6 +10,8 @@ pub struct RobotState {
     pub heading: f64,
     pub gun_heading: f64,
     pub radar_heading: f64,
+    /// Radar heading at the start of the current turn (start of the scan arc).
+    pub last_radar_heading: f64,
     pub velocity: f64,
     pub energy: f64,
     pub gun_heat: f64,
@@ -26,6 +28,7 @@ impl RobotState {
             heading: 0.0,
             gun_heading: 0.0,
             radar_heading: 0.0,
+            last_radar_heading: 0.0,
             velocity: 0.0,
             energy: 100.0,
             gun_heat: 0.0,

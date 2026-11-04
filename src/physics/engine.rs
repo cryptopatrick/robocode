@@ -1,7 +1,10 @@
-use crate::geometry::{Battlefield, Point, distance_squared};
+use crate::geometry::{
+    Battlefield, Point, angle_to_point, distance_squared,
+    normalize_relative_angle,
+};
 use crate::physics::bullet::BulletState;
 use crate::physics::events::{
-    BulletFired, BulletImpact, TurnEvents, WallCollision,
+    BulletFired, BulletImpact, ScannedRobot, TurnEvents, WallCollision,
 };
 use crate::physics::robot::{RobotId, RobotState};
 use crate::physics::snapshot::TurnSnapshot;
@@ -95,6 +98,7 @@ impl BattleState {
             }
         }
 
+        self.scan(&mut events);
         self.handle_firing(&mut events);
         self.apply_bullets(&mut events);
         self.process_deaths(&mut events);
@@ -209,6 +213,47 @@ impl BattleState {
         self.bullets.retain(|b| b.alive);
     }
 
+    /// Radar scan: each living robot detects every other living robot within
+    /// [`rules::RADAR_SCAN_RADIUS`] whose body overlaps the arc its radar swept
+    /// this turn. Simplification of Java's arc/bounding-box test: the body is
+    /// treated as a circle of the robot's radius.
+    fn scan(&mut self, events: &mut TurnEvents) {
+        for a in &self.robots {
+            if !a.alive {
+                continue;
+            }
+            let sweep = normalize_relative_angle(a.radar_heading - a.last_radar_heading);
+            for b in &self.robots {
+                if b.id == a.id || !b.alive {
+                    continue;
+                }
+                let distance = distance_squared(a.position, b.position).sqrt();
+                if distance > rules::RADAR_SCAN_RADIUS {
+                    continue;
+                }
+                let bearing = angle_to_point(a.position, b.position);
+                let half_width = if distance < b.radius {
+                    180.0
+                } else {
+                    (b.radius / distance).min(1.0).asin().to_degrees()
+                };
+                let rel = normalize_relative_angle(bearing - a.last_radar_heading);
+                if arc_overlaps(sweep, rel, half_width) {
+                    events.scans.push(ScannedRobot {
+                        scanner: a.id,
+                        target: b.id,
+                        bearing,
+                        distance,
+                        energy: b.energy,
+                        heading: b.heading,
+                        velocity: b.velocity,
+                    });
+                }
+            }
+        }
+        events.scans.sort_by_key(|s| (s.scanner, s.target));
+    }
+
     fn process_deaths(&mut self, events: &mut TurnEvents) {
         for robot in &mut self.robots {
             if robot.alive && robot.energy <= 0.0 {
@@ -226,6 +271,7 @@ impl BattleState {
 }
 
 fn apply_turns(robot: &mut RobotState) {
+    robot.last_radar_heading = robot.radar_heading;
     if !robot.alive {
         robot.control.turn_remaining = 0.0;
         robot.control.gun_turn_remaining = 0.0;
@@ -338,4 +384,16 @@ fn is_within_field(point: Point, battlefield: Battlefield) -> bool {
         && point.x <= battlefield.width + 50.0
         && point.y >= -50.0
         && point.y <= battlefield.height + 50.0
+}
+
+/// Whether the interval `[rel - half_width, rel + half_width]` (degrees,
+/// relative to the arc start) overlaps the arc from 0 to `sweep`.
+fn arc_overlaps(sweep: f64, rel: f64, half_width: f64) -> bool {
+    if half_width >= 180.0 {
+        return true;
+    }
+    let (lo, hi) = if sweep >= 0.0 { (0.0, sweep) } else { (sweep, 0.0) };
+    [rel - 360.0, rel, rel + 360.0]
+        .iter()
+        .any(|r| r + half_width >= lo && r - half_width <= hi)
 }

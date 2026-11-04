@@ -15,7 +15,8 @@ pub mod snapshot;
 pub use bullet::{BulletId, BulletState};
 pub use engine::{BattleConfig, BattleState, SpawnSpec};
 pub use events::{
-    BulletFired, BulletImpact, RobotCollision, TurnEvents, WallCollision,
+    BulletFired, BulletImpact, RobotCollision, ScannedRobot, TurnEvents,
+    WallCollision,
 };
 pub use robot::{RobotControl, RobotId, RobotState};
 pub use snapshot::{

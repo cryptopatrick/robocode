@@ -31,6 +31,8 @@ pub const GUN_COOLING_RATE: f64 = 0.1;
 pub const ROBOT_RADIUS: f64 = 18.0;
 /// Bullet collision radius approximation.
 pub const BULLET_RADIUS: f64 = 3.0;
+/// Maximum distance at which the radar detects robots.
+pub const RADAR_SCAN_RADIUS: f64 = 1200.0;
 /// Natural epsilon used for floating point comparisons inside the physics core.
 pub const EPSILON: f64 = 1e-9;
 
