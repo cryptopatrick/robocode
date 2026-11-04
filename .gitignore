@@ -17,3 +17,8 @@ AGENT.md
 
 # mdBook output
 guide/book/
+
+# Battle viewer
+web/node_modules/
+web/dist/
+web/src/pkg/
