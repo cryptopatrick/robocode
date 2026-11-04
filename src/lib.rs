@@ -24,6 +24,7 @@
 #![cfg_attr(verus_keep_ghost, feature(proc_macro_hygiene))]
 
 mod geometry;
+pub mod api;
 pub mod robots;
 pub mod physics;
 pub mod rules;
