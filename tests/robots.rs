@@ -104,8 +104,33 @@ fn firing_never_kills_the_shooter() {
 }
 
 #[test]
-fn radar_always_spins() {
-    assert_eq!(safe_shooter::decide(&obs()).turn_radar, Some(450));
+fn radar_spins_without_a_fresh_target() {
+    assert_eq!(safe_shooter::decide(&Observation { target: None, ..obs() }).turn_radar, Some(450));
+    let stale = Observation { target: Some(target(100, 300, 1)), ..obs() };
+    assert_eq!(safe_shooter::decide(&stale).turn_radar, Some(450));
+}
+
+#[test]
+fn radar_locks_onto_a_fresh_target() {
+    // Overshoot the target by its own offset so the next sweep crosses it again.
+    let o = Observation { radar_heading: Angle(900), target: Some(target(1000, 300, 0)), ..obs() };
+    assert_eq!(safe_shooter::decide(&o).turn_radar, Some(200));
+    let behind = Observation { radar_heading: Angle(1100), target: Some(target(1000, 300, 0)), ..obs() };
+    assert_eq!(safe_shooter::decide(&behind).turn_radar, Some(-200));
+    let across_zero = Observation { radar_heading: Angle(3550), target: Some(target(50, 300, 0)), ..obs() };
+    assert_eq!(safe_shooter::decide(&across_zero).turn_radar, Some(200));
+    let far = Observation { radar_heading: Angle(0), target: Some(target(1700, 300, 0)), ..obs() };
+    assert_eq!(safe_shooter::decide(&far).turn_radar, Some(450));
+}
+
+#[test]
+fn radar_lock_fires_more_often() {
+    // With the radar locked, SafeShooter finishes SittingDuck sooner than the
+    // 461 turns it needed with a spinning radar. (Gun heat caps it near 300:
+    // a 1.0 shot heats the gun for 12 turns and the duck needs 25 hits.)
+    let outcome = duel(Box::new(SittingDuck)).run(5000);
+    assert_eq!(outcome.winner, Some(0));
+    assert!(outcome.turns < 400, "took {} turns", outcome.turns);
 }
 
 #[test]

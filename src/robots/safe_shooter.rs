@@ -36,6 +36,10 @@ pub const AIM_TOLERANCE: i32 = 30;
 #[cfg_attr(feature = "verus", verus_verify)]
 pub const WALL_MARGIN: i32 = 80;
 
+/// Largest radar turn per turn (the engine allows 45°).
+#[cfg_attr(feature = "verus", verus_verify)]
+pub const MAX_RADAR_TURN: i32 = 450;
+
 /// Largest gun turn requested per turn (the engine allows 20°).
 #[cfg_attr(feature = "verus", verus_verify)]
 pub const MAX_GUN_TURN: i32 = 200;
@@ -48,6 +52,7 @@ verus! {
 pub open spec fn well_formed(obs: Observation) -> bool {
     &&& 0 <= obs.heading.0 < 3600
     &&& 0 <= obs.gun_heading.0 < 3600
+    &&& 0 <= obs.radar_heading.0 < 3600
     &&& 0 <= obs.field_width <= 100_000
     &&& 0 <= obs.field_height <= 100_000
     &&& obs.target matches Some(t) ==> 0 <= t.bearing.0 < 3600
@@ -119,7 +124,34 @@ pub fn decide(obs: &Observation) -> Action {
         }
         None => {}
     }
-    Action { fire, ahead: Some(ahead), turn_body, turn_gun, turn_radar: Some(450) }
+    Action { fire, ahead: Some(ahead), turn_body, turn_gun, turn_radar: Some(radar_turn(obs)) }
+}
+
+/// Radar lock: with a target scanned this turn, turn past it by as much again
+/// so the next sweep crosses it; otherwise spin at full speed to find one.
+#[cfg_attr(feature = "verus", verus_verify)]
+#[cfg_attr(feature = "verus", verus_spec(r =>
+    requires well_formed(*obs),
+    ensures -MAX_RADAR_TURN <= r <= MAX_RADAR_TURN,
+))]
+fn radar_turn(obs: &Observation) -> i32 {
+    match obs.target {
+        Some(t) => {
+            if t.age == 0 {
+                let overshoot = 2 * angle_diff(t.bearing, obs.radar_heading);
+                if overshoot > MAX_RADAR_TURN {
+                    MAX_RADAR_TURN
+                } else if overshoot < -MAX_RADAR_TURN {
+                    -MAX_RADAR_TURN
+                } else {
+                    overshoot
+                }
+            } else {
+                MAX_RADAR_TURN
+            }
+        }
+        None => MAX_RADAR_TURN,
+    }
 }
 
 /// Whether travelling in direction `h` (decidegrees) heads into a wall the
