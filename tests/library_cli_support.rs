@@ -78,3 +78,12 @@ fn robot_macro_builds_api_robot() {
 fn robot_macro_wraps_strategy() {
     assert_eq!(strategy_robot::__robocode_robot().name(), "Still");
 }
+
+#[test]
+fn record_with_summary_names_the_winner() {
+    let robots = vec![roster::built_in("SafeShooter").unwrap(), roster::built_in("SittingDuck").unwrap()];
+    let battle = Battle::new(BattleConfig::default(), &roster::spawns(2, 800.0, 600.0), robots);
+    let r = recording::record_with_summary(battle, 5000);
+    assert_eq!(r.summary(), "SafeShooter wins after 364 turns");
+    assert!(r.json.contains(r#""turns":364"#));
+}

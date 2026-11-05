@@ -48,9 +48,33 @@ fn decision_json((obs, action): &(Observation, Action)) -> String {
     )
 }
 
+/// A finished battle: its JSON recording plus a summary.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Recorded {
+    pub json: String,
+    /// The winner's name, if exactly one robot survived.
+    pub winner: Option<String>,
+    pub turns: u64,
+}
+
+impl Recorded {
+    /// "Bot wins after 120 turns" or "No winner after 5000 turns".
+    pub fn summary(&self) -> String {
+        match &self.winner {
+            Some(name) => format!("{name} wins after {} turns", self.turns),
+            None => format!("No winner after {} turns", self.turns),
+        }
+    }
+}
+
 /// Runs `battle` until one robot is left or `max_turns` have run, and returns
 /// its JSON recording.
-pub fn record(mut battle: Battle, max_turns: u64) -> String {
+pub fn record(battle: Battle, max_turns: u64) -> String {
+    record_with_summary(battle, max_turns).json
+}
+
+/// Like [`record`], also returning who won and after how many turns.
+pub fn record_with_summary(mut battle: Battle, max_turns: u64) -> Recorded {
     let n = battle.state().robots.len();
     let config = battle.state().config;
     let (w, h) = (config.battlefield.width, config.battlefield.height);
@@ -86,5 +110,8 @@ pub fn record(mut battle: Battle, max_turns: u64) -> String {
         turns.len() - 1,
         energies.join(",")
     );
-    out
+    let winner = outcome.winner.and_then(|id| {
+        battle.state().robots.iter().position(|r| r.id == id).map(|i| battle.name(i).to_string())
+    });
+    Recorded { json: out, winner, turns: (turns.len() - 1) as u64 }
 }

@@ -1,5 +1,7 @@
 //! `cargo robocode`: write, battle and verify robocode robots locally.
 
+mod battle;
+mod build_project;
 mod template;
 
 use std::path::PathBuf;
@@ -22,6 +24,32 @@ enum Command {
     New {
         /// File name without `.rs`, e.g. `hunter`.
         name: String,
+    },
+    /// Compile a robot file, battle it, and show the battle in your browser.
+    Battle {
+        /// Your robot file, e.g. `hunter.rs` (or a built-in robot name).
+        robot: String,
+        /// An opponent: a built-in robot name or a .rs file. Repeat for more (2-4 robots in total).
+        #[arg(long = "vs", value_name = "OPPONENT")]
+        vs: Vec<String>,
+        /// Battlefield size.
+        #[arg(long, default_value = "800x600")]
+        arena: String,
+        /// Turn limit.
+        #[arg(long, default_value_t = 5000)]
+        turns: u64,
+        /// Also save the recording to this file.
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// Don't open a browser (print the address instead; with --output, just save and exit).
+        #[arg(long)]
+        no_open: bool,
+        /// Show cargo's build output.
+        #[arg(long)]
+        verbose: bool,
+        /// The robocode source to compile against.
+        #[arg(long)]
+        robocode_path: Option<PathBuf>,
     },
 }
 
@@ -65,6 +93,10 @@ fn main() -> ExitCode {
             Ok(())
         }
         Command::New { name } => new_robot(&name),
+        Command::Battle { robot, vs, arena, turns, output, no_open, verbose, robocode_path } => {
+            let args = battle::BattleArgs { robot, vs, arena, turns, output, no_open, verbose, robocode_path };
+            battle::run(&args).map(|_json| ())
+        }
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
