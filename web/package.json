@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "license": "AGPL-3.0-only",
+  "license": "EPL-1.0",
   "scripts": {
     "wasm": "wasm-pack build ../wasm --target web --out-dir ../web/src/pkg",
     "dev": "vite",

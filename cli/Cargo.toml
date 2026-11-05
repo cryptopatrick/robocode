@@ -3,7 +3,7 @@ name = "cargo-robocode"
 version = "0.1.0"
 edition = "2024"
 publish = false
-license = "AGPL-3.0-only"
+license = "EPL-1.0"
 description = "Write, battle and verify robocode robots locally: cargo robocode"
 
 [[bin]]

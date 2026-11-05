@@ -71,7 +71,7 @@ git push origin YOUR_USERNAME/your-new-feature
 Please use the [issue tracker](https://github.com/cryptopatrick/robocode/issues) to report any bugs or request new features.
 
 ## Licensing
-By contributing, you agree that your contributions will be licensed under the same license as the original project MIT.
+By contributing, you agree that your contributions will be licensed under the same license as the original project, EPL-1.0.
 
 ## Questions?
 Feel free to reach out to the maintainers or open an issue. 

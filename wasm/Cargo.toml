@@ -3,7 +3,7 @@ name = "robocode-wasm"
 version = "0.1.0"
 edition = "2024"
 publish = false
-license = "AGPL-3.0-only"
+license = "EPL-1.0"
 description = "Runs robocode battles in the browser and returns JSON recordings"
 
 [lib]

@@ -5,14 +5,14 @@ edition = "2024"
 authors = ["CryptoPatrick <cryptopatrick@gmail.com>"]
 
 ###############################################################################
-description = "Tank Combat Model Interface"
+description = "Robot Combat Simulator"
 documentation = "https://docs.rs/robocode"
 homepage = "https://github.com/cryptopatrick/robocode"
 repository = "https://github.com/cryptopatrick/robocode"
 readme = "README.md"
 keywords = ["Simulator"]
 categories = ["development-tools"]
-license = "MIT"
+license = "EPL-1.0"
 autotests = true
 [lib]
 name = "robocode"
