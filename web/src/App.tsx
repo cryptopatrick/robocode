@@ -10,6 +10,7 @@ import ViewToggles from './components/ViewToggles';
 import type { ViewOptions } from './draw';
 import { playbackReducer } from './playback';
 import type { Recording } from './recording';
+import { loadRecording, recordingUrl } from './loadFromUrl';
 import { loadSprites, type Sprites } from './sprites';
 import { loadEngine, robotNames, runBattle } from './wasm';
 
@@ -47,13 +48,22 @@ export default function App() {
   );
 
   useEffect(() => {
+    const fromUrl = recordingUrl(window.location.search);
+    if (fromUrl) {
+      loadRecording(fromUrl)
+        .then((rec) => {
+          show(rec);
+          dispatch({ type: 'play' });
+        })
+        .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+    }
     loadEngine()
       .then(() => {
         setNames(robotNames());
-        run({ robots: ['SafeShooter', 'Spinner'], width: 800, height: 600, maxTurns: 5000 });
+        if (!fromUrl) run({ robots: ['SafeShooter', 'Spinner'], width: 800, height: 600, maxTurns: 5000 });
       })
       .catch((e: unknown) => setError(`Could not load the battle engine: ${e instanceof Error ? e.message : String(e)}`));
-  }, [run]);
+  }, [run, show]);
 
   // Advance playback at `speed` turns per second.
   const carry = useRef(0);
