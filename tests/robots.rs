@@ -180,3 +180,38 @@ fn golden_safe_shooter_vs_sitting_duck() {
     let o = duel(boxed(SittingDuck)).run(5000);
     assert_eq!((o.winner, o.turns, energies(&o)), (Some(0), 364, "147.0/0.0".to_string()));
 }
+
+// ---- Circler: a sample written only against robocode::api ----------------
+
+use robocode::api::{Commands, HitWallEvent, Robot, Status};
+use robocode::robots::Circler;
+
+fn status() -> Status {
+    Status {
+        time: 5, name: "Circler".into(), others: 1, x: 400.0, y: 300.0, energy: 100.0, velocity: 8.0,
+        gun_heat: 0.0, heading: 0.0, gun_heading: 0.0, radar_heading: 0.0, distance_remaining: 0.0,
+        turn_remaining: 0.0, gun_turn_remaining: 0.0, radar_turn_remaining: 0.0,
+        battlefield_width: 800.0, battlefield_height: 600.0, gun_cooling_rate: 0.1,
+    }
+}
+
+#[test]
+fn circler_reverses_on_wall() {
+    let mut c = Circler::default();
+    let mut cmd = Commands::default();
+    c.run(&status(), &mut cmd);
+    assert_eq!(cmd.ahead(), Some(100.0));
+    let mut cmd = Commands::default();
+    c.on_hit_wall(&HitWallEvent { bearing: 0.0 }, &status(), &mut cmd);
+    c.run(&status(), &mut cmd);
+    assert_eq!(cmd.ahead(), Some(-100.0));
+}
+
+#[test]
+fn circler_beats_sitting_duck() {
+    let spawns = [SpawnSpec::new(0, 100.0, 100.0, 0.0), SpawnSpec::new(1, 700.0, 500.0, 0.0)];
+    let mut battle = Battle::new(BattleConfig::default(), &spawns, vec![Box::new(Circler::default()), boxed(SittingDuck)]);
+    let outcome = battle.run(5000);
+    assert_eq!(outcome.winner, Some(0), "{outcome:?}");
+    assert_eq!(battle.name(0), "Circler");
+}

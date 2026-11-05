@@ -5,7 +5,7 @@
 //! ```
 
 use robocode::physics::{BattleConfig, SpawnSpec};
-use robocode::robots::{SafeShooter, SittingDuck, Spinner};
+use robocode::robots::{Circler, SafeShooter, SittingDuck, Spinner};
 use robocode::api::Robot;
 use robocode::runner::{Battle, boxed};
 
@@ -14,8 +14,9 @@ fn main() {
     let opponent: Box<dyn Robot> = match opponent_name.as_str() {
         "sitting_duck" => boxed(SittingDuck),
         "spinner" => boxed(Spinner),
+        "circler" => Box::new(Circler::default()),
         other => {
-            eprintln!("unknown opponent `{other}`; use sitting_duck or spinner");
+            eprintln!("unknown opponent `{other}`; use sitting_duck, spinner or circler");
             std::process::exit(2);
         }
     };

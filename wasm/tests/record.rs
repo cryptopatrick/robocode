@@ -70,3 +70,13 @@ fn is_deterministic() {
     let s = spec(&["SafeShooter", "Spinner"]);
     assert_eq!(record_battle(&s), record_battle(&s));
 }
+
+#[test]
+fn record_with_circler() {
+    let r = record(&["Circler", "SittingDuck"]);
+    assert_eq!(r["robots"][0]["name"], "Circler");
+    let decisions = r["decisions"].as_array().unwrap();
+    // Circler is an API robot, not a fixed-point strategy: no decisions recorded.
+    assert!(decisions.iter().all(|row| row[0].is_null()));
+    assert!(!decisions[1][1].is_null());
+}

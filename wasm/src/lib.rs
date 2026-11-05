@@ -7,7 +7,7 @@
 use std::fmt::Write as _;
 
 use robocode::physics::{BattleConfig, SpawnSpec, TurnEvents};
-use robocode::robots::{SafeShooter, SittingDuck, Spinner};
+use robocode::robots::{Circler, SafeShooter, SittingDuck, Spinner};
 use robocode::api::Robot;
 use robocode::runner::{Battle, boxed};
 use robocode::strategy::{Action, Observation};
@@ -15,7 +15,7 @@ use robocode::Battlefield;
 use wasm_bindgen::prelude::*;
 
 /// Robots that can be picked in the browser.
-pub const ROBOT_NAMES: [&str; 3] = ["SafeShooter", "Spinner", "SittingDuck"];
+pub const ROBOT_NAMES: [&str; 4] = ["SafeShooter", "Circler", "Spinner", "SittingDuck"];
 
 /// What to battle.
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +31,7 @@ fn strategy(name: &str) -> Option<Box<dyn Robot>> {
         "SafeShooter" => Some(boxed(SafeShooter)),
         "Spinner" => Some(boxed(Spinner)),
         "SittingDuck" => Some(boxed(SittingDuck)),
+        "Circler" => Some(Box::new(Circler::default())),
         _ => None,
     }
 }
