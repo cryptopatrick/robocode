@@ -96,7 +96,7 @@ pub fn run(args: &BattleArgs) -> Result<String, Failure> {
         }
     }
     let program = battle_program(&entries, &files, width, height, args.turns);
-    let project = write_project("battle", &program, "main.rs", "", &source)?;
+    let project = write_project("battle", &[("main.rs", &program)], &[], "", &source)?;
 
     eprintln!("Compiling robots…");
     let build = cargo(&project, &["build", "--release", "--color", "never"])

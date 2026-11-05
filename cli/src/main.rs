@@ -4,6 +4,7 @@ mod battle;
 mod build_project;
 mod serve;
 mod template;
+mod verify;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -49,6 +50,14 @@ enum Command {
         #[arg(long)]
         verbose: bool,
         /// The robocode source to compile against.
+        #[arg(long)]
+        robocode_path: Option<PathBuf>,
+    },
+    /// Run Verus on a robot file (needs cargo verus on PATH).
+    Verify {
+        /// Your robot file.
+        robot: String,
+        /// The robocode source to verify against.
         #[arg(long)]
         robocode_path: Option<PathBuf>,
     },
@@ -99,6 +108,7 @@ fn main() -> ExitCode {
             let args = battle::BattleArgs { robot, vs, arena, turns, output, verbose, robocode_path };
             battle::run(&args).and_then(|json| if save_only { Ok(()) } else { serve::serve(json, no_open) })
         }
+        Command::Verify { robot, robocode_path } => verify::run(&robot, robocode_path.as_deref()),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

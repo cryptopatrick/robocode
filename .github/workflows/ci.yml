@@ -21,9 +21,10 @@ jobs:
         with:
           components: clippy
       - name: Tests
-        run: cargo test --workspace --exclude roboverus-exercises --exclude roboverus-solutions
+        # cargo-robocode embeds the built viewer, so it's tested in the `web` job.
+        run: cargo test --workspace --exclude roboverus-exercises --exclude roboverus-solutions --exclude cargo-robocode
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --exclude cargo-robocode --all-targets -- -D warnings
       # The workspace run turns on robocode's `verus` feature (the exercise
       # crates enable it), so lint the plain build on its own too.
       - name: Clippy (robocode without the verus feature)
@@ -87,3 +88,7 @@ jobs:
           npm run wasm
           npm test
           npm run build
+      - name: cargo robocode (embeds the built viewer)
+        run: |
+          cargo clippy -p cargo-robocode --all-targets -- -D warnings
+          cargo test -p cargo-robocode

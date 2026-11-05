@@ -44,29 +44,40 @@ pub struct Project {
     pub target_dir: PathBuf,
 }
 
-/// Writes (or reuses) a project whose `src/<main_file>` is `source`.
+/// Writes (or reuses) a project with the given `src/` files and extra
+/// `[dependencies]` lines (robocode is always a dependency).
 pub fn write_project(
     kind: &str,
-    source: &str,
-    main_file: &str,
-    cargo_toml_extra: &str,
+    files: &[(&str, &str)],
+    robocode_features: &[&str],
+    extra_dependencies: &str,
     robocode: &Path,
 ) -> Result<Project, Failure> {
     let mut hasher = DefaultHasher::new();
-    (kind, source, main_file, cargo_toml_extra, robocode).hash(&mut hasher);
+    (kind, files, robocode_features, extra_dependencies, robocode).hash(&mut hasher);
     let package = format!("{kind}_{:016x}", hasher.finish());
     let root = build_root();
     let dir = root.join("projects").join(&package);
     let io = |e: std::io::Error| Failure::usage(format!("could not write the build project in {}: {e}", dir.display()));
     std::fs::create_dir_all(dir.join("src")).map_err(io)?;
+    let features = if robocode_features.is_empty() {
+        String::new()
+    } else {
+        format!(", features = {robocode_features:?}")
+    };
     let manifest = format!(
         "[package]\nname = \"{package}\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n\
-         [dependencies]\nrobocode = {{ path = {:?}{cargo_toml_extra} }}\n\n\
+         [dependencies]\nrobocode = {{ path = {:?}{features} }}\n{extra_dependencies}\n\
+         [package.metadata.verus]\nverify = true\n\n\
+         # Robot files may gate proofs on Verus's own cfg names.\n\
+         [lints.rust]\nunexpected_cfgs = {{ level = \"warn\", check-cfg = ['cfg(verus_only)', 'cfg(verus_keep_ghost)'] }}\n\n\
          # Standalone: never part of a surrounding workspace.\n[workspace]\n",
         robocode.display().to_string()
     );
     write_if_changed(&dir.join("Cargo.toml"), &manifest).map_err(io)?;
-    write_if_changed(&dir.join("src").join(main_file), source).map_err(io)?;
+    for (name, content) in files {
+        write_if_changed(&dir.join("src").join(name), content).map_err(io)?;
+    }
     Ok(Project { dir, package, target_dir: root.join("target") })
 }
 
