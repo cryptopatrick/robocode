@@ -25,7 +25,9 @@
 
 mod geometry;
 pub mod api;
+pub mod recording;
 pub mod robots;
+pub mod roster;
 pub mod physics;
 pub mod rules;
 pub mod runner;
@@ -33,3 +35,25 @@ pub mod strategy;
 pub mod units;
 
 pub use geometry::{Battlefield, Point};
+
+/// Names the robot defined in a robot file, for `cargo robocode`.
+///
+/// ```ignore
+/// robocode::robot!(MyRobot);            // a `Robot` (from robocode::api)
+/// robocode::robot!(strategy MyStrategy); // a fixed-point `Strategy`
+/// ```
+///
+/// The type must implement `Default`.
+#[macro_export]
+macro_rules! robot {
+    (strategy $t:ty) => {
+        pub fn __robocode_robot() -> ::std::boxed::Box<dyn $crate::api::Robot> {
+            $crate::runner::boxed(<$t as ::std::default::Default>::default())
+        }
+    };
+    ($t:ty) => {
+        pub fn __robocode_robot() -> ::std::boxed::Box<dyn $crate::api::Robot> {
+            ::std::boxed::Box::new(<$t as ::std::default::Default>::default())
+        }
+    };
+}

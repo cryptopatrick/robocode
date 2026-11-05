@@ -80,3 +80,14 @@ fn record_with_circler() {
     assert!(decisions.iter().all(|row| row[0].is_null()));
     assert!(!decisions[1][1].is_null());
 }
+
+/// FNV-1a, to fingerprint a recording without storing it.
+fn fnv1a(s: &str) -> u64 {
+    s.bytes().fold(0xcbf2_9ce4_8422_2325, |h, b| (h ^ b as u64).wrapping_mul(0x0000_0100_0000_01b3))
+}
+
+#[test]
+fn recording_fingerprint_is_unchanged() {
+    let json = record_battle(&spec(&["SafeShooter", "Spinner"])).unwrap();
+    assert_eq!((json.len(), fnv1a(&json)), (716_414, 0xa87d_8e29_504d_8bfd));
+}
