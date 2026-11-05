@@ -4,6 +4,8 @@ import { safetyChecks } from '../safety';
 interface Props {
   decision: Decision | null;
   dead: boolean;
+  /** False for Robot API robots, which never record decisions. */
+  recordsDecisions?: boolean;
 }
 
 const deg = (decideg: number) => `${(decideg / 10).toFixed(1)}°`;
@@ -18,7 +20,15 @@ function actionLines(d: Decision): string[] {
   return lines.length ? lines : ['Idle'];
 }
 
-export default function DecisionPanel({ decision, dead }: Props) {
+export default function DecisionPanel({ decision, dead, recordsDecisions = true }: Props) {
+  if (!decision && !recordsDecisions) {
+    return (
+      <p className="text-sm text-slate-500">
+        This robot is written with the Robot API. Only fixed-point strategy robots, like SafeShooter, record their
+        decisions for this panel.
+      </p>
+    );
+  }
   if (!decision) {
     return <p className="text-sm text-slate-500">{dead ? 'no decision (dead)' : 'no decision yet'}</p>;
   }

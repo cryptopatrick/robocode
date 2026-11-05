@@ -132,6 +132,7 @@ export default function App() {
                 <DecisionPanel
                   decision={recording.decisions[playback.turn][selected] ?? null}
                   dead={playback.turn > 0 && !recording.turns[playback.turn - 1].robots[selected]?.alive}
+                  recordsDecisions={recording.decisions.some((row) => row[selected] !== null)}
                 />
               </section>
               {playback.turn === playback.last && <Results recording={recording} />}

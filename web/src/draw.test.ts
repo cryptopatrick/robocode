@@ -18,3 +18,14 @@ describe('robotLabel', () => {
     expect(robotLabel(robot(-3.5, false), 'SafeShooter')).toBe('SafeShooter Dead');
   });
 });
+
+import { labelY } from './draw';
+
+describe('labelY', () => {
+  it('puts the label below the robot normally', () => {
+    expect(labelY(300, 600)).toBe(300 + 18 + 14);
+  });
+  it('puts it above the robot near the bottom edge', () => {
+    expect(labelY(576, 600)).toBe(576 - 18 - 6);
+  });
+});

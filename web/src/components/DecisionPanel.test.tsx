@@ -32,3 +32,10 @@ describe('DecisionPanel', () => {
     expect(screen.getByText('Would a 1.0 shot be safe?')).toBeTruthy();
   });
 });
+
+describe('DecisionPanel for Robot API robots', () => {
+  it('explains that only strategy robots record decisions', () => {
+    render(<DecisionPanel decision={null} dead={false} recordsDecisions={false} />);
+    expect(screen.getByText(/written with the Robot API/)).toBeTruthy();
+  });
+});

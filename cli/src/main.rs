@@ -2,6 +2,7 @@
 
 mod battle;
 mod build_project;
+mod serve;
 mod template;
 
 use std::path::PathBuf;
@@ -94,8 +95,9 @@ fn main() -> ExitCode {
         }
         Command::New { name } => new_robot(&name),
         Command::Battle { robot, vs, arena, turns, output, no_open, verbose, robocode_path } => {
-            let args = battle::BattleArgs { robot, vs, arena, turns, output, no_open, verbose, robocode_path };
-            battle::run(&args).map(|_json| ())
+            let save_only = no_open && output.is_some();
+            let args = battle::BattleArgs { robot, vs, arena, turns, output, verbose, robocode_path };
+            battle::run(&args).and_then(|json| if save_only { Ok(()) } else { serve::serve(json, no_open) })
         }
     };
     match result {

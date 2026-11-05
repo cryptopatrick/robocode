@@ -30,6 +30,12 @@ export function robotLabel(r: RobotSnapshot, name: string): string {
   return `${name} ${r.energy.toFixed(1)}`;
 }
 
+/** Where a robot's label goes: below it, or above it near the bottom edge. */
+export function labelY(y: number, height: number): number {
+  const below = y + BODY / 2 + 14;
+  return below > height - 4 ? y - BODY / 2 - 6 : below;
+}
+
 function labelFor(r: RobotSnapshot, name: string, view: ViewOptions): string {
   if (view.names && view.energy) return robotLabel(r, name);
   if (view.names) return name;
@@ -203,7 +209,7 @@ export function drawArena(
     ctx.fillStyle = LABEL;
     snap.robots.forEach((r, i) => {
       const text = labelFor(r, rec.robots[i]?.name ?? `Robot ${i}`, view);
-      if (text) ctx.fillText(text, r.position.x, r.position.y + BODY / 2 + 14);
+      if (text) ctx.fillText(text, r.position.x, labelY(r.position.y, h));
     });
   }
 }

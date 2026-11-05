@@ -13,7 +13,6 @@ pub struct BattleArgs {
     pub arena: String,
     pub turns: u64,
     pub output: Option<PathBuf>,
-    pub no_open: bool,
     pub verbose: bool,
     pub robocode_path: Option<PathBuf>,
 }
