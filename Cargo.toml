@@ -1,6 +1,6 @@
 [package]
 name = "robocode"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["CryptoPatrick <cryptopatrick@gmail.com>"]
 
@@ -14,6 +14,8 @@ keywords = ["Simulator"]
 categories = ["development-tools"]
 license = "EPL-1.0"
 autotests = true
+# Only what is needed to build and test the library goes to crates.io.
+include = ["/src", "/examples", "/tests", "/README.md", "/LICENSE", "/COPYING", "/CHANGELOG.md"]
 [lib]
 name = "robocode"
 path = "src/lib.rs"
