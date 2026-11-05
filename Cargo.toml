@@ -32,4 +32,4 @@ verify = true
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_only)', 'cfg(verus_keep_ghost)'] }
 
 [workspace]
-members = [".", "exercises", "solutions", "wasm"]
+members = [".", "exercises", "solutions", "wasm", "cli"]
