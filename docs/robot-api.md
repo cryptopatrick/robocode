@@ -72,7 +72,8 @@ cmd.set_adjust_radar_for_gun_turn(true);   // also sets radar-for-robot-turn, as
 
 - Robots collide when their 36×36 bodies overlap. The robot driving into the other is at fault: it stops and moves back out, and both lose 0.6 energy. Both get `on_hit_robot`. As in Java, the at-fault robot's body doesn't turn on the next turn.
 - Bullets whose paths cross in the same turn destroy each other, and both owners get `on_bullet_hit_bullet`.
-- `Battle::run_rounds(rounds, max_turns)` plays several rounds. Each round starts fresh, with spawn points rotated so every robot gets every corner. **Robot instances keep their state between rounds**, like static fields in Java. It returns wins, rounds survived and bullet damage per robot.
+- `Battle::run_rounds(rounds, max_turns)` plays several rounds. Each round starts fresh, with spawn points rotated so every robot gets every corner. **Robot instances keep their state between rounds**, like static fields in Java. Java builds a *new* robot object every round, so a port of a Java robot should reset its per-round (non-`static`) state in `on_round_ended`, or its turn-0 setup won't run again. `run_rounds` returns wins, rounds survived and bullet damage per robot.
+- Energy: a robot is removed when its energy reaches 0 (classic Robocode disables it instead, until it's hit again).
 
 ## Units
 
