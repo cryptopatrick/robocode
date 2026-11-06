@@ -21,3 +21,4 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_only)', 'cfg(verus_k
 [lints.clippy]
 # Mirrors the Verus guide's style.
 len_zero = "allow"
+manual_clamp = "allow"
