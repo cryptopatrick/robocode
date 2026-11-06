@@ -7,3 +7,4 @@ pub mod template;
 pub mod workspace;
 pub mod compile;
 pub mod verify;
+pub mod battle;

@@ -45,7 +45,7 @@ pub fn materialize(dir: &Path, strategy_rs: &str, repo_root: &Path) -> std::io::
     std::fs::write(dir.join("Cargo.lock"), lock)?;
     std::fs::write(dir.join("src/lib.rs"), LIB_RS)?;
     std::fs::write(dir.join("src/strategy.rs"), strategy_rs)?;
-    std::fs::write(dir.join("src/bin/battle.rs"), BATTLE_RS)?;
+    std::fs::write(dir.join("src/bin/battle.rs"), BATTLE_RS.replace("{{LIB}}", &krate.replace('-', "_")))?;
     Ok(bin)
 }
 
