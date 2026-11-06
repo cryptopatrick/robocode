@@ -56,7 +56,7 @@ jobs:
       - name: Mutation checks (every ensures clause rejects a planted bug)
         run: cargo run -p verus-mutants
       - name: RoboCheck end-to-end (candidates verified with Verus, then battled)
-        run: cargo test -p robocheck --test end_to_end -- --ignored --test-threads 1
+        run: ROBOCHECK_VERUS_DIR="$HOME/verus/verus-x86-linux" cargo test -p robocheck --test end_to_end -- --ignored --test-threads 1
 
   guide:
     name: Guide
