@@ -242,6 +242,12 @@ impl Commands {
     pub fn adjust_gun_for_robot_turn(&self) -> Option<bool> {
         self.adjust_gun_for_robot_turn
     }
+    pub fn adjust_radar_for_robot_turn(&self) -> Option<bool> {
+        self.adjust_radar_for_robot_turn
+    }
+    pub fn adjust_radar_for_gun_turn(&self) -> Option<bool> {
+        self.adjust_radar_for_gun_turn
+    }
 
     pub fn max_velocity(&self) -> Option<f64> {
         self.max_velocity

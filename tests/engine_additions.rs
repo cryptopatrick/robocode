@@ -264,3 +264,11 @@ fn parallel_bullets_do_not_collide() {
     }
     assert_eq!((misses, collisions), (2, 0));
 }
+
+#[test]
+fn commands_expose_every_flag_they_carry() {
+    let mut c = Commands::default();
+    c.set_adjust_radar_for_robot_turn(true);
+    c.set_adjust_radar_for_gun_turn(false);
+    assert_eq!((c.adjust_radar_for_robot_turn(), c.adjust_radar_for_gun_turn()), (Some(true), Some(false)));
+}
