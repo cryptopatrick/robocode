@@ -74,3 +74,21 @@ file = src/strategy/targeting.rs
 find = return None;
 replace = return Some(0);
 expect = r is None <==> targets@.len() == 0
+
+id = drives-into-near-wall
+file = src/robots/safe_shooter.rs
+find = if !toward_near_wall(obs, h) {
+replace = if true {
+expect = !heading_into_near_wall(*obs, obs.heading.0 as int)
+
+id = reverses-into-near-wall
+file = src/robots/safe_shooter.rs
+find = } else if !toward_near_wall(obs, back) {
+replace = } else if true {
+expect = reverse_heading(obs.heading.0 as int)
+
+id = wall-margin-off-by-one
+file = src/robots/safe_shooter.rs
+find = let left = obs.x < WALL_MARGIN && h > 1800;
+replace = let left = obs.x < WALL_MARGIN - 1 && h > 1800;
+expect = r == heading_into_near_wall(*obs, h as int)

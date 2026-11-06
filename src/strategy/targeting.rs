@@ -11,6 +11,8 @@ use crate::strategy::TargetInfo;
     ensures
         r matches Some(i) ==> i < targets@.len()
             && forall|j: int| 0 <= j < targets@.len() ==> targets@[i as int].distance <= targets@[j].distance,
+        // First on ties: every earlier target is strictly farther.
+        r matches Some(i) ==> forall|j: int| 0 <= j < i ==> targets@[j].distance > targets@[i as int].distance,
         r is None <==> targets@.len() == 0,
 ))]
 pub fn closest_target(targets: &[TargetInfo]) -> Option<usize> {
@@ -25,6 +27,7 @@ pub fn closest_target(targets: &[TargetInfo]) -> Option<usize> {
             1 <= i <= targets@.len(),
             best < i,
             forall|j: int| 0 <= j < i ==> targets@[best as int].distance <= targets@[j].distance,
+            forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
         decreases targets@.len() - i
     ))]
     while i < targets.len() {

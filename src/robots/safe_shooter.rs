@@ -64,6 +64,20 @@ pub open spec fn aimed(obs: Observation) -> bool {
         && -AIM_TOLERANCE <= spec_angle_diff(t.bearing.0 as int, obs.gun_heading.0 as int) <= AIM_TOLERANCE
 }
 
+/// Moving in direction `h` (decidegrees) heads into a wall the robot is
+/// already within [`WALL_MARGIN`] of.
+pub open spec fn heading_into_near_wall(obs: Observation, h: int) -> bool {
+    ||| obs.x < WALL_MARGIN && h > 1800
+    ||| obs.x > obs.field_width - WALL_MARGIN && 0 < h < 1800
+    ||| obs.y < WALL_MARGIN && (h < 900 || h > 2700)
+    ||| obs.y > obs.field_height - WALL_MARGIN && 900 < h < 2700
+}
+
+/// The opposite direction: where the robot goes when it drives backward.
+pub open spec fn reverse_heading(h: int) -> int {
+    if h >= 1800 { h - 1800 } else { h + 1800 }
+}
+
 /// Ready to fire: a target scanned this turn, a cool gun aimed at it, and
 /// more energy than the smallest shot SafeShooter uses (1.0).
 pub open spec fn ready(obs: Observation) -> bool {
@@ -111,6 +125,9 @@ pub fn is_aimed(obs: &Observation) -> bool {
         // never hold fire when ready. Without this clause a robot that never
         // fires would satisfy the spec.
         r.fire is Some <==> ready(*obs),
+        // Never drives into a wall it is already close to.
+        r.ahead matches Some(a) ==> (a > 0 ==> !heading_into_near_wall(*obs, obs.heading.0 as int)),
+        r.ahead matches Some(a) ==> (a < 0 ==> !heading_into_near_wall(*obs, reverse_heading(obs.heading.0 as int))),
 ))]
 pub fn decide(obs: &Observation) -> Action {
     let (ahead, turn_body) = movement(obs);
@@ -172,10 +189,11 @@ fn radar_turn(obs: &Observation) -> i32 {
 /// Whether travelling in direction `h` (decidegrees) heads into a wall the
 /// robot is already within [`WALL_MARGIN`] of.
 #[cfg_attr(feature = "verus", verus_verify)]
-#[cfg_attr(feature = "verus", verus_spec(
+#[cfg_attr(feature = "verus", verus_spec(r =>
     requires
         0 <= h < 3600,
         well_formed(*obs),
+    ensures r == heading_into_near_wall(*obs, h as int),
 ))]
 fn toward_near_wall(obs: &Observation, h: i32) -> bool {
     let left = obs.x < WALL_MARGIN && h > 1800;
@@ -188,8 +206,11 @@ fn toward_near_wall(obs: &Observation, h: i32) -> bool {
 /// Strafe perpendicular to the target, driving forward or backward, whichever
 /// does not head into a nearby wall. Returns `(ahead, turn_body)`.
 #[cfg_attr(feature = "verus", verus_verify)]
-#[cfg_attr(feature = "verus", verus_spec(
+#[cfg_attr(feature = "verus", verus_spec(r =>
     requires well_formed(*obs),
+    ensures
+        r.0 > 0 ==> !heading_into_near_wall(*obs, obs.heading.0 as int),
+        r.0 < 0 ==> !heading_into_near_wall(*obs, reverse_heading(obs.heading.0 as int)),
 ))]
 fn movement(obs: &Observation) -> (i32, Option<i32>) {
     let h = obs.heading.0;
