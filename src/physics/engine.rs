@@ -4,8 +4,8 @@ use crate::geometry::{
 };
 use crate::physics::bullet::BulletState;
 use crate::physics::events::{
-    BulletFired, BulletImpact, BulletMissed, ScannedRobot, TurnEvents,
-    WallCollision,
+    BulletFired, BulletImpact, BulletMissed, RobotCollision, ScannedRobot,
+    TurnEvents, WallCollision,
 };
 use crate::physics::robot::{RobotId, RobotState, TurretMode};
 use crate::physics::snapshot::TurnSnapshot;
@@ -99,6 +99,7 @@ impl BattleState {
             }
         }
 
+        self.check_robot_collisions(&mut events);
         self.scan(&mut events);
         self.handle_firing(&mut events);
         self.apply_bullets(&mut events);
@@ -214,6 +215,48 @@ impl BattleState {
         }
 
         self.bullets.retain(|b| b.alive);
+    }
+
+    /// Robot-robot collisions, after movement and walls (Java
+    /// `RobotPeer.checkRobotCollision`). Two living robots collide when their
+    /// 36×36 bounding boxes overlap. A robot moving toward the other is at
+    /// fault: it stops, its move this turn is undone, and both lose
+    /// `ROBOT_HIT_DAMAGE`.
+    fn check_robot_collisions(&mut self, events: &mut TurnEvents) {
+        for i in 0..self.robots.len() {
+            self.robots[i].in_collision = false;
+            if !self.robots[i].alive {
+                continue;
+            }
+            for j in 0..self.robots.len() {
+                if i == j || !self.robots[j].alive {
+                    continue;
+                }
+                let (a, b) = (&self.robots[i], &self.robots[j]);
+                let size = a.radius + b.radius;
+                let overlap = (a.position.x - b.position.x).abs() < size
+                    && (a.position.y - b.position.y).abs() < size;
+                if !overlap {
+                    continue;
+                }
+                let bearing = normalize_relative_angle(angle_to_point(a.position, b.position) - a.heading);
+                let toward = (a.velocity > 0.0 && bearing > -90.0 && bearing < 90.0)
+                    || (a.velocity < 0.0 && (bearing < -90.0 || bearing > 90.0));
+                if !toward {
+                    continue;
+                }
+                let (id_a, id_b) = (a.id, b.id);
+                let robot = &mut self.robots[i];
+                robot.position = robot.position.translate(robot.heading, -robot.velocity);
+                robot.velocity = 0.0;
+                robot.control.distance_remaining = 0.0;
+                robot.in_collision = true;
+                robot.energy -= rules::ROBOT_HIT_DAMAGE;
+                self.robots[j].energy -= rules::ROBOT_HIT_DAMAGE;
+                events.robot_collisions.push(RobotCollision { robot_id: id_a, other_robot_id: id_b, at_fault: true });
+                events.robot_collisions.push(RobotCollision { robot_id: id_b, other_robot_id: id_a, at_fault: false });
+            }
+        }
     }
 
     /// Radar scan: each living robot detects every other living robot within

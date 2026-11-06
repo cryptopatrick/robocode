@@ -130,3 +130,77 @@ fn commands_set_turret_mode_and_flags() {
     assert_eq!(c.turret_mode(), Some(ApiMode::Java));
     assert_eq!(c.adjust_gun_for_robot_turn(), Some(true));
 }
+
+// ---- Task 3: robot-robot collisions -------------------------------------
+
+use robocode::physics::{RobotCollision, TurnEvents};
+
+/// A drives right (heading 90) toward B, which sits still 40 px away.
+fn ram() -> BattleState {
+    let mut a = RobotState::new(0, Point::new(400.0, 300.0));
+    a.heading = 90.0;
+    a.set_ahead(100.0);
+    let b = RobotState::new(1, Point::new(440.0, 300.0));
+    BattleState::new(BattleConfig::default(), vec![a, b])
+}
+
+fn step_until_collision(b: &mut BattleState) -> TurnEvents {
+    for _ in 0..20 {
+        let e = b.step();
+        if !e.robot_collisions.is_empty() {
+            return e;
+        }
+    }
+    panic!("no collision");
+}
+
+#[test]
+fn ramming_costs_both_and_stops_the_rammer() {
+    let mut b = ram();
+    step_until_collision(&mut b);
+    let (a, v) = (&b.robots[0], &b.robots[1]);
+    assert_eq!(a.energy, 100.0 - 0.6);
+    assert_eq!(v.energy, 100.0 - 0.6);
+    assert_eq!(a.velocity, 0.0);
+    assert_eq!(a.control.distance_remaining, 0.0);
+    assert!(v.position.x - a.position.x >= 36.0, "rammer moved back out: {}", v.position.x - a.position.x);
+}
+
+#[test]
+fn collision_events_mark_fault() {
+    let mut b = ram();
+    let e = step_until_collision(&mut b);
+    let pairs: Vec<(usize, usize, bool)> = e.robot_collisions.iter().map(|c: &RobotCollision| (c.robot_id, c.other_robot_id, c.at_fault)).collect();
+    assert_eq!(pairs, [(0, 1, true), (1, 0, false)]);
+}
+
+#[test]
+fn reversing_into_a_robot_is_also_at_fault() {
+    let mut a = RobotState::new(0, Point::new(400.0, 300.0));
+    a.heading = 270.0; // facing left, B is behind (to the right)
+    a.set_ahead(-100.0);
+    let b = RobotState::new(1, Point::new(440.0, 300.0));
+    let mut bs = BattleState::new(BattleConfig::default(), vec![a, b]);
+    let e = step_until_collision(&mut bs);
+    assert!(e.robot_collisions.iter().any(|c| c.robot_id == 0 && c.at_fault));
+}
+
+#[test]
+fn collision_skips_the_next_body_turn() {
+    let mut b = ram();
+    step_until_collision(&mut b);
+    b.robots[0].set_turn_right(30.0);
+    b.step();
+    assert_eq!(b.robots[0].heading, 90.0);
+    b.step();
+    assert!(b.robots[0].heading > 90.0, "turns again once clear");
+}
+
+#[test]
+fn ramming_can_kill() {
+    let mut b = ram();
+    b.robots[1].energy = 0.5;
+    let e = step_until_collision(&mut b);
+    assert!(!b.robots[1].alive);
+    assert_eq!(e.robot_deaths, vec![1]);
+}

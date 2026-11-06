@@ -108,6 +108,18 @@ pub struct HitWallEvent {
     pub bearing: f64,
 }
 
+/// You collided with another robot.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HitRobotEvent {
+    pub name: String,
+    /// Bearing to the other robot relative to your heading, in `(-180, 180]`.
+    pub bearing: f64,
+    /// The other robot's energy after the collision.
+    pub energy: f64,
+    /// True if you drove into it.
+    pub at_fault: bool,
+}
+
 /// Another robot died.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RobotDeathEvent {
@@ -122,6 +134,7 @@ pub enum Event {
     BulletHit(BulletHitEvent),
     BulletMissed(BulletMissedEvent),
     HitWall(HitWallEvent),
+    HitRobot(HitRobotEvent),
     RobotDeath(RobotDeathEvent),
 }
 
@@ -283,6 +296,7 @@ pub trait Robot {
     fn on_bullet_hit(&mut self, _event: &BulletHitEvent, _status: &Status, _cmd: &mut Commands) {}
     fn on_bullet_missed(&mut self, _event: &BulletMissedEvent, _status: &Status, _cmd: &mut Commands) {}
     fn on_hit_wall(&mut self, _event: &HitWallEvent, _status: &Status, _cmd: &mut Commands) {}
+    fn on_hit_robot(&mut self, _event: &HitRobotEvent, _status: &Status, _cmd: &mut Commands) {}
     fn on_robot_death(&mut self, _event: &RobotDeathEvent, _status: &Status, _cmd: &mut Commands) {}
 
     /// For fixed-point strategy robots: the observation and action of this

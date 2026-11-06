@@ -6,7 +6,7 @@
 //! take part through [`StrategyRobot`], which builds their [`Observation`].
 
 use crate::api::{
-    BulletHitEvent, BulletMissedEvent, Commands, Event, HitByBulletEvent, HitWallEvent, Robot,
+    BulletHitEvent, BulletMissedEvent, Commands, Event, HitByBulletEvent, HitRobotEvent, HitWallEvent, Robot,
     RobotDeathEvent, ScannedRobotEvent, Status, relative_bearing,
 };
 use crate::geometry::angle_to_point;
@@ -292,6 +292,7 @@ impl Battle {
                     Event::BulletHit(e) => robot.on_bullet_hit(e, &status, &mut cmd),
                     Event::BulletMissed(e) => robot.on_bullet_missed(e, &status, &mut cmd),
                     Event::HitWall(e) => robot.on_hit_wall(e, &status, &mut cmd),
+                    Event::HitRobot(e) => robot.on_hit_robot(e, &status, &mut cmd),
                     Event::RobotDeath(e) => robot.on_robot_death(e, &status, &mut cmd),
                 }
             }
@@ -352,6 +353,18 @@ impl Battle {
                 let robot = &self.state.robots[i];
                 let bearing = relative_bearing(wall_bearing(robot, &config), robot.heading);
                 pending[i].push(Event::HitWall(HitWallEvent { bearing }));
+            }
+        }
+        for c in &events.robot_collisions {
+            if let (Some(i), Some(o)) = (index(c.robot_id), index(c.other_robot_id)) {
+                let (me, other) = (&self.state.robots[i], &self.state.robots[o]);
+                let bearing = relative_bearing(angle_to_point(me.position, other.position), me.heading);
+                pending[i].push(Event::HitRobot(HitRobotEvent {
+                    name: self.names[o].clone(),
+                    bearing,
+                    energy: other.energy,
+                    at_fault: c.at_fault,
+                }));
             }
         }
         for &dead in &events.robot_deaths {

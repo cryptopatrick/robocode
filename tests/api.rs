@@ -274,3 +274,33 @@ fn status_reports_remaining_motion() {
     assert_eq!(s.time, 1);
     assert_eq!((s.battlefield_width, s.battlefield_height), (800.0, 600.0));
 }
+
+#[test]
+fn hit_robot_event_for_both() {
+    struct Rammer(Log);
+    impl Robot for Rammer {
+        fn name(&self) -> &str { "Rammer" }
+        fn run(&mut self, _s: &Status, c: &mut Commands) { c.set_ahead(100.0); }
+        fn on_hit_robot(&mut self, e: &robocode::api::HitRobotEvent, _s: &Status, _c: &mut Commands) {
+            self.0.borrow_mut().push(format!("hit-robot {} {:.0} {}", e.name, e.bearing, e.at_fault));
+        }
+    }
+    struct Victim(Log);
+    impl Robot for Victim {
+        fn name(&self) -> &str { "Victim" }
+        fn run(&mut self, _s: &Status, _c: &mut Commands) {}
+        fn on_hit_robot(&mut self, e: &robocode::api::HitRobotEvent, _s: &Status, _c: &mut Commands) {
+            self.0.borrow_mut().push(format!("hit-robot {} {:.0} {} {:.1}", e.name, e.bearing, e.at_fault, e.energy));
+        }
+    }
+    let (rl, vl): (Log, Log) = (Rc::default(), Rc::default());
+    let mut bt = battle(vec![
+        (Box::new(Rammer(rl.clone())), (400.0, 300.0, 90.0)),
+        (Box::new(Victim(vl.clone())), (440.0, 300.0, 0.0)),
+    ]);
+    for _ in 0..10 {
+        bt.step();
+    }
+    assert!(rl.borrow().contains(&"hit-robot Victim 0 true".to_string()), "{:?}", rl.borrow());
+    assert!(vl.borrow().contains(&"hit-robot Rammer -90 false 99.4".to_string()), "{:?}", vl.borrow());
+}
