@@ -121,7 +121,7 @@ mod tests {
     use super::*;
     use crate::candidate::parse;
     use crate::template::{assemble, sha256_hex};
-    use crate::workspace::{materialize, plain_target_dir, repo_root, tests::temp_dir};
+    use crate::workspace::{materialize, plain_target_dir, repo_root, tests::{shared_target, temp_dir}};
 
     const LIMIT: std::time::Duration = std::time::Duration::from_secs(120);
 
@@ -139,6 +139,7 @@ mod tests {
 
     #[test]
     fn battle_reports_the_hash_of_strategy_rs() {
+        let _guard = shared_target();
         let (dir, strategy) = ready("battle-hash");
         let r = run_battle(&dir, &plain_target_dir(), "SittingDuck", 2000, &dir.join("recording.json"), LIMIT).unwrap();
         assert_eq!(r.artifact_hash, sha256_hex(strategy.as_bytes()));
@@ -150,6 +151,7 @@ mod tests {
 
     #[test]
     fn battle_is_deterministic() {
+        let _guard = shared_target();
         let (dir, _) = ready("battle-det");
         let t = plain_target_dir();
         let a = run_battle(&dir, &t, "SittingDuck", 500, &dir.join("a.json"), LIMIT).unwrap();
@@ -159,6 +161,7 @@ mod tests {
 
     #[test]
     fn unknown_opponent_is_an_error() {
+        let _guard = shared_target();
         let (dir, _) = ready("battle-unknown");
         let e = run_battle(&dir, &plain_target_dir(), "Nobody", 100, &dir.join("r.json"), LIMIT).unwrap_err();
         assert!(e.to_string().contains("SittingDuck"), "{e}");
@@ -167,6 +170,7 @@ mod tests {
     /// Review finding 3: a candidate that hangs must not hang robocheck.
     #[test]
     fn hung_battle_times_out() {
+        let _guard = shared_target();
         let (dir, _) = ready_fixture("battle-hang", "hangs");
         let t0 = std::time::Instant::now();
         let e = run_battle(&dir, &plain_target_dir(), "SittingDuck", 100, &dir.join("r.json"), std::time::Duration::from_secs(3))

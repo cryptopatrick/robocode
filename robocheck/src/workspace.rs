@@ -53,6 +53,15 @@ pub fn materialize(dir: &Path, strategy_rs: &str, repo_root: &Path) -> std::io::
 pub(crate) mod tests {
     use super::*;
 
+    /// Held by every test that builds into the shared plain target dir: two
+    /// builds of the same candidate re-link its battle binary, and a test can
+    /// otherwise try to run it in the moment it is being replaced.
+    pub(crate) static SHARED_TARGET: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    pub(crate) fn shared_target() -> std::sync::MutexGuard<'static, ()> {
+        SHARED_TARGET.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     /// A fresh, empty work directory for a test.
     pub(crate) fn temp_dir(name: &str) -> std::path::PathBuf {
         let d = std::env::temp_dir().join(format!("robocheck-test-{name}-{}", std::process::id()));

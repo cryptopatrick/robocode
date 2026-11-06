@@ -33,7 +33,7 @@ mod tests {
     use super::*;
     use crate::candidate::parse;
     use crate::template::assemble;
-    use crate::workspace::{materialize, plain_target_dir, repo_root, tests::temp_dir};
+    use crate::workspace::{materialize, plain_target_dir, repo_root, tests::{shared_target, temp_dir}};
 
     /// `tag` keeps each test's directory its own (tests run in parallel).
     fn materialized(fixture: &str, tag: &str) -> std::path::PathBuf {
@@ -45,6 +45,7 @@ mod tests {
 
     #[test]
     fn safe_shooter_fixture_builds() {
+        let _guard = shared_target();
         let dir = materialized("safe_shooter", "builds");
         assert_eq!(build(&dir, &plain_target_dir()), BuildOutcome::Ok);
     }
@@ -68,6 +69,7 @@ mod tests {
 
     #[test]
     fn type_error_is_build_failed() {
+        let _guard = shared_target();
         let dir = materialized("type_error", "fails");
         match build(&dir, &plain_target_dir()) {
             BuildOutcome::Failed { log } => assert!(log.contains("mismatched types"), "{log}"),
