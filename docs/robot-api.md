@@ -48,13 +48,31 @@ let outcome = battle.run(5000);
    - `on_scanned_robot`, nearest robot first;
    - `on_hit_by_bullet`;
    - `on_bullet_hit`;
+   - `on_bullet_hit_bullet`;
    - `on_bullet_missed`;
    - `on_hit_wall`;
+   - `on_hit_robot`;
    - `on_robot_death`.
 2. `run` is called.
 3. The commands you set are carried out. For each kind (move, body turn, gun turn, radar turn, fire), the **last** call this turn wins. A kind you never set keeps whatever is still pending, so `set_ahead(500.0)` keeps the robot moving over many turns.
 
-Dead robots get no calls.
+Dead robots get no calls, except `on_death`, which is called right away when your robot dies. At the end of a round, `on_win` goes to the last robot standing, and `on_round_ended` goes to everyone.
+
+## Turret mode
+
+By default the gun and radar are **independent**: turning the body never moves them. Classic Robocode works differently. Turning the body drags the gun and radar along, and turning the gun drags the radar, unless the robot calls `setAdjustGunForRobotTurn(true)` and friends. To run a robot ported from Java the way its author intended, switch to Java mode once (it stays in effect):
+
+```rust
+cmd.set_turret_mode(TurretMode::Java);
+cmd.set_adjust_gun_for_robot_turn(true);   // as the Java robot did
+cmd.set_adjust_radar_for_gun_turn(true);   // also sets radar-for-robot-turn, as in Java
+```
+
+## Collisions and rounds
+
+- Robots collide when their 36×36 bodies overlap. The robot driving into the other is at fault: it stops and moves back out, and both lose 0.6 energy. Both get `on_hit_robot`. As in Java, the at-fault robot's body doesn't turn on the next turn.
+- Bullets whose paths cross in the same turn destroy each other, and both owners get `on_bullet_hit_bullet`.
+- `Battle::run_rounds(rounds, max_turns)` plays several rounds. Each round starts fresh, with spawn points rotated so every robot gets every corner. **Robot instances keep their state between rounds**, like static fields in Java. It returns wins, rounds survived and bullet damage per robot.
 
 ## Units
 
@@ -82,16 +100,18 @@ If several robots share a name, the battle numbers them like classic RoboCode: `
 | `setTurnRight(d)` / `setTurnLeft(d)` | `cmd.set_turn_right(d)` / `cmd.set_turn_left(d)` |
 | `setTurnGunRight(d)`, `setTurnRadarRight(d)` (and `Left`) | `cmd.set_turn_gun_right(d)`, `cmd.set_turn_radar_right(d)` (and `_left`) |
 | `setFire(p)` | `cmd.set_fire(p)` |
+| `setMaxVelocity(v)`, `setMaxTurnRate(d)` | `cmd.set_max_velocity(v)`, `cmd.set_max_turn_rate(d)` |
+| `setAdjustGunForRobotTurn(b)`, `setAdjustRadarForRobotTurn(b)`, `setAdjustRadarForGunTurn(b)` | the same names in snake_case, plus `cmd.set_turret_mode(TurretMode::Java)` |
 | `getX()`, `getEnergy()`, `getHeading()`, `getGunHeat()`, … | `status.x`, `status.energy`, `status.heading`, `status.gun_heat`, … |
 | `getDistanceRemaining()`, `getTurnRemaining()`, … | `status.distance_remaining`, `status.turn_remaining`, … |
 | `getOthers()`, `getTime()` | `status.others`, `status.time` |
 | `onScannedRobot(e)`: `getBearing()`, `getDistance()`, `getEnergy()`, `getHeading()`, `getVelocity()`, `getName()` | `on_scanned_robot(e, …)`: `e.bearing`, `e.distance`, `e.energy`, `e.heading`, `e.velocity`, `e.name`; plus `e.absolute_bearing` |
-| `onHitByBullet`, `onBulletHit`, `onBulletMissed`, `onHitWall`, `onRobotDeath` | `on_hit_by_bullet`, `on_bullet_hit`, `on_bullet_missed`, `on_hit_wall`, `on_robot_death` |
+| `onHitByBullet`, `onBulletHit`, `onBulletHitBullet`, `onBulletMissed`, `onHitWall`, `onHitRobot`, `onRobotDeath` | `on_hit_by_bullet`, `on_bullet_hit`, `on_bullet_hit_bullet`, `on_bullet_missed`, `on_hit_wall`, `on_hit_robot`, `on_robot_death` |
+| `onDeath`, `onWin`, `onRoundEnded` | `on_death(status)`, `on_win(status)`, `on_round_ended(event)` |
 
 **Not supported yet:**
 - the blocking `Robot` style (`ahead(100)` that waits);
-- `onHitRobot` (the engine has no robot-to-robot collisions yet);
-- `onWin` / `onDeath` / `onRoundEnded` (no rounds or scoring yet);
+- Robocode's full scoring (rounds report wins, rounds survived and bullet damage instead);
 - custom events and `waitFor`;
 - teams and messages;
 - data files;

@@ -18,6 +18,7 @@ cargo robocode new hunter                              # writes hunter.rs from t
 cargo robocode battle hunter.rs                        # vs SittingDuck, opens the browser
 cargo robocode battle hunter.rs --vs Circler --vs ../friends/bot.rs
 cargo robocode battle hunter.rs --arena 1000x1000 --turns 3000
+cargo robocode battle hunter.rs --vs Circler --rounds 10       # each round's winner, then totals
 cargo robocode battle hunter.rs --output battle.json --no-open   # just save the recording
 cargo robocode verify hunter.rs                        # run Verus on it
 cargo robocode list                                    # built-in robots

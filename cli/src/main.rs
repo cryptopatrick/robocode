@@ -37,9 +37,13 @@ enum Command {
         /// Battlefield size.
         #[arg(long, default_value = "800x600")]
         arena: String,
-        /// Turn limit.
+        /// Turn limit (per round).
         #[arg(long, default_value_t = 5000)]
         turns: u64,
+        /// Play several rounds and print each round's winner and the totals
+        /// (the recording shows round 1).
+        #[arg(long, default_value_t = 1)]
+        rounds: u32,
         /// Also save the recording to this file.
         #[arg(long)]
         output: Option<PathBuf>,
@@ -103,9 +107,9 @@ fn main() -> ExitCode {
             Ok(())
         }
         Command::New { name } => new_robot(&name),
-        Command::Battle { robot, vs, arena, turns, output, no_open, verbose, robocode_path } => {
+        Command::Battle { robot, vs, arena, turns, rounds, output, no_open, verbose, robocode_path } => {
             let save_only = no_open && output.is_some();
-            let args = battle::BattleArgs { robot, vs, arena, turns, output, verbose, robocode_path };
+            let args = battle::BattleArgs { robot, vs, arena, turns, rounds, output, verbose, robocode_path };
             battle::run(&args).and_then(|json| if save_only { Ok(()) } else { serve::serve(json, no_open) })
         }
         Command::Verify { robot, robocode_path } => verify::run(&robot, robocode_path.as_deref()),

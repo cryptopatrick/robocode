@@ -122,3 +122,25 @@ fn second_run_reuses_cache() {
     assert!(second.status.success(), "{}", stderr(&second));
     assert!(!stderr(&second).contains("Compiling robocode"), "{}", stderr(&second));
 }
+
+#[test]
+fn rounds_print_each_round_and_totals() {
+    let dir = temp_dir("rounds");
+    new_robot(&dir, "bot");
+    let out = tool(&["battle", "bot.rs", "--rounds", "3", "--output", "b.json", "--no-open"], &dir);
+    assert!(out.status.success(), "{}", stderr(&out));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    for line in ["Round 1:", "Round 2:", "Round 3:", "Wins: Bot "] {
+        assert!(stdout.contains(line), "missing {line:?} in:\n{stdout}");
+    }
+    assert!(std::fs::read_to_string(dir.join("b.json")).unwrap().starts_with(r#"{"format":"roboverus-recording""#));
+}
+
+#[test]
+fn rounds_out_of_range_exits_2() {
+    let dir = temp_dir("rounds-bad");
+    new_robot(&dir, "bot");
+    let out = tool(&["battle", "bot.rs", "--rounds", "0", "--no-open"], &dir);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(stderr(&out).contains("--rounds must be 1..=100"), "{}", stderr(&out));
+}
