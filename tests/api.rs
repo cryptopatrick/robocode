@@ -304,3 +304,28 @@ fn hit_robot_event_for_both() {
     assert!(rl.borrow().contains(&"hit-robot Victim 0 true".to_string()), "{:?}", rl.borrow());
     assert!(vl.borrow().contains(&"hit-robot Rammer -90 false 99.4".to_string()), "{:?}", vl.borrow());
 }
+
+#[test]
+fn bullet_hit_bullet_event_for_both_owners() {
+    struct Shooter(&'static str, f64, Log);
+    impl Robot for Shooter {
+        fn name(&self) -> &str { self.0 }
+        fn run(&mut self, s: &Status, c: &mut Commands) {
+            if s.time == 0 { c.set_fire(self.1); }
+        }
+        fn on_bullet_hit_bullet(&mut self, e: &robocode::api::BulletHitBulletEvent, _s: &Status, _c: &mut Commands) {
+            self.2.borrow_mut().push(format!("bullet-hit-bullet {} {} {}", e.name, e.power, e.other_power));
+        }
+    }
+    let (al, bl): (Log, Log) = (Rc::default(), Rc::default());
+    let mut bt = battle(vec![
+        (Box::new(Shooter("A", 1.0, al.clone())), (400.0, 500.0, 0.0)),
+        (Box::new(Shooter("B", 3.0, bl.clone())), (400.0, 100.0, 0.0)),
+    ]);
+    bt.state_mut().robots[1].gun_heading = 180.0;
+    for _ in 0..40 {
+        bt.step();
+    }
+    assert_eq!(*al.borrow(), ["bullet-hit-bullet B 1 3"]);
+    assert_eq!(*bl.borrow(), ["bullet-hit-bullet A 3 1"]);
+}

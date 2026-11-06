@@ -6,7 +6,7 @@
 //! take part through [`StrategyRobot`], which builds their [`Observation`].
 
 use crate::api::{
-    BulletHitEvent, BulletMissedEvent, Commands, Event, HitByBulletEvent, HitRobotEvent, HitWallEvent, Robot,
+    BulletHitBulletEvent, BulletHitEvent, BulletMissedEvent, Commands, Event, HitByBulletEvent, HitRobotEvent, HitWallEvent, Robot,
     RobotDeathEvent, ScannedRobotEvent, Status, relative_bearing,
 };
 use crate::geometry::angle_to_point;
@@ -290,6 +290,7 @@ impl Battle {
                     Event::ScannedRobot(e) => robot.on_scanned_robot(e, &status, &mut cmd),
                     Event::HitByBullet(e) => robot.on_hit_by_bullet(e, &status, &mut cmd),
                     Event::BulletHit(e) => robot.on_bullet_hit(e, &status, &mut cmd),
+                    Event::BulletHitBullet(e) => robot.on_bullet_hit_bullet(e, &status, &mut cmd),
                     Event::BulletMissed(e) => robot.on_bullet_missed(e, &status, &mut cmd),
                     Event::HitWall(e) => robot.on_hit_wall(e, &status, &mut cmd),
                     Event::HitRobot(e) => robot.on_hit_robot(e, &status, &mut cmd),
@@ -340,6 +341,20 @@ impl Battle {
                     name: self.names[v].clone(),
                     energy: self.state.robots[v].energy,
                     power: hit.power,
+                }));
+            }
+        }
+        for c in &events.bullet_hit_bullets {
+            if let (Some(a), Some(b)) = (index(c.owner), index(c.other_owner)) {
+                pending[a].push(Event::BulletHitBullet(BulletHitBulletEvent {
+                    name: self.names[b].clone(),
+                    power: c.power,
+                    other_power: c.other_power,
+                }));
+                pending[b].push(Event::BulletHitBullet(BulletHitBulletEvent {
+                    name: self.names[a].clone(),
+                    power: c.other_power,
+                    other_power: c.power,
                 }));
             }
         }

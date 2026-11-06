@@ -204,3 +204,50 @@ fn ramming_can_kill() {
     assert!(!b.robots[1].alive);
     assert_eq!(e.robot_deaths, vec![1]);
 }
+
+// ---- Task 4: bullet-on-bullet collisions --------------------------------
+
+/// A (bottom) fires up, B (top) fires down: the bullets meet in the middle.
+fn duel_of_bullets() -> BattleState {
+    let mut a = RobotState::new(0, Point::new(400.0, 500.0));
+    a.set_fire(1.0);
+    let mut b = RobotState::new(1, Point::new(400.0, 100.0));
+    b.gun_heading = 180.0;
+    b.set_fire(3.0);
+    BattleState::new(BattleConfig::default(), vec![a, b])
+}
+
+#[test]
+fn bullets_fired_at_each_other_collide() {
+    let mut bs = duel_of_bullets();
+    let (mut hits, mut misses, mut collisions) = (0, 0, Vec::new());
+    for _ in 0..40 {
+        let e = bs.step();
+        hits += e.bullet_hits.len();
+        misses += e.bullet_misses.len();
+        collisions.extend(e.bullet_hit_bullets);
+    }
+    assert_eq!((hits, misses, collisions.len()), (0, 0, 1));
+    let c = &collisions[0];
+    let mut owners = [c.owner, c.other_owner];
+    owners.sort();
+    assert_eq!(owners, [0, 1]);
+    assert!(bs.bullets.is_empty());
+    assert_eq!((bs.robots[0].energy, bs.robots[1].energy), (100.0 - 1.0, 100.0 - 3.0));
+}
+
+#[test]
+fn parallel_bullets_do_not_collide() {
+    let mut a = RobotState::new(0, Point::new(300.0, 500.0));
+    a.set_fire(1.0);
+    let mut b = RobotState::new(1, Point::new(500.0, 500.0));
+    b.set_fire(1.0);
+    let mut bs = BattleState::new(BattleConfig::default(), vec![a, b]);
+    let (mut misses, mut collisions) = (0, 0);
+    for _ in 0..40 {
+        let e = bs.step();
+        misses += e.bullet_misses.len();
+        collisions += e.bullet_hit_bullets.len();
+    }
+    assert_eq!((misses, collisions), (2, 0));
+}

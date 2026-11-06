@@ -4,7 +4,7 @@ use crate::geometry::{
 };
 use crate::physics::bullet::BulletState;
 use crate::physics::events::{
-    BulletFired, BulletImpact, BulletMissed, RobotCollision, ScannedRobot,
+    BulletFired, BulletHitBullet, BulletImpact, BulletMissed, RobotCollision, ScannedRobot,
     TurnEvents, WallCollision,
 };
 use crate::physics::robot::{RobotId, RobotState, TurretMode};
@@ -167,11 +167,34 @@ impl BattleState {
     }
 
     fn apply_bullets(&mut self, events: &mut TurnEvents) {
+        for bullet in self.bullets.iter_mut().filter(|b| b.alive) {
+            bullet.advance();
+        }
+
+        // Bullet on bullet (Java `BulletPeer.checkBulletCollision`): two bullets
+        // whose paths this turn cross destroy each other.
+        for i in 0..self.bullets.len() {
+            for j in (i + 1)..self.bullets.len() {
+                let (a, b) = (&self.bullets[i], &self.bullets[j]);
+                if a.alive && b.alive && segments_intersect(a.previous_position, a.position, b.previous_position, b.position) {
+                    events.bullet_hit_bullets.push(BulletHitBullet {
+                        bullet_id: a.id,
+                        owner: a.owner_id,
+                        power: a.power,
+                        other_bullet_id: b.id,
+                        other_owner: b.owner_id,
+                        other_power: b.power,
+                    });
+                    self.bullets[i].alive = false;
+                    self.bullets[j].alive = false;
+                }
+            }
+        }
+
         for bullet in &mut self.bullets {
             if !bullet.alive {
                 continue;
             }
-            bullet.advance();
             let mut hit_victim = None;
             for robot in &mut self.robots {
                 if !robot.alive || robot.id == bullet.owner_id {
@@ -459,4 +482,26 @@ fn arc_overlaps(sweep: f64, rel: f64, half_width: f64) -> bool {
     [rel - 360.0, rel, rel + 360.0]
         .iter()
         .any(|r| r + half_width >= lo && r - half_width <= hi)
+}
+
+/// Whether segments p1–p2 and q1–q2 intersect (touching counts, like Java's
+/// `Line2D.intersectsLine`).
+fn segments_intersect(p1: Point, p2: Point, q1: Point, q2: Point) -> bool {
+    fn cross(o: Point, a: Point, b: Point) -> f64 {
+        (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+    }
+    fn on_segment(a: Point, b: Point, p: Point) -> bool {
+        p.x >= a.x.min(b.x) && p.x <= a.x.max(b.x) && p.y >= a.y.min(b.y) && p.y <= a.y.max(b.y)
+    }
+    let d1 = cross(q1, q2, p1);
+    let d2 = cross(q1, q2, p2);
+    let d3 = cross(p1, p2, q1);
+    let d4 = cross(p1, p2, q2);
+    if ((d1 > 0.0 && d2 < 0.0) || (d1 < 0.0 && d2 > 0.0)) && ((d3 > 0.0 && d4 < 0.0) || (d3 < 0.0 && d4 > 0.0)) {
+        return true;
+    }
+    (d1 == 0.0 && on_segment(q1, q2, p1))
+        || (d2 == 0.0 && on_segment(q1, q2, p2))
+        || (d3 == 0.0 && on_segment(p1, p2, q1))
+        || (d4 == 0.0 && on_segment(p1, p2, q2))
 }

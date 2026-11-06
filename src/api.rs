@@ -95,6 +95,16 @@ pub struct BulletHitEvent {
     pub power: f64,
 }
 
+/// One of your bullets collided with another bullet; both are gone.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BulletHitBulletEvent {
+    /// Owner of the other bullet.
+    pub name: String,
+    /// Your bullet's power.
+    pub power: f64,
+    pub other_power: f64,
+}
+
 /// One of your bullets left the battlefield without hitting anything.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BulletMissedEvent {
@@ -132,6 +142,7 @@ pub enum Event {
     ScannedRobot(ScannedRobotEvent),
     HitByBullet(HitByBulletEvent),
     BulletHit(BulletHitEvent),
+    BulletHitBullet(BulletHitBulletEvent),
     BulletMissed(BulletMissedEvent),
     HitWall(HitWallEvent),
     HitRobot(HitRobotEvent),
@@ -294,6 +305,7 @@ pub trait Robot {
     fn on_scanned_robot(&mut self, _event: &ScannedRobotEvent, _status: &Status, _cmd: &mut Commands) {}
     fn on_hit_by_bullet(&mut self, _event: &HitByBulletEvent, _status: &Status, _cmd: &mut Commands) {}
     fn on_bullet_hit(&mut self, _event: &BulletHitEvent, _status: &Status, _cmd: &mut Commands) {}
+    fn on_bullet_hit_bullet(&mut self, _event: &BulletHitBulletEvent, _status: &Status, _cmd: &mut Commands) {}
     fn on_bullet_missed(&mut self, _event: &BulletMissedEvent, _status: &Status, _cmd: &mut Commands) {}
     fn on_hit_wall(&mut self, _event: &HitWallEvent, _status: &Status, _cmd: &mut Commands) {}
     fn on_hit_robot(&mut self, _event: &HitRobotEvent, _status: &Status, _cmd: &mut Commands) {}

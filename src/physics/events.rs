@@ -7,6 +7,7 @@ pub struct TurnEvents {
     pub bullet_fired: Vec<BulletFired>,
     pub bullet_hits: Vec<BulletImpact>,
     pub bullet_misses: Vec<BulletMissed>,
+    pub bullet_hit_bullets: Vec<BulletHitBullet>,
     pub wall_collisions: Vec<WallCollision>,
     pub robot_collisions: Vec<RobotCollision>,
     pub robot_deaths: Vec<RobotId>,
@@ -26,6 +27,17 @@ pub struct BulletImpact {
     pub victim: RobotId,
     pub bullet_id: BulletId,
     pub power: f64,
+}
+
+/// Two bullets collided in mid-air; both are gone.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BulletHitBullet {
+    pub bullet_id: BulletId,
+    pub owner: RobotId,
+    pub power: f64,
+    pub other_bullet_id: BulletId,
+    pub other_owner: RobotId,
+    pub other_power: f64,
 }
 
 /// A bullet that left the battlefield without hitting anything.
