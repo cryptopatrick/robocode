@@ -133,6 +133,8 @@ pub struct Commands {
     turn_gun: Option<f64>,
     turn_radar: Option<f64>,
     fire: Option<f64>,
+    max_velocity: Option<f64>,
+    max_turn_rate: Option<f64>,
 }
 
 impl Commands {
@@ -168,6 +170,22 @@ impl Commands {
         self.fire = Some(power);
     }
 
+    /// Never go faster than `velocity` px/turn (0 to 8) until changed.
+    pub fn set_max_velocity(&mut self, velocity: f64) {
+        self.max_velocity = Some(velocity);
+    }
+    /// Never turn the body faster than `degrees` per turn (0 to 10) until changed.
+    pub fn set_max_turn_rate(&mut self, degrees: f64) {
+        self.max_turn_rate = Some(degrees);
+    }
+
+    pub fn max_velocity(&self) -> Option<f64> {
+        self.max_velocity
+    }
+    pub fn max_turn_rate(&self) -> Option<f64> {
+        self.max_turn_rate
+    }
+
     pub fn ahead(&self) -> Option<f64> {
         self.ahead
     }
@@ -186,6 +204,12 @@ impl Commands {
 
     /// Hands the commands to the engine.
     pub(crate) fn apply_to(&self, robot: &mut RobotState) {
+        if let Some(v) = self.max_velocity {
+            robot.set_max_velocity(v);
+        }
+        if let Some(t) = self.max_turn_rate {
+            robot.set_max_turn_rate(t);
+        }
         if let Some(p) = self.fire {
             robot.set_fire(p);
         }

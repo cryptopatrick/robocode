@@ -281,7 +281,7 @@ fn apply_turns(robot: &mut RobotState) {
         robot.control.radar_turn_remaining = 0.0;
         return;
     }
-    let body_limit = rules::body_turn_rate_for_velocity(robot.velocity);
+    let body_limit = rules::body_turn_rate_for_velocity(robot.velocity).min(robot.control.max_turn_rate);
     let applied = clamp_turn(robot.control.turn_remaining, body_limit);
     robot.apply_absolute_heading(applied);
     robot.control.turn_remaining -= applied;
@@ -317,7 +317,8 @@ fn apply_movement(robot: &mut RobotState, battlefield: Battlefield) -> bool {
         robot.control.distance_remaining = 0.0;
         return false;
     }
-    let desired_velocity = desired_velocity(robot.control.distance_remaining);
+    let cap = robot.control.max_velocity;
+    let desired_velocity = desired_velocity(robot.control.distance_remaining).clamp(-cap, cap);
     robot.velocity = adjust_velocity(robot.velocity, desired_velocity);
     let previous_distance = robot.control.distance_remaining;
     let travel = robot.velocity;
