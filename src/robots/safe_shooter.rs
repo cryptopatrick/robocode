@@ -3,7 +3,7 @@
 //! It spins its radar, swings its gun toward the target it last saw, strafes
 //! around it while keeping away from walls, and fires **only when it is safe**:
 //!
-//! > if `decide(obs).fire == Some(p)` then the energy is strictly more than `p`
+//! > it fires exactly when it is [`ready`](ready), and if `decide(obs).fire == Some(p)` then the energy is strictly more than `p`
 //! > (firing everything would leave the robot at 0, which the engine kills), the gun is
 //! > cool, a target was scanned this turn, and the gun is aimed at it.
 //!
@@ -64,6 +64,15 @@ pub open spec fn aimed(obs: Observation) -> bool {
         && -AIM_TOLERANCE <= spec_angle_diff(t.bearing.0 as int, obs.gun_heading.0 as int) <= AIM_TOLERANCE
 }
 
+/// Ready to fire: a target scanned this turn, a cool gun aimed at it, and
+/// more energy than the smallest shot SafeShooter uses (1.0).
+pub open spec fn ready(obs: Observation) -> bool {
+    &&& obs.target matches Some(t) && t.age == 0
+    &&& obs.gun_heat.0 == 0
+    &&& aimed(obs)
+    &&& obs.energy.0 > 1000
+}
+
 /// Firing with power `p` is safe: the power is legal, and energy stays above
 /// zero afterwards (the engine kills a robot whose energy reaches 0).
 pub open spec fn safe_to_fire(obs: Observation, p: Power) -> bool {
@@ -96,7 +105,12 @@ pub fn is_aimed(obs: &Observation) -> bool {
 #[cfg_attr(feature = "verus", verus_verify)]
 #[cfg_attr(feature = "verus", verus_spec(r =>
     requires well_formed(*obs),
-    ensures r.fire matches Some(p) ==> safe_to_fire(*obs, p),
+    ensures
+        r.fire matches Some(p) ==> safe_to_fire(*obs, p),
+        // Both readings (PDD Kit's decision card): never fire unsafely, and
+        // never hold fire when ready. Without this clause a robot that never
+        // fires would satisfy the spec.
+        r.fire is Some <==> ready(*obs),
 ))]
 pub fn decide(obs: &Observation) -> Action {
     let (ahead, turn_body) = movement(obs);

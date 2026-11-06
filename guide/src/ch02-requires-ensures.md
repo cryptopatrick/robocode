@@ -33,12 +33,14 @@ pub open spec fn safe_to_fire(obs: Observation, p: Power) -> bool {
 ```rust
 #[cfg_attr(feature = "verus", verus_spec(r =>
     requires well_formed(*obs),
-    ensures r.fire matches Some(p) ==> safe_to_fire(*obs, p),
+    ensures
+        r.fire matches Some(p) ==> safe_to_fire(*obs, p),
+        r.fire is Some <==> ready(*obs),
 ))]
 pub fn decide(obs: &Observation) -> Action { … }
 ```
 
-Read it as: *for every well-formed observation, if `decide` fires with power `p`, firing is safe.* `well_formed` just says the angles are normalized and the battlefield has a sensible size; the runner always produces observations like that.
+Read the first clause as: *for every well-formed observation, if `decide` fires with power `p`, firing is safe.* The second says it fires **exactly** when it's `ready`: target seen this turn, gun cool and aimed, energy above 1.0. Why both? The first clause alone is satisfied by a robot that never fires at all. Chapter 4 shows how to catch specs like that. `well_formed` just says the angles are normalized and the battlefield has a sensible size; the runner always produces observations like that.
 
 Verus proves this for all observations, including every energy level, heat, angle and target combination. And this is the real `decide` that fights in `cargo run --example battle`.
 
