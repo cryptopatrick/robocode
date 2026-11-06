@@ -1,6 +1,16 @@
 ## Unreleased
  - Unreleased changes.
 
+## v0.3.0 - 2026-11-06
+ - *Breaking* New variants in the public `api::Event` enum (`HitRobot`, `BulletHitBullet`) and new public fields on `RobotControl`, `RobotState`, `TurnEvents` and `BulletState`.
+ - Robot-to-robot collisions with Java's at-fault rule, and `on_hit_robot`.
+ - Bullet-on-bullet collisions and `on_bullet_hit_bullet`.
+ - Java turret mode (`TurretMode::Java`, `set_adjust_gun_for_robot_turn`, `set_adjust_radar_for_robot_turn`, `set_adjust_radar_for_gun_turn`) for robots ported from Java.
+ - `set_max_velocity` and `set_max_turn_rate`, following Java (absolute value, NaN ignored).
+ - Multi-round battles: `Battle::run_rounds`, `BattleResults`, and `on_death`, `on_win`, `on_round_ended`.
+ - Verus: SafeShooter now provably fires if and only if it is ready, never drives into a nearby wall, and `closest_target` picks the first of a tie. An executable `strategy::is_well_formed` is proved equal to its spec. A trusted contract covers `Angle::from_degrees`.
+ - Mutation checks for every `ensures` clause (development tool, `cargo run -p verus-mutants`), plus a verification receipt in `docs/verification-receipt.md`.
+
 ## v0.2.0 - 2026-11-05
  - *Breaking* License changed to EPL-1.0 (the license of the original Robocode).
  - *Breaking* `runner::Battle::new` takes `Vec<Box<dyn api::Robot>>`. Wrap fixed-point strategies with `runner::boxed`.

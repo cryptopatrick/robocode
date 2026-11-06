@@ -40,7 +40,7 @@ The engine uses `f64` and follows the Java original. Verifiable strategies see t
 
 ```toml
 [dependencies]
-robocode = "0.2"
+robocode = "0.3"
 ```
 
 ```rust
