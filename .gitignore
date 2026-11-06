@@ -5,6 +5,7 @@ _wb/
 _dev/
 
 # Files
+src/.DS_Store
 .DS_Store
 Cargo.lock
 
