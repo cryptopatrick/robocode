@@ -1,0 +1,5 @@
+//! RoboCheck Phase 0: a candidate strategy (standing in for AI output) is slotted
+//! into a protected template, verified per property with Verus, and run in a
+//! battle; verification and battle share one implementation hash.
+
+pub mod candidate;
