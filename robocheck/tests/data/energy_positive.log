@@ -1,0 +1,87 @@
+note: automatically chose triggers for this expression:
+  --> ~/wer/crt/robocode-robocheck/src/strategy/targeting.rs:13:16
+   |
+13 |             && forall|j: int| 0 <= j < targets@.len() ==> targets@[i as int].distance <= targets@[j].distance,
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note:   trigger 1 of 1:
+  --> ~/wer/crt/robocode-robocheck/src/strategy/targeting.rs:13:90
+   |
+13 |             && forall|j: int| 0 <= j < targets@.len() ==> targets@[i as int].distance <= targets@[j].distance,
+   |                                                                                          ^^^^^^^^^^^
+
+note: automatically chose triggers for this expression:
+  --> ~/wer/crt/robocode-robocheck/src/strategy/targeting.rs:15:31
+   |
+15 |         r matches Some(i) ==> forall|j: int| 0 <= j < i ==> targets@[j].distance > targets@[i as int].distance,
+   |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note:   trigger 1 of 1:
+  --> ~/wer/crt/robocode-robocheck/src/strategy/targeting.rs:15:61
+   |
+15 |         r matches Some(i) ==> forall|j: int| 0 <= j < i ==> targets@[j].distance > targets@[i as int].distance,
+   |                                                             ^^^^^^^^^^^
+
+note: automatically chose triggers for this expression:
+  --> ~/wer/crt/robocode-robocheck/src/strategy/targeting.rs:29:13
+   |
+29 |             forall|j: int| 0 <= j < i ==> targets@[best as int].distance <= targets@[j].distance,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note:   trigger 1 of 1:
+  --> ~/wer/crt/robocode-robocheck/src/strategy/targeting.rs:29:77
+   |
+29 |             forall|j: int| 0 <= j < i ==> targets@[best as int].distance <= targets@[j].distance,
+   |                                                                             ^^^^^^^^^^^
+
+note: automatically chose triggers for this expression:
+  --> ~/wer/crt/robocode-robocheck/src/strategy/targeting.rs:30:13
+   |
+30 |             forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note:   trigger 1 of 1:
+  --> ~/wer/crt/robocode-robocheck/src/strategy/targeting.rs:30:46
+   |
+30 |             forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
+   |                                              ^^^^^^^^^^^
+
+note: Verus printed one or more automatically chosen quantifier triggers
+      because it had low confidence in the chosen triggers.
+      To suppress these messages, do one of the following:
+        (1) manually annotate a single desired trigger using `#[trigger]`
+            (example: `forall|i: int, j: int| f(i) && #[trigger] g(i) && #[trigger] h(j)`),
+        (2) manually annotate multiple desired triggers using `#![trigger ...]`
+            (example: `forall|i: int| #![trigger f(i)] #![trigger g(i)] f(i) && g(i)`),
+        (3) accept the automatically chosen trigger using `#![auto]`
+            (example: `forall|i: int, j: int| #![auto] f(i) && g(i) && h(j)`)
+        (4) use the `--triggers-mode silent` command-line option to suppress all printing of triggers.
+      (Note: triggers are used by the underlying SMT theorem prover to instantiate quantifiers;
+      the theorem prover instantiates a quantifier whenever some expression matches the
+      pattern specified by one of the quantifier's triggers.)
+  --> ~/wer/crt/robocode-robocheck/src/strategy/targeting.rs:30:13
+   |
+30 |             forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    Checking robocheck-candidate-f57664b24805 v0.1.0 (CANDIDATE)
+error: postcondition not satisfied
+  --> src/strategy.rs:33:9
+   |
+33 |         r.fire matches Some(p) ==> obs.energy.0 > p.0, // SAFE-002
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ failed this postcondition
+...
+68 |     Action { fire, ahead: Some(ahead), turn_body, turn_gun, turn_radar: Some(radar_turn(obs)) }
+   |     ------------------------------------------------------------------------------------------- at the end of the function body
+
+error: postcondition not satisfied
+  --> src/strategy.rs:39:9
+   |
+39 |         r.fire is Some <==> ready(*obs), // SAFE-007
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ failed this postcondition
+...
+68 |     Action { fire, ahead: Some(ahead), turn_body, turn_gun, turn_radar: Some(radar_turn(obs)) }
+   |     ------------------------------------------------------------------------------------------- at the end of the function body
+
+verification results:: 5 verified, 1 errors
+error: could not compile `robocheck-candidate-f57664b24805` (lib) due to 2 previous errors
