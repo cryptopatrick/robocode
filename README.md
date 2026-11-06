@@ -90,6 +90,7 @@ fn main() {
 - [Battle viewer](https://github.com/cryptopatrick/robocode/blob/master/docs/viewer.md): watch and replay battles in the browser
 - [RoboVerus guide](https://github.com/cryptopatrick/robocode/tree/master/guide): learn Verus by proving things about robots
 - [Verus integration](https://github.com/cryptopatrick/robocode/blob/master/docs/verus-integration.md): how the optional `verus` feature works
+- [RoboCheck](https://github.com/cryptopatrick/robocode/blob/master/docs/robocheck.md): verify a candidate strategy (such as AI-generated code) against a human-written Verus spec, then battle the same code
 
 ## Examples
 

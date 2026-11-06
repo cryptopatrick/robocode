@@ -56,3 +56,46 @@ fn never_fires_is_rejected_on_readiness_only() {
 fn wall_blind_is_rejected_on_walls_only() {
     expect("wall_blind", &["SAFE-006"]);
 }
+
+/// The whole pipeline through the CLI, with real Verus.
+fn run_cli(name: &str) -> serde_json::Value {
+    let out = std::env::temp_dir().join(format!("robocheck-e2e-cli-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out);
+    let fixture = repo_root().join(format!("robocheck/fixtures/{name}.rs"));
+    let status = std::process::Command::new(env!("CARGO_BIN_EXE_robocheck"))
+        .args(["run", fixture.to_str().unwrap(), "--turns", "1500", "--out"])
+        .arg(&out)
+        .status()
+        .unwrap();
+    assert_eq!(status.code(), Some(0));
+    serde_json::from_str(&std::fs::read_to_string(out.join("evidence.json")).unwrap()).unwrap()
+}
+
+#[test]
+#[ignore = "needs Verus"]
+fn cli_safe_shooter_proves_everything_and_battles_the_same_artifact() {
+    let ev = run_cli("safe_shooter");
+    for p in ev["verification"]["properties"].as_array().unwrap() {
+        assert_eq!(p["status"], "proved", "{p}");
+    }
+    assert_eq!(ev["battle"]["status"], "ok");
+    assert_eq!(ev["battle"]["same_artifact"], true);
+    assert_eq!(ev["battle"]["artifact_hash"], ev["artifact_hash"]);
+    assert!(ev["toolchain"]["verus"].as_str().unwrap().contains("0.2026"));
+}
+
+#[test]
+#[ignore = "needs Verus"]
+fn cli_rejected_candidate_still_battles() {
+    let ev = run_cli("energy_positive");
+    let rejected: Vec<&str> = ev["verification"]["properties"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|p| p["status"] == "rejected")
+        .map(|p| p["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(rejected, vec!["SAFE-002", "SAFE-007"]);
+    assert_eq!(ev["battle"]["status"], "ok");
+    assert_eq!(ev["battle"]["same_artifact"], true);
+}
