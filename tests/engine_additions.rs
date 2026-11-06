@@ -29,8 +29,21 @@ fn max_velocity_is_clamped_to_rules() {
     let mut r = RobotState::new(0, Point::new(400.0, 300.0));
     r.set_max_velocity(20.0);
     assert_eq!(r.control.max_velocity, 8.0);
+    // Java: min(|v|, 8); NaN is ignored.
     r.set_max_velocity(-3.0);
-    assert_eq!(r.control.max_velocity, 0.0);
+    assert_eq!(r.control.max_velocity, 3.0);
+    r.set_max_velocity(f64::NAN);
+    assert_eq!(r.control.max_velocity, 3.0);
+    r.set_max_velocity(f64::INFINITY);
+    assert_eq!(r.control.max_velocity, 8.0);
+}
+
+#[test]
+fn max_turn_rate_ignores_nan() {
+    let mut r = RobotState::new(0, Point::new(400.0, 300.0));
+    r.set_max_turn_rate(4.0);
+    r.set_max_turn_rate(f64::NAN);
+    assert_eq!(r.control.max_turn_rate, 4.0);
 }
 
 #[test]

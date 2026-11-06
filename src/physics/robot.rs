@@ -88,14 +88,18 @@ impl RobotState {
         }
     }
 
-    /// Caps the speed (Java `setMaxVelocity`); clamped to 0..=8.
+    /// Caps the speed like Java `setMaxVelocity`: `min(|v|, 8)`; NaN is ignored.
     pub fn set_max_velocity(&mut self, velocity: f64) {
-        self.control.max_velocity = velocity.clamp(0.0, crate::rules::MAX_VELOCITY);
+        if !velocity.is_nan() {
+            self.control.max_velocity = velocity.abs().min(crate::rules::MAX_VELOCITY);
+        }
     }
 
-    /// Caps the body turn rate (Java `setMaxTurnRate`); clamped to 0..=10.
+    /// Caps the body turn rate like Java `setMaxTurnRate`: `min(|d|, 10)`; NaN is ignored.
     pub fn set_max_turn_rate(&mut self, degrees: f64) {
-        self.control.max_turn_rate = degrees.abs().min(crate::rules::MAX_TURN_RATE);
+        if !degrees.is_nan() {
+            self.control.max_turn_rate = degrees.abs().min(crate::rules::MAX_TURN_RATE);
+        }
     }
 
     pub fn set_fire(&mut self, power: f64) {
