@@ -52,7 +52,7 @@ pub struct Verification {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct BattleInfo {
-    /// `ok`, `failed` or `skipped`.
+    /// `ok`, `failed`, `timed_out` or `skipped`.
     pub status: &'static str,
     pub opponent: String,
     pub turns: Option<u64>,

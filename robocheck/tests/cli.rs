@@ -33,7 +33,7 @@ fn cheat_is_refused_before_anything_runs() {
     let ev = ev.expect("evidence.json");
     assert_eq!(code, 0);
     assert_eq!(ev["validation"]["ok"], false);
-    assert!(ev["validation"]["problems"].to_string().contains("assume("));
+    assert!(ev["validation"]["problems"].to_string().contains("`assume` is not allowed"));
     assert_eq!(statuses(&ev), vec!["not_checked"; 7]);
     assert_eq!(ev["build"]["status"], "skipped");
     assert_eq!(ev["battle"]["status"], "skipped");

@@ -65,6 +65,22 @@ pub fn parse_failures(log: &str) -> Vec<Failure> {
     out
 }
 
+/// Whether a log reports at least one verified item and no errors.
+/// `cargo verus` prints one such line per crate it verified; the candidate's
+/// line verifies at least `decide`, so a run that verified nothing (or
+/// reported any error) is not a success, whatever the exit code.
+pub fn verified_something(log: &str) -> bool {
+    let counts: Vec<(u64, u64)> = log
+        .lines()
+        .filter_map(|l| l.trim().strip_prefix("verification results:: "))
+        .filter_map(|r| {
+            let (v, e) = r.split_once(" verified, ")?;
+            Some((v.trim().parse().ok()?, e.trim().strip_suffix(" errors")?.parse().ok()?))
+        })
+        .collect();
+    counts.iter().any(|(v, _)| *v > 0) && counts.iter().all(|(_, e)| *e == 0)
+}
+
 /// The verdict on one reference property.
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct PropertyResult {
@@ -148,6 +164,14 @@ pub fn verify_properties(a: &Assembled, v: &mut dyn Verifier, max_rounds: usize)
     (results, logs)
 }
 
+/// Kills the process group led by `pid` (unix); a no-op elsewhere.
+pub(crate) fn kill_group(pid: u32) {
+    #[cfg(unix)]
+    let _ = Command::new("kill").args(["-KILL", &format!("-{pid}")]).status();
+    #[cfg(not(unix))]
+    let _ = pid;
+}
+
 /// Runs `cargo verus verify --features verus` in a materialized candidate crate.
 #[derive(Debug, Clone)]
 pub struct CargoVerus {
@@ -173,10 +197,26 @@ impl Verifier for CargoVerus {
             return Err(format!("cargo-verus not found in {} (set ROBOCHECK_VERUS_DIR)", self.verus_dir.display()));
         }
         std::fs::write(self.dir.join("src/strategy.rs"), strategy_rs).map_err(|e| e.to_string())?;
+        // Every run verifies for real: without this, cargo can treat a candidate
+        // crate it has verified before as fresh and print "0 verified".
+        let manifest = std::fs::read_to_string(self.dir.join("Cargo.toml")).map_err(|e| e.to_string())?;
+        let name = manifest
+            .lines()
+            .find_map(|l| l.strip_prefix("name = \"").and_then(|n| n.strip_suffix('"')))
+            .ok_or("no package name in the candidate's Cargo.toml")?;
+        let _ = Command::new("cargo")
+            .args(["clean", "-q", "-p", name])
+            .current_dir(&self.dir)
+            .env("CARGO_TARGET_DIR", &self.target_dir)
+            .status();
         let log_path = self.dir.join("verus-run.log");
         let log_file = std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
         let path = format!("{}:{}", self.verus_dir.display(), std::env::var("PATH").unwrap_or_default());
-        let mut child = Command::new("cargo")
+        let mut cmd = Command::new("cargo");
+        // Its own process group, so a timeout kills rust_verify and z3 too.
+        #[cfg(unix)]
+        std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
+        let mut child = cmd
             .args(["verus", "verify", "--features", "verus", "--", "--multiple-errors", "20"])
             .current_dir(&self.dir)
             .env("PATH", path)
@@ -191,6 +231,7 @@ impl Verifier for CargoVerus {
                 break Some(s);
             }
             if start.elapsed() > self.timeout {
+                kill_group(child.id());
                 let _ = child.kill();
                 let _ = child.wait();
                 break None;
@@ -199,7 +240,7 @@ impl Verifier for CargoVerus {
         };
         let log = std::fs::read_to_string(&log_path).unwrap_or_default();
         Ok(match status {
-            Some(s) => VerusRun { success: s.success(), timed_out: false, log },
+            Some(s) => VerusRun { success: s.success() && verified_something(&log), timed_out: false, log },
             None => VerusRun { success: false, timed_out: true, log },
         })
     }
@@ -276,6 +317,41 @@ mod tests {
         let f = parse_failures(&log("overflow"));
         assert!(f.iter().any(|x| matches!(x, Failure::Other { summary } if summary.contains("overflow"))), "{f:?}");
         assert!(!f.iter().any(|x| matches!(x, Failure::Clause { .. })));
+    }
+
+    /// Review finding 5: a zero exit code alone is not a verification.
+    #[test]
+    fn success_needs_a_verified_candidate_line() {
+        assert!(verified_something("verification results:: 6 verified, 0 errors\nverification results:: 0 verified, 0 errors"));
+        assert!(!verified_something(&log("safe_shooter")), "a cached run that verified nothing");
+        assert!(!verified_something("verification results:: 6 verified, 1 errors"));
+        assert!(!verified_something(""));
+    }
+
+    /// Review finding 4: a timeout must kill Verus's whole process tree, not just cargo.
+    #[cfg(unix)]
+    #[test]
+    fn timeout_kills_the_whole_process_tree() {
+        let fake = std::env::temp_dir().join(format!("robocheck-fake-verus-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&fake);
+        std::fs::create_dir_all(fake.join("crate/src")).unwrap();
+        std::fs::write(fake.join("crate/Cargo.toml"), "[package]\nname = \"fake-candidate\"\nversion = \"0.1.0\"\n").unwrap();
+        let pidfile = fake.join("grandchild.pid");
+        let script = fake.join("cargo-verus");
+        std::fs::write(&script, format!("#!/bin/sh\nsleep 60 &\necho $! > {}\nsleep 60\n", pidfile.display())).unwrap();
+        std::process::Command::new("chmod").args(["+x"]).arg(&script).status().unwrap();
+        let mut v = CargoVerus {
+            dir: fake.join("crate"),
+            target_dir: fake.join("target"),
+            verus_dir: fake.clone(),
+            timeout: std::time::Duration::from_secs(2),
+        };
+        let run = v.run("// strategy").unwrap();
+        assert!(run.timed_out);
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        let pid = std::fs::read_to_string(&pidfile).unwrap();
+        let alive = std::process::Command::new("kill").args(["-0", pid.trim()]).status().unwrap().success();
+        assert!(!alive, "Verus's grandchild process {} is still running", pid.trim());
     }
 
     #[test]

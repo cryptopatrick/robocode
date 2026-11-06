@@ -35,16 +35,17 @@ mod tests {
     use crate::template::assemble;
     use crate::workspace::{materialize, plain_target_dir, repo_root, tests::temp_dir};
 
-    fn materialized(fixture: &str) -> std::path::PathBuf {
+    /// `tag` keeps each test's directory its own (tests run in parallel).
+    fn materialized(fixture: &str, tag: &str) -> std::path::PathBuf {
         let src = std::fs::read_to_string(repo_root().join(format!("robocheck/fixtures/{fixture}.rs"))).unwrap();
-        let dir = temp_dir(fixture);
+        let dir = temp_dir(&format!("{fixture}-{tag}"));
         materialize(&dir, &assemble(&parse(&src).unwrap()).strategy_rs, &repo_root()).unwrap();
         dir
     }
 
     #[test]
     fn safe_shooter_fixture_builds() {
-        let dir = materialized("safe_shooter");
+        let dir = materialized("safe_shooter", "builds");
         assert_eq!(build(&dir, &plain_target_dir()), BuildOutcome::Ok);
     }
 
@@ -53,9 +54,9 @@ mod tests {
     #[test]
     fn stale_artifacts_are_not_reused() {
         let target = std::env::temp_dir().join(format!("robocheck-test-stale-target-{}", std::process::id()));
-        let good = materialized("safe_shooter");
+        let good = materialized("safe_shooter", "stale");
         assert_eq!(build(&good, &target), BuildOutcome::Ok);
-        let bad = materialized("type_error");
+        let bad = materialized("type_error", "stale");
         let status = std::process::Command::new("touch")
             .args(["-t", "202001010000"])
             .args(["Cargo.toml", "Cargo.lock", "src/lib.rs", "src/strategy.rs", "src/bin/battle.rs"].map(|f| bad.join(f)))
@@ -67,7 +68,7 @@ mod tests {
 
     #[test]
     fn type_error_is_build_failed() {
-        let dir = materialized("type_error");
+        let dir = materialized("type_error", "fails");
         match build(&dir, &plain_target_dir()) {
             BuildOutcome::Failed { log } => assert!(log.contains("mismatched types"), "{log}"),
             BuildOutcome::Ok => panic!("type_error must not build"),

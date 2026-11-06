@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::battle::{check_same_artifact, run_battle};
+use crate::battle::{BattleError, check_same_artifact, run_battle};
 use crate::candidate::{parse, validate};
 use crate::compile::{BuildOutcome, build};
 use crate::evidence::{BattleInfo, Build, CandidateInfo, Evidence, Validation, Verification, rfc3339, toolchain};
@@ -20,7 +20,10 @@ pub struct Options {
     /// Output folder; `None` = `target/robocheck/runs/<run_id>/`.
     pub out: Option<PathBuf>,
     pub verus_dir: PathBuf,
+    /// Per Verus run.
     pub timeout: Duration,
+    /// Wall-clock limit for the battle.
+    pub battle_timeout: Duration,
 }
 
 fn all(status: PropertyStatus, note: &str) -> Vec<PropertyResult> {
@@ -116,7 +119,7 @@ pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
                     ev.verification.log_files.push(name);
                 }
                 let recording = out.join("recording.json");
-                ev.battle = match run_battle(&build_dir, &plain_target_dir(), &o.opponent, o.turns, &recording) {
+                ev.battle = match run_battle(&build_dir, &plain_target_dir(), &o.opponent, o.turns, &recording, o.battle_timeout) {
                     Ok(r) => BattleInfo {
                         status: "ok",
                         opponent: o.opponent.clone(),
@@ -128,7 +131,11 @@ pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
                         recording_sha256: Some(r.recording_hash),
                         error: None,
                     },
-                    Err(e) => BattleInfo { status: "failed", error: Some(e), ..skipped_battle(&o.opponent) },
+                    Err(e) => BattleInfo {
+                        status: if matches!(e, BattleError::TimedOut(_)) { "timed_out" } else { "failed" },
+                        error: Some(e.to_string()),
+                        ..skipped_battle(&o.opponent)
+                    },
                 };
             }
         }

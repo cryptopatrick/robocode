@@ -1,4 +1,4 @@
-//! `robocheck run <candidate.rs> [--opponent NAME] [--turns N] [--out DIR] [--timeout SECS]`
+//! `robocheck run <candidate.rs> [--opponent NAME] [--turns N] [--out DIR] [--timeout SECS] [--battle-timeout SECS]`
 //!
 //! Exit code 0 when the pipeline completed (whatever the verdicts), 2 when the
 //! tool itself could not run.
@@ -10,7 +10,8 @@ use std::time::Duration;
 use robocheck::pipeline::{Options, run};
 use robocheck::verify::CargoVerus;
 
-const USAGE: &str = "usage: robocheck run <candidate.rs> [--opponent NAME] [--turns N] [--out DIR] [--timeout SECS]";
+const USAGE: &str =
+    "usage: robocheck run <candidate.rs> [--opponent NAME] [--turns N] [--out DIR] [--timeout SECS] [--battle-timeout SECS]";
 
 fn value(args: &[String], key: &str) -> Option<String> {
     args.iter().position(|a| a == key).and_then(|i| args.get(i + 1)).cloned()
@@ -23,7 +24,9 @@ fn main() -> ExitCode {
         return ExitCode::from(2);
     };
     let parse_num = |key: &str, default: u64| value(&args, key).map_or(Ok(default), |v| v.parse::<u64>());
-    let (Ok(turns), Ok(timeout)) = (parse_num("--turns", 2000), parse_num("--timeout", 300)) else {
+    let (Ok(turns), Ok(timeout), Ok(battle_timeout)) =
+        (parse_num("--turns", 2000), parse_num("--timeout", 300), parse_num("--battle-timeout", 120))
+    else {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
     };
@@ -34,6 +37,7 @@ fn main() -> ExitCode {
         out: value(&args, "--out").map(PathBuf::from),
         verus_dir: CargoVerus::default_verus_dir(),
         timeout: Duration::from_secs(timeout),
+        battle_timeout: Duration::from_secs(battle_timeout),
     };
     match run(&options) {
         Ok((out, ev)) => {

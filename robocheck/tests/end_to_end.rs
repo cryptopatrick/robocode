@@ -99,3 +99,24 @@ fn cli_rejected_candidate_still_battles() {
     assert_eq!(ev["battle"]["status"], "ok");
     assert_eq!(ev["battle"]["same_artifact"], true);
 }
+
+/// Review finding 3: a candidate that hangs is recorded as a timed-out
+/// battle (and unknown verification), and robocheck finishes.
+#[test]
+#[ignore = "needs Verus"]
+fn cli_hanging_candidate_times_out() {
+    let out = std::env::temp_dir().join(format!("robocheck-e2e-cli-hangs-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out);
+    let fixture = repo_root().join("robocheck/fixtures/hangs.rs");
+    let status = std::process::Command::new(env!("CARGO_BIN_EXE_robocheck"))
+        .args(["run", fixture.to_str().unwrap(), "--battle-timeout", "3", "--out"])
+        .arg(&out)
+        .status()
+        .unwrap();
+    assert_eq!(status.code(), Some(0));
+    let ev: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(out.join("evidence.json")).unwrap()).unwrap();
+    assert_eq!(ev["battle"]["status"], "timed_out");
+    for p in ev["verification"]["properties"].as_array().unwrap() {
+        assert_ne!(p["status"], "proved", "{p}");
+    }
+}

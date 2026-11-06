@@ -38,68 +38,122 @@ pub fn parse(src: &str) -> Result<Candidate, Vec<String>> {
     Ok(Candidate { helpers: lines[start..b].join("\n"), body, source: src.to_string() })
 }
 
-/// Removes `//` line comments and `/* */` block comments.
-fn strip_comments(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut it = s.chars().peekable();
-    while let Some(c) = it.next() {
-        match (c, it.peek()) {
-            ('/', Some('/')) => {
-                for c in it.by_ref() {
-                    if c == '\n' {
-                        out.push('\n');
-                        break;
-                    }
-                }
-            }
-            ('/', Some('*')) => {
-                it.next();
-                let mut prev = ' ';
-                for c in it.by_ref() {
-                    if prev == '*' && c == '/' {
-                        break;
-                    }
-                    prev = c;
-                }
-                out.push(' ');
-            }
-            _ => out.push(c),
-        }
-    }
-    out
-}
+use proc_macro2::{Delimiter, TokenStream, TokenTree};
 
-/// Text that may not appear anywhere in a candidate (outside comments): ways
-/// to skip or weaken verification, or to reach outside the strategy.
-const FORBIDDEN: [&str; 14] = [
-    "assume(", "admit(", "external", "verifier::", "unsafe", "include", "env!", "std::fs", "std::net",
-    "std::process", "extern", "asm!", "macro_rules", "#![",
+/// Identifiers a candidate may not use anywhere (as tokens, so spacing and
+/// line breaks can't hide them): ways to skip or weaken verification, to make
+/// the verified and the battled builds differ (`cfg`), or to reach outside the
+/// strategy.
+const FORBIDDEN_IDENTS: [&str; 33] = [
+    "cfg", "cfg_attr", "verifier", "assume", "admit", "assume_specification", "external", "external_body",
+    "exec_allows_no_decreases_clause", "broadcast", "uninterp", "proof", "unsafe", "extern", "include",
+    "include_str", "include_bytes", "env", "option_env", "asm", "global_asm", "macro_rules", "std", "core",
+    "alloc", "crate", "mod", "use", "impl", "trait", "static", "union", "debug_assertions",
 ];
 
-/// The only attributes a candidate may use.
-const ALLOWED_ATTRIBUTES: [&str; 2] =
-    ["#[cfg_attr(feature = \"verus\", verus_verify)]", "#[cfg_attr(feature = \"verus\", verus_spec("];
+/// Keywords that may be followed by `!(…)` without being a macro call.
+const NOT_MACROS: [&str; 6] = ["if", "while", "match", "return", "in", "else"];
 
-/// Checks a candidate for constructs that could weaken verification or escape
-/// the strategy. A denylist, not a sandbox. Returns every problem found.
+fn text(t: &TokenTree) -> String {
+    t.to_string()
+}
+
+/// Checks one attribute body (the tokens inside `#[…]`): it must be exactly
+/// `cfg_attr(feature = "verus", verus_verify)` or
+/// `cfg_attr(feature = "verus", verus_spec(…))`. Returns the `verus_spec`
+/// arguments to scan, or a problem.
+fn check_attribute(body: &TokenStream) -> Result<Option<TokenStream>, String> {
+    let shown = body.to_string();
+    let bad = || format!("attribute not allowed: #[{shown}]");
+    let tokens: Vec<TokenTree> = body.clone().into_iter().collect();
+    let [TokenTree::Ident(head), TokenTree::Group(args)] = tokens.as_slice() else { return Err(bad()) };
+    if head != "cfg_attr" || args.delimiter() != Delimiter::Parenthesis {
+        return Err(bad());
+    }
+    let inner: Vec<TokenTree> = args.stream().into_iter().collect();
+    let prefix: Vec<String> = inner.iter().take(4).map(text).collect();
+    if prefix != ["feature", "=", "\"verus\"", ","] {
+        return Err(bad());
+    }
+    match &inner[4..] {
+        [TokenTree::Ident(i)] if i == "verus_verify" => Ok(None),
+        [TokenTree::Ident(i), TokenTree::Group(g)] if i == "verus_spec" && g.delimiter() == Delimiter::Parenthesis => {
+            Ok(Some(g.stream()))
+        }
+        _ => Err(bad()),
+    }
+}
+
+/// Scans tokens recursively for forbidden identifiers, attributes and macros.
+fn scan(ts: TokenStream, problems: &mut Vec<String>) {
+    let tokens: Vec<TokenTree> = ts.into_iter().collect();
+    let mut i = 0;
+    while i < tokens.len() {
+        match &tokens[i] {
+            TokenTree::Punct(p) if p.as_char() == '#' => match tokens.get(i + 1) {
+                Some(TokenTree::Group(g)) if g.delimiter() == Delimiter::Bracket => {
+                    match check_attribute(&g.stream()) {
+                        Ok(Some(spec)) => scan(spec, problems),
+                        Ok(None) => {}
+                        Err(e) => problems.push(e),
+                    }
+                    i += 2;
+                    continue;
+                }
+                _ => problems.push("only `#[cfg_attr(feature = \"verus\", …)]` attributes are allowed".into()),
+            },
+            TokenTree::Ident(id) => {
+                let name = id.to_string();
+                if FORBIDDEN_IDENTS.contains(&name.as_str()) {
+                    problems.push(format!("`{name}` is not allowed"));
+                }
+                if name == "fn" && matches!(tokens.get(i + 1), Some(TokenTree::Ident(n)) if n == "decide") {
+                    problems.push("the candidate may not define `decide` itself; the template does".into());
+                }
+                let bang = matches!(tokens.get(i + 1), Some(TokenTree::Punct(p)) if p.as_char() == '!');
+                let call = matches!(tokens.get(i + 2), Some(TokenTree::Group(_)));
+                if bang && call && !NOT_MACROS.contains(&name.as_str()) {
+                    problems.push(format!("macro `{name}!` is not allowed"));
+                }
+            }
+            TokenTree::Group(g) => scan(g.stream(), problems),
+            _ => {}
+        }
+        i += 1;
+    }
+}
+
+/// Checks a candidate before anything is compiled: the helpers must parse as
+/// plain `fn` items and the body as one block; tokens may not use forbidden
+/// identifiers, macros, or any attribute but the two Verus ones. Works on
+/// tokens, so whitespace, comments and string contents can't hide anything.
+/// Not a sandbox. Returns every problem found.
 pub fn validate(c: &Candidate) -> Result<(), Vec<String>> {
-    let code = strip_comments(&format!("{}\n{}", c.helpers, c.body));
-    let mut problems: Vec<String> =
-        FORBIDDEN.iter().filter(|f| code.contains(*f)).map(|f| format!("`{f}` is not allowed")).collect();
-    for (i, _) in code.match_indices("#[") {
-        if !ALLOWED_ATTRIBUTES.iter().any(|a| code[i..].starts_with(a)) {
-            let attr: String = code[i..].chars().take_while(|&c| c != '\n').collect();
-            problems.push(format!("attribute not allowed: {attr}"));
+    let mut problems = Vec::new();
+    match syn::parse_str::<syn::File>(&c.helpers) {
+        Ok(file) => {
+            if !file.attrs.is_empty() {
+                problems.push("inner attributes (`#![…]`) are not allowed".into());
+            }
+            for item in &file.items {
+                if !matches!(item, syn::Item::Fn(_)) {
+                    problems.push("helpers may only be `fn` items".into());
+                }
+            }
+        }
+        Err(e) => problems.push(format!("helpers are not valid Rust items: {e}")),
+    }
+    let body = format!("{{\n{}\n}}", c.body);
+    if let Err(e) = syn::parse_str::<syn::Block>(&body) {
+        problems.push(format!("the body is not a valid block: {e}"));
+    }
+    for src in [&c.helpers, &body] {
+        match src.parse::<TokenStream>() {
+            Ok(ts) => scan(ts, &mut problems),
+            Err(e) => problems.push(format!("cannot tokenize: {e}")),
         }
     }
-    let words: Vec<&str> =
-        code.split(|c: char| !(c.is_alphanumeric() || c == '_')).filter(|w| !w.is_empty()).collect();
-    if words.contains(&"mod") {
-        problems.push("`mod` is not allowed".into());
-    }
-    if words.windows(2).any(|w| w == ["fn", "decide"]) {
-        problems.push("the candidate may not define `decide` itself; the template does".into());
-    }
+    problems.dedup();
     if problems.is_empty() { Ok(()) } else { Err(problems) }
 }
 
@@ -153,6 +207,37 @@ mod tests {
         }
     }
 
+    /// Review findings 1 and 2: spacing, aliases and cfg must not get past validation.
+    #[test]
+    fn rejects_spelling_variants_and_cfg() {
+        for bad in [
+            "#[cfg_attr(feature = \"verus\", verus_spec(ensures false), verifier :: exec_allows_no_decreases_clause)]\nfn s() {}",
+            "# [verifier::external_body]\nfn s() {}",
+            "#[cfg_attr(feature = \"verus\", verus_spec(), cfg(any()))]\nfn s() {}",
+            "#[cfg_attr(feature = \"verus\", verus_verify, inline)]\nfn s() {}",
+            "fn s() { assume (false); }",
+            "fn s() { let _ = env !(\"HOME\"); }",
+            "fn s() { let _ = std :: fs :: read(\"x\"); }",
+            "use std::{fs, process};",
+            "fn s() -> bool { cfg!(debug_assertions) }",
+            "fn s() { if cfg!(feature = \"verus\") {} }",
+            "fn s() { let s = \"//\"; std::process::exit(0); }",
+            "const MAX_POWER: u32 = 5;",
+            "fn s() { println!(\"x\"); }",
+        ] {
+            let c = parse(&wrap(bad)).unwrap();
+            assert!(validate(&c).is_err(), "must be refused: {bad}");
+        }
+        let c = parse("// @@helpers\n// @@body\n    if cfg!(feature = \"verus\") { Action::default() } else { Action::default() }").unwrap();
+        assert!(validate(&c).is_err(), "cfg! in the body");
+    }
+
+    #[test]
+    fn negation_and_comparisons_are_not_macros() {
+        let c = parse(&wrap("fn s(a: bool, b: i32) -> bool { if !(a && b != 0) { !a } else { a } }")).unwrap();
+        assert_eq!(validate(&c), Ok(()));
+    }
+
     #[test]
     fn allows_verus_attributes_on_helpers() {
         let c = parse(&wrap(
@@ -171,10 +256,13 @@ mod tests {
     #[test]
     fn fixtures_validate_as_expected() {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures");
-        for name in ["safe_shooter", "energy_positive", "never_fires", "wall_blind", "type_error", "cheat_assume"] {
+        for name in [
+            "safe_shooter", "energy_positive", "never_fires", "wall_blind", "type_error", "hangs",
+            "cheat_assume", "cheat_cfg", "cheat_nodecreases",
+        ] {
             let src = std::fs::read_to_string(dir.join(format!("{name}.rs"))).unwrap();
             let c = parse(&src).unwrap_or_else(|e| panic!("{name}: {e:?}"));
-            assert_eq!(validate(&c).is_ok(), name != "cheat_assume", "{name}: {:?}", validate(&c));
+            assert_eq!(validate(&c).is_ok(), !name.starts_with("cheat_"), "{name}: {:?}", validate(&c));
         }
     }
 }
