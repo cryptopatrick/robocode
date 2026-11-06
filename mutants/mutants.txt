@@ -1,0 +1,76 @@
+# One planted bug per Verus `ensures` clause. `expect` is text from the
+# clause the mutant targets; Verus must fail and name that clause.
+
+id = gun-heat-too-low
+file = src/units.rs
+find = GunHeat(1000 + p.0 / 5)
+replace = GunHeat(999 + p.0 / 5)
+expect = r.0 >= 1000 && r.0 <= 1600
+
+id = gun-heat-too-high
+file = src/units.rs
+find = GunHeat(1000 + p.0 / 5)
+replace = GunHeat(1001 + p.0 / 5)
+expect = r.0 >= 1000 && r.0 <= 1600
+
+id = damage-zero-at-min-power
+file = src/units.rs
+find = Energy(4 * p.0 + extra)
+replace = Energy(if p.0 == 100 { 0 } else { 4 * p.0 + extra })
+expect = p.0 >= 100 ==> r.0 > 0
+
+id = damage-over-cap
+file = src/units.rs
+find = Energy(4 * p.0 + extra)
+replace = Energy(4 * p.0 + extra + 1)
+expect = r.0 <= 16000
+
+id = hit-bonus-off-by-one
+file = src/units.rs
+find = Energy(3 * p.0)
+replace = Energy(3 * p.0 + 1)
+expect = r.0 == 3 * p.0
+
+id = angle-diff-wrong-wrap
+file = src/units.rs
+find =     } else if d <= -1800 {
+replace =     } else if d < -1800 {
+expect = r == spec_angle_diff
+
+id = aimed-tolerance-too-wide
+file = src/robots/safe_shooter.rs
+find = -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE
+replace = -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE + 1
+expect = r == aimed(*obs)
+
+id = fires-with-hot-gun
+file = src/robots/safe_shooter.rs
+find = if obs.gun_heat.0 == 0 && t.age == 0
+replace = if t.age == 0
+expect = safe_to_fire(*obs, p)
+
+id = never-fires
+file = src/robots/safe_shooter.rs
+find = fire = Some(p);
+replace = let _ = p;
+expect = ready(*obs)
+
+# The overshoot is 2 * angle_diff, always even: `+ 1` would be an equivalent
+# mutant (451 can never occur), so the planted bug allows 452.
+id = radar-turn-over-limit
+file = src/robots/safe_shooter.rs
+find = if overshoot > MAX_RADAR_TURN {
+replace = if overshoot > MAX_RADAR_TURN + 2 {
+expect = -MAX_RADAR_TURN <= r <= MAX_RADAR_TURN
+
+id = closest-picks-last-of-tie
+file = src/strategy/targeting.rs
+find = if targets[i].distance < targets[best].distance {
+replace = if targets[i].distance <= targets[best].distance {
+expect = targets@[j].distance > targets@[i as int].distance
+
+id = closest-of-nothing
+file = src/strategy/targeting.rs
+find = return None;
+replace = return Some(0);
+expect = r is None <==> targets@.len() == 0

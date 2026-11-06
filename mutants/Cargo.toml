@@ -1,0 +1,9 @@
+[package]
+name = "verus-mutants"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "EPL-1.0"
+description = "Mutation checks for robocode's Verus specs: every ensures clause must reject a planted bug"
+
+[dependencies]
