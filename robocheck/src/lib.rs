@@ -4,3 +4,5 @@
 
 pub mod candidate;
 pub mod template;
+pub mod workspace;
+pub mod compile;
