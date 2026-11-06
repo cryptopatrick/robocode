@@ -136,6 +136,16 @@ pub struct RobotDeathEvent {
     pub name: String,
 }
 
+/// A round finished (sent to every robot, alive or not).
+#[derive(Debug, Clone, PartialEq)]
+pub struct RoundEndedEvent {
+    /// 0-based round number.
+    pub round: u32,
+    pub total_rounds: u32,
+    /// Turns the round lasted.
+    pub turns: u64,
+}
+
 /// Something that happened last turn. Delivered in this order.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
@@ -310,6 +320,14 @@ pub trait Robot {
     fn on_hit_wall(&mut self, _event: &HitWallEvent, _status: &Status, _cmd: &mut Commands) {}
     fn on_hit_robot(&mut self, _event: &HitRobotEvent, _status: &Status, _cmd: &mut Commands) {}
     fn on_robot_death(&mut self, _event: &RobotDeathEvent, _status: &Status, _cmd: &mut Commands) {}
+
+    /// You died (called right away, with your final status).
+    fn on_death(&mut self, _status: &Status) {}
+    /// You were the last robot standing when the round ended.
+    fn on_win(&mut self, _status: &Status) {}
+    /// The round ended. Robots keep their state between rounds, like static
+    /// fields in Java robots.
+    fn on_round_ended(&mut self, _event: &RoundEndedEvent) {}
 
     /// For fixed-point strategy robots: the observation and action of this
     /// turn, shown by the battle viewer. Ordinary robots leave this as `None`.

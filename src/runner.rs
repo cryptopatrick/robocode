@@ -6,7 +6,7 @@
 //! take part through [`StrategyRobot`], which builds their [`Observation`].
 
 use crate::api::{
-    BulletHitBulletEvent, BulletHitEvent, BulletMissedEvent, Commands, Event, HitByBulletEvent, HitRobotEvent, HitWallEvent, Robot,
+    BulletHitBulletEvent, BulletHitEvent, BulletMissedEvent, Commands, RoundEndedEvent, Event, HitByBulletEvent, HitRobotEvent, HitWallEvent, Robot,
     RobotDeathEvent, ScannedRobotEvent, Status, relative_bearing,
 };
 use crate::geometry::angle_to_point;
@@ -204,6 +204,23 @@ pub struct Battle {
     /// Whether each robot acted in the most recent step.
     acted: Vec<bool>,
     wall_hits: Vec<u32>,
+    /// Where each robot spawned in round 0 (later rounds rotate these).
+    spawns: Vec<SpawnSpec>,
+    /// Bullet damage dealt by each robot since the last `run_rounds` began.
+    bullet_damage: Vec<f64>,
+}
+
+/// Results of [`Battle::run_rounds`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct BattleResults {
+    /// One outcome per round.
+    pub rounds: Vec<BattleOutcome>,
+    /// Rounds won by each robot (last one standing).
+    pub wins: Vec<u32>,
+    /// Rounds each robot was still alive at the end of.
+    pub survived: Vec<u32>,
+    /// Total bullet damage each robot dealt.
+    pub bullet_damage: Vec<f64>,
 }
 
 /// Names as classic RoboCode shows them: repeats get " (2)", " (3)", …
@@ -258,6 +275,8 @@ impl Battle {
             pending: vec![Vec::new(); n],
             acted: vec![false; n],
             wall_hits: vec![0; n],
+            spawns: spawns.to_vec(),
+            bullet_damage: vec![0.0; n],
         }
     }
 
@@ -304,6 +323,20 @@ impl Battle {
 
         let events = self.state.step();
         self.queue_events(&events);
+        let config = self.state.config;
+        let turn = self.state.turn;
+        let alive = self.alive_count();
+        for hit in &events.bullet_hits {
+            if let Some(s) = self.state.robots.iter().position(|r| r.id == hit.shooter) {
+                self.bullet_damage[s] += crate::rules::bullet_damage(hit.power);
+            }
+        }
+        for &dead in &events.robot_deaths {
+            if let Some(d) = self.state.robots.iter().position(|r| r.id == dead) {
+                let status = status_of(&self.state.robots[d], &config, turn, &self.names[d], alive);
+                self.robots[d].on_death(&status);
+            }
+        }
         events
     }
 
@@ -401,6 +434,41 @@ impl Battle {
 
     /// Steps until at most one robot is alive or `max_turns` turns have run.
     pub fn run(&mut self, max_turns: u64) -> BattleOutcome {
+        let outcome = self.play(max_turns);
+        self.finish_round(0, 1, &outcome);
+        outcome
+    }
+
+    /// Plays `rounds` rounds of at most `max_turns_per_round` turns each.
+    /// Each round starts fresh, with spawn points rotated by the round number
+    /// so every robot gets every corner; robot instances keep their state.
+    /// Call it on a fresh battle.
+    pub fn run_rounds(&mut self, rounds: u32, max_turns_per_round: u64) -> BattleResults {
+        let n = self.robots.len();
+        self.bullet_damage = vec![0.0; n];
+        let mut results = BattleResults { rounds: Vec::new(), wins: vec![0; n], survived: vec![0; n], bullet_damage: Vec::new() };
+        for round in 0..rounds {
+            if round > 0 {
+                self.reset_round(round);
+            }
+            let outcome = self.play(max_turns_per_round);
+            self.finish_round(round, rounds, &outcome);
+            if let Some(w) = outcome.winner.and_then(|id| self.state.robots.iter().position(|r| r.id == id)) {
+                results.wins[w] += 1;
+            }
+            for (i, r) in self.state.robots.iter().enumerate() {
+                if r.alive {
+                    results.survived[i] += 1;
+                }
+            }
+            results.rounds.push(outcome);
+        }
+        results.bullet_damage = self.bullet_damage.clone();
+        results
+    }
+
+    /// Steps until at most one robot is alive or `max_turns` turns have run.
+    fn play(&mut self, max_turns: u64) -> BattleOutcome {
         let mut turns = 0;
         while turns < max_turns && self.alive_count() > 1 {
             self.step();
@@ -413,6 +481,37 @@ impl Battle {
             energies: self.state.robots.iter().map(|r| r.energy).collect(),
             wall_hits: self.wall_hits.clone(),
         }
+    }
+
+    /// End-of-round callbacks: `on_win` for a sole survivor, then
+    /// `on_round_ended` for everyone.
+    fn finish_round(&mut self, round: u32, total_rounds: u32, outcome: &BattleOutcome) {
+        let config = self.state.config;
+        let turn = self.state.turn;
+        if let Some(w) = outcome.winner.and_then(|id| self.state.robots.iter().position(|r| r.id == id)) {
+            let status = status_of(&self.state.robots[w], &config, turn, &self.names[w], 0);
+            self.robots[w].on_win(&status);
+        }
+        let event = RoundEndedEvent { round, total_rounds, turns: outcome.turns };
+        for robot in &mut self.robots {
+            robot.on_round_ended(&event);
+        }
+    }
+
+    /// Fresh engine state for `round`: robot `i` spawns where robot
+    /// `(i + round) % n` spawned in round 0.
+    fn reset_round(&mut self, round: u32) {
+        let n = self.spawns.len();
+        let rotated: Vec<SpawnSpec> = (0..n)
+            .map(|i| {
+                let s = self.spawns[(i + round as usize) % n];
+                SpawnSpec { id: self.spawns[i].id, ..s }
+            })
+            .collect();
+        self.state = BattleState::from_spawns(self.state.config, &rotated);
+        self.pending = vec![Vec::new(); n];
+        self.acted = vec![false; n];
+        self.wall_hits = vec![0; n];
     }
 
     /// The observation and action robot `i` used in the most recent step, if
