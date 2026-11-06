@@ -7,4 +7,5 @@
 - [Specs on integers](ch01-integer-specs.md)
 - [requires and ensures: SafeShooter](ch02-requires-ensures.md)
 - [Loops and invariants](ch03-loop-invariants.md)
+- [Is your spec strong enough?](ch04-spec-strength.md)
 - [Coming next](coming.md)

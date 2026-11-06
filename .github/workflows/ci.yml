@@ -53,6 +53,8 @@ jobs:
         run: cargo verus verify --features verus
       - name: Verify guide solutions
         run: cargo verus verify -p roboverus-solutions
+      - name: Mutation checks (every ensures clause rejects a planted bug)
+        run: cargo run -p verus-mutants
 
   guide:
     name: Guide
