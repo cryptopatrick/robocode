@@ -18,7 +18,7 @@ pub use events::{
     BulletFired, BulletImpact, BulletMissed, RobotCollision, ScannedRobot, TurnEvents,
     WallCollision,
 };
-pub use robot::{RobotControl, RobotId, RobotState};
+pub use robot::{RobotControl, RobotId, RobotState, Turret, TurretMode};
 pub use snapshot::{
     BulletSnapshot, EventSnapshot, RobotSnapshot, SnapshotConfig, TurnSnapshot,
 };

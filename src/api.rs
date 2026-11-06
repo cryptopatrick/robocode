@@ -27,6 +27,7 @@
 //! See `docs/robot-api.md` for the full guide.
 
 use crate::physics::RobotState;
+pub use crate::physics::TurretMode;
 use crate::strategy::{Action, Observation};
 
 /// Your robot at the start of the turn.
@@ -135,6 +136,10 @@ pub struct Commands {
     fire: Option<f64>,
     max_velocity: Option<f64>,
     max_turn_rate: Option<f64>,
+    turret_mode: Option<TurretMode>,
+    adjust_gun_for_robot_turn: Option<bool>,
+    adjust_radar_for_robot_turn: Option<bool>,
+    adjust_radar_for_gun_turn: Option<bool>,
 }
 
 impl Commands {
@@ -179,6 +184,31 @@ impl Commands {
         self.max_turn_rate = Some(degrees);
     }
 
+    /// Java-style turret: the body drags the gun and radar (see [`TurretMode`]).
+    /// Stays in effect until changed. Ported Java robots want `TurretMode::Java`.
+    pub fn set_turret_mode(&mut self, mode: TurretMode) {
+        self.turret_mode = Some(mode);
+    }
+    /// Java `setAdjustGunForRobotTurn` (only matters in `TurretMode::Java`).
+    pub fn set_adjust_gun_for_robot_turn(&mut self, adjust: bool) {
+        self.adjust_gun_for_robot_turn = Some(adjust);
+    }
+    /// Java `setAdjustRadarForRobotTurn` (only matters in `TurretMode::Java`).
+    pub fn set_adjust_radar_for_robot_turn(&mut self, adjust: bool) {
+        self.adjust_radar_for_robot_turn = Some(adjust);
+    }
+    /// Java `setAdjustRadarForGunTurn` (only matters in `TurretMode::Java`).
+    pub fn set_adjust_radar_for_gun_turn(&mut self, adjust: bool) {
+        self.adjust_radar_for_gun_turn = Some(adjust);
+    }
+
+    pub fn turret_mode(&self) -> Option<TurretMode> {
+        self.turret_mode
+    }
+    pub fn adjust_gun_for_robot_turn(&self) -> Option<bool> {
+        self.adjust_gun_for_robot_turn
+    }
+
     pub fn max_velocity(&self) -> Option<f64> {
         self.max_velocity
     }
@@ -204,6 +234,18 @@ impl Commands {
 
     /// Hands the commands to the engine.
     pub(crate) fn apply_to(&self, robot: &mut RobotState) {
+        if let Some(mode) = self.turret_mode {
+            robot.turret.mode = mode;
+        }
+        if let Some(a) = self.adjust_gun_for_robot_turn {
+            robot.set_adjust_gun_for_robot_turn(a);
+        }
+        if let Some(a) = self.adjust_radar_for_robot_turn {
+            robot.set_adjust_radar_for_robot_turn(a);
+        }
+        if let Some(a) = self.adjust_radar_for_gun_turn {
+            robot.set_adjust_radar_for_gun_turn(a);
+        }
         if let Some(v) = self.max_velocity {
             robot.set_max_velocity(v);
         }

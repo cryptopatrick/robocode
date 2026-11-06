@@ -18,6 +18,10 @@ pub struct RobotState {
     pub alive: bool,
     pub radius: f64,
     pub control: RobotControl,
+    /// How the gun and radar move with the body.
+    pub turret: Turret,
+    /// Collided with a robot last turn (Java skips the next body turn).
+    pub in_collision: bool,
 }
 
 impl RobotState {
@@ -35,6 +39,8 @@ impl RobotState {
             alive: true,
             radius: ROBOT_RADIUS,
             control: RobotControl::default(),
+            turret: Turret::default(),
+            in_collision: false,
         }
     }
 
@@ -60,6 +66,26 @@ impl RobotState {
 
     pub fn set_turn_radar_right(&mut self, degrees: f64) {
         self.control.radar_turn_remaining = degrees;
+    }
+
+    /// Java `setAdjustGunForRobotTurn` (Java turret mode only).
+    pub fn set_adjust_gun_for_robot_turn(&mut self, adjust: bool) {
+        self.turret.adjust_gun_for_body = adjust;
+    }
+
+    /// Java `setAdjustRadarForRobotTurn` (Java turret mode only).
+    pub fn set_adjust_radar_for_robot_turn(&mut self, adjust: bool) {
+        self.turret.adjust_radar_for_body = adjust;
+        self.turret.adjust_radar_for_body_set = true;
+    }
+
+    /// Java `setAdjustRadarForGunTurn` (Java turret mode only). Like Java, it
+    /// also sets the radar-for-body flag unless that was set explicitly.
+    pub fn set_adjust_radar_for_gun_turn(&mut self, adjust: bool) {
+        self.turret.adjust_radar_for_gun = adjust;
+        if !self.turret.adjust_radar_for_body_set {
+            self.turret.adjust_radar_for_body = adjust;
+        }
     }
 
     /// Caps the speed (Java `setMaxVelocity`); clamped to 0..=8.
@@ -143,4 +169,28 @@ impl RobotControl {
             || self.radar_turn_remaining.abs() > EPSILON
             || self.fire_power.is_some()
     }
+}
+
+/// How the gun and radar move when the body (or gun) turns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TurretMode {
+    /// The gun and radar never move with the body (or the radar with the
+    /// gun). The default, and what the fixed-point strategies assume.
+    #[default]
+    Independent,
+    /// Classic Robocode: turning the body drags the gun and radar along, and
+    /// turning the gun drags the radar, unless the matching `adjust` flag
+    /// cancels it.
+    Java,
+}
+
+/// Turret coupling state (Java `setAdjust…` flags; defaults false as in Java).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Turret {
+    pub mode: TurretMode,
+    pub adjust_gun_for_body: bool,
+    pub adjust_radar_for_body: bool,
+    pub adjust_radar_for_gun: bool,
+    /// Whether `adjust_radar_for_body` was set explicitly.
+    pub adjust_radar_for_body_set: bool,
 }

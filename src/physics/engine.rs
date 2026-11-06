@@ -7,7 +7,7 @@ use crate::physics::events::{
     BulletFired, BulletImpact, BulletMissed, ScannedRobot, TurnEvents,
     WallCollision,
 };
-use crate::physics::robot::{RobotId, RobotState};
+use crate::physics::robot::{RobotId, RobotState, TurretMode};
 use crate::physics::snapshot::TurnSnapshot;
 use crate::rules::{self, EPSILON};
 
@@ -281,30 +281,46 @@ fn apply_turns(robot: &mut RobotState) {
         robot.control.radar_turn_remaining = 0.0;
         return;
     }
-    let body_limit = rules::body_turn_rate_for_velocity(robot.velocity).min(robot.control.max_turn_rate);
-    let applied = clamp_turn(robot.control.turn_remaining, body_limit);
-    robot.apply_absolute_heading(applied);
-    robot.control.turn_remaining -= applied;
-    if robot.control.turn_remaining.abs() < EPSILON {
-        robot.control.turn_remaining = 0.0;
+    let java = robot.turret.mode == TurretMode::Java;
+
+    // Body. Like Java, a robot that collided last turn doesn't turn.
+    if !robot.in_collision {
+        let body_limit = rules::body_turn_rate_for_velocity(robot.velocity).min(robot.control.max_turn_rate);
+        let applied = clamp_turn(robot.control.turn_remaining, body_limit);
+        robot.apply_absolute_heading(applied);
+        robot.control.turn_remaining = settle(robot.control.turn_remaining - applied);
+        if java {
+            robot.apply_gun_heading(applied);
+            robot.apply_radar_heading(applied);
+            if robot.turret.adjust_gun_for_body {
+                robot.control.gun_turn_remaining -= applied;
+            }
+            if robot.turret.adjust_radar_for_body {
+                robot.control.radar_turn_remaining -= applied;
+            }
+        }
     }
 
-    let gun_limit = rules::MAX_GUN_TURN_RATE;
-    let gun_applied = clamp_turn(robot.control.gun_turn_remaining, gun_limit);
+    // Gun.
+    let gun_applied = clamp_turn(robot.control.gun_turn_remaining, rules::MAX_GUN_TURN_RATE);
     robot.apply_gun_heading(gun_applied);
-    robot.control.gun_turn_remaining -= gun_applied;
-    if robot.control.gun_turn_remaining.abs() < EPSILON {
-        robot.control.gun_turn_remaining = 0.0;
+    robot.control.gun_turn_remaining = settle(robot.control.gun_turn_remaining - gun_applied);
+    if java {
+        robot.apply_radar_heading(gun_applied);
+        if robot.turret.adjust_radar_for_gun {
+            robot.control.radar_turn_remaining -= gun_applied;
+        }
     }
 
-    let radar_limit = rules::MAX_RADAR_TURN_RATE;
-    let radar_applied =
-        clamp_turn(robot.control.radar_turn_remaining, radar_limit);
+    // Radar.
+    let radar_applied = clamp_turn(robot.control.radar_turn_remaining, rules::MAX_RADAR_TURN_RATE);
     robot.apply_radar_heading(radar_applied);
-    robot.control.radar_turn_remaining -= radar_applied;
-    if robot.control.radar_turn_remaining.abs() < EPSILON {
-        robot.control.radar_turn_remaining = 0.0;
-    }
+    robot.control.radar_turn_remaining = settle(robot.control.radar_turn_remaining - radar_applied);
+}
+
+/// Snaps float residue in a remaining turn to exactly 0.
+fn settle(remaining: f64) -> f64 {
+    if remaining.abs() < EPSILON { 0.0 } else { remaining }
 }
 
 fn clamp_turn(requested: f64, limit: f64) -> f64 {
