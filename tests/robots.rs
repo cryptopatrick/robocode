@@ -27,54 +27,14 @@ fn obs() -> Observation {
     }
 }
 
-#[test]
-fn fires_when_safe() {
-    assert_eq!(safe_shooter::decide(&obs()).fire, Some(Power(1000)));
-}
+// Firing rules (when SafeShooter fires, and that every shot is safe) are
+// proved by Verus; see docs/verification-receipt.md. These tests cover
+// behaviour the spec leaves open: gun tracking, power choice, radar lock.
 
 #[test]
-fn never_fires_when_hot() {
-    let o = Observation { gun_heat: GunHeat(1), ..obs() };
-    assert_eq!(safe_shooter::decide(&o).fire, None);
-}
-
-#[test]
-fn never_fires_without_target() {
-    let o = Observation { target: None, ..obs() };
-    assert_eq!(safe_shooter::decide(&o).fire, None);
-}
-
-#[test]
-fn never_fires_on_stale_target() {
+fn keeps_tracking_a_stale_target_with_the_gun() {
     let o = Observation { target: Some(target(100, 300, 1)), ..obs() };
-    let a = safe_shooter::decide(&o);
-    assert_eq!(a.fire, None);
-    assert_eq!(a.turn_gun, Some(100));
-}
-
-#[test]
-fn aimed_across_zero() {
-    let o = Observation { gun_heading: Angle(3595), target: Some(target(5, 300, 0)), ..obs() };
-    assert!(safe_shooter::is_aimed(&o));
-    assert_eq!(safe_shooter::decide(&o).fire, Some(Power(1000)));
-}
-
-#[test]
-fn not_aimed_outside_tolerance() {
-    let o = Observation { target: Some(target(safe_shooter::AIM_TOLERANCE + 1, 300, 0)), ..obs() };
-    assert!(!safe_shooter::is_aimed(&o));
-    assert_eq!(safe_shooter::decide(&o).fire, None);
-}
-
-#[test]
-fn energy_boundary() {
-    let at = |e| safe_shooter::decide(&Observation { energy: Energy(e), ..obs() }).fire;
-    // Firing all remaining energy would leave the robot at 0, which the
-    // engine treats as dead, so "safe" requires energy strictly above p.
-    assert_eq!(at(1001), Some(Power(1000)));
-    assert_eq!(at(1000), None);
-    assert_eq!(at(999), None);
-    assert_eq!(at(0), None);
+    assert_eq!(safe_shooter::decide(&o).turn_gun, Some(100));
 }
 
 #[test]

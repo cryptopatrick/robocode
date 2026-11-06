@@ -71,13 +71,22 @@ impl Power {
     }
 }
 
+#[cfg_attr(feature = "verus", verus_verify)]
 impl Angle {
     /// Converts degrees to decidegrees, rounding to nearest and normalizing to `0..3600`.
+    ///
+    /// **Trusted** (part of the f64 boundary): Verus takes the `ensures` on
+    /// faith; `tests/boundary.rs` guards it with extreme inputs.
+    #[cfg_attr(feature = "verus", verus_verify(external_body))]
+    #[cfg_attr(feature = "verus", verus_spec(r =>
+        ensures 0 <= r.0 < 3600,
+    ))]
     pub fn from_degrees(degrees: f64) -> Angle {
         Angle(((degrees * 10.0).round() as i32).rem_euclid(3600))
     }
 
-    /// The angle in degrees.
+    /// The angle in degrees. (Float code: outside the proofs.)
+    #[cfg_attr(feature = "verus", verus_verify(external_body))]
     pub fn to_degrees(self) -> f64 {
         self.0 as f64 / 10.0
     }

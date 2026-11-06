@@ -165,6 +165,7 @@ impl<S: Strategy> Robot for StrategyRobot<S> {
             .as_ref()
             .map(|(t, seen)| (t, status.time.saturating_sub(*seen).min(u32::MAX as u64) as u32));
         let obs = observe_status(status, target);
+        debug_assert!(crate::strategy::is_well_formed(&obs), "ill-formed observation: {obs:?}");
         let action = self.strategy.decide(&obs);
         *cmd = commands_for(&action);
         self.decision = Some((obs, action));

@@ -27,6 +27,9 @@ use crate::units::{Power, angle_diff};
 // Spec functions exist only while Verus runs, so their imports are gated on `verus_only`.
 #[cfg(verus_only)]
 use crate::units::{MAX_POWER, MIN_POWER, spec_angle_diff};
+// Re-exported so robot files and the guide can keep importing it from here.
+#[cfg(verus_only)]
+pub use crate::strategy::well_formed;
 
 /// Largest gun/target misalignment, in decidegrees (3.0°), that counts as aimed.
 #[cfg_attr(feature = "verus", verus_verify)]
@@ -46,17 +49,6 @@ pub const MAX_GUN_TURN: i32 = 200;
 
 #[cfg(feature = "verus")]
 verus! {
-
-/// Observations the runner can produce: normalized angles and a robot inside
-/// a reasonably sized battlefield.
-pub open spec fn well_formed(obs: Observation) -> bool {
-    &&& 0 <= obs.heading.0 < 3600
-    &&& 0 <= obs.gun_heading.0 < 3600
-    &&& 0 <= obs.radar_heading.0 < 3600
-    &&& 0 <= obs.field_width <= 100_000
-    &&& 0 <= obs.field_height <= 100_000
-    &&& obs.target matches Some(t) ==> 0 <= t.bearing.0 < 3600
-}
 
 /// The gun points at the target within [`AIM_TOLERANCE`].
 pub open spec fn aimed(obs: Observation) -> bool {
