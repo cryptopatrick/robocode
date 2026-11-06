@@ -3,3 +3,4 @@
 //! battle; verification and battle share one implementation hash.
 
 pub mod candidate;
+pub mod template;
