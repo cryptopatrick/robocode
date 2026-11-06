@@ -11,11 +11,11 @@ pub enum BuildOutcome {
     Failed { log: String },
 }
 
-/// `cargo build --release --bin battle` in the candidate crate, without the
+/// `cargo build --release --bins` (the one battle binary) in the candidate crate, without the
 /// `verus` feature (specs vanish; the code is what runs in battles).
 pub fn build(dir: &Path, target_dir: &Path) -> BuildOutcome {
     let out = Command::new("cargo")
-        .args(["build", "--release", "--locked", "--bin", "battle"])
+        .args(["build", "--release", "--locked", "--bins"])
         .current_dir(dir)
         .env("CARGO_TARGET_DIR", target_dir)
         .output();
@@ -46,6 +46,23 @@ mod tests {
     fn safe_shooter_fixture_builds() {
         let dir = materialized("safe_shooter");
         assert_eq!(build(&dir, &plain_target_dir()), BuildOutcome::Ok);
+    }
+
+    /// A candidate whose files are older than an earlier candidate's build
+    /// must still be compiled, never served the earlier candidate's artifacts.
+    #[test]
+    fn stale_artifacts_are_not_reused() {
+        let target = std::env::temp_dir().join(format!("robocheck-test-stale-target-{}", std::process::id()));
+        let good = materialized("safe_shooter");
+        assert_eq!(build(&good, &target), BuildOutcome::Ok);
+        let bad = materialized("type_error");
+        let status = std::process::Command::new("touch")
+            .args(["-t", "202001010000"])
+            .args(["Cargo.toml", "Cargo.lock", "src/lib.rs", "src/strategy.rs", "src/bin/battle.rs"].map(|f| bad.join(f)))
+            .status()
+            .unwrap();
+        assert!(status.success());
+        assert!(matches!(build(&bad, &target), BuildOutcome::Failed { .. }), "type_error reused safe_shooter's build");
     }
 
     #[test]

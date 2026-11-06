@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::template::LIB_RS;
+use crate::template::{LIB_RS, sha256_hex};
 
 const MANIFEST_IN: &str = include_str!("../template/Cargo.toml.in");
 const LOCKFILE: &str = include_str!("../template/Cargo.lock.template");
@@ -24,15 +24,29 @@ pub fn verus_target_dir() -> PathBuf {
     repo_root().join("target/robocheck/target-verus")
 }
 
+/// Name of the candidate crate and of its battle binary for this `strategy.rs`.
+/// Unique per implementation: candidate crates share a target dir, and Cargo
+/// fingerprints a root package by a workspace-relative path, so two
+/// candidates with one name could be served each other's build.
+pub fn crate_and_bin(strategy_rs: &str) -> (String, String) {
+    let h = &sha256_hex(strategy_rs.as_bytes())[..12];
+    (format!("robocheck-candidate-{h}"), format!("battle-{h}"))
+}
+
 /// Writes a standalone candidate crate (its own `[workspace]`) into `dir`.
-pub fn materialize(dir: &Path, strategy_rs: &str, repo_root: &Path) -> std::io::Result<()> {
+/// Returns the name of its battle binary.
+pub fn materialize(dir: &Path, strategy_rs: &str, repo_root: &Path) -> std::io::Result<String> {
     std::fs::create_dir_all(dir.join("src/bin"))?;
+    let (krate, bin) = crate_and_bin(strategy_rs);
     let path = repo_root.display().to_string();
-    std::fs::write(dir.join("Cargo.toml"), MANIFEST_IN.replace("{{ROBOCODE_PATH}}", &path))?;
-    std::fs::write(dir.join("Cargo.lock"), LOCKFILE)?;
+    let manifest = MANIFEST_IN.replace("{{ROBOCODE_PATH}}", &path).replace("{{CRATE}}", &krate).replace("{{BIN}}", &bin);
+    std::fs::write(dir.join("Cargo.toml"), manifest)?;
+    let lock = LOCKFILE.replace("name = \"robocheck-candidate\"", &format!("name = \"{krate}\""));
+    std::fs::write(dir.join("Cargo.lock"), lock)?;
     std::fs::write(dir.join("src/lib.rs"), LIB_RS)?;
     std::fs::write(dir.join("src/strategy.rs"), strategy_rs)?;
-    std::fs::write(dir.join("src/bin/battle.rs"), BATTLE_RS)
+    std::fs::write(dir.join("src/bin/battle.rs"), BATTLE_RS)?;
+    Ok(bin)
 }
 
 #[cfg(test)]
