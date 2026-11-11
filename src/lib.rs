@@ -25,6 +25,7 @@
 
 mod geometry;
 pub mod api;
+pub mod live;
 pub mod recording;
 pub mod robots;
 pub mod roster;
