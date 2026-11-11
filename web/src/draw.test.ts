@@ -29,3 +29,17 @@ describe('labelY', () => {
     expect(labelY(576, 600)).toBe(576 - 18 - 6);
   });
 });
+
+import { labelX } from './draw';
+
+describe('labelX', () => {
+  it('centres the label on the robot when it fits', () => {
+    expect(labelX(400, 800, 80)).toBe(400);
+  });
+  it('keeps the label inside the right edge', () => {
+    expect(labelX(780, 800, 80)).toBe(800 - 40 - 4);
+  });
+  it('keeps the label inside the left edge', () => {
+    expect(labelX(10, 800, 80)).toBe(40 + 4);
+  });
+});

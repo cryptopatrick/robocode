@@ -30,6 +30,12 @@ export function robotLabel(r: RobotSnapshot, name: string): string {
   return `${name} ${r.energy.toFixed(1)}`;
 }
 
+/** Horizontal centre for a label `textWidth` wide, kept inside the arena. */
+export function labelX(x: number, width: number, textWidth: number): number {
+  const half = textWidth / 2 + 4;
+  return Math.min(Math.max(x, half), width - half);
+}
+
 /** Where a robot's label goes: below it, or above it near the bottom edge. */
 export function labelY(y: number, height: number): number {
   const below = y + BODY / 2 + 14;
@@ -209,7 +215,7 @@ export function drawArena(
     ctx.fillStyle = LABEL;
     snap.robots.forEach((r, i) => {
       const text = labelFor(r, rec.robots[i]?.name ?? `Robot ${i}`, view);
-      if (text) ctx.fillText(text, r.position.x, labelY(r.position.y, h));
+      if (text) ctx.fillText(text, labelX(r.position.x, w, ctx.measureText(text).width), labelY(r.position.y, h));
     });
   }
 }
