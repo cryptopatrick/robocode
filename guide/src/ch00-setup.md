@@ -23,7 +23,7 @@ On Linux use `verus-$V-x86-linux.zip` and `verus-x86-linux/`. If macOS refuses t
 From the repository root, verify the crate:
 
 ```sh
-cargo verus verify --features verus
+cargo verify            # alias for: cargo verus verify --features verus --target-dir target/verus
 ```
 
 You should see a line like:

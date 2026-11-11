@@ -1,0 +1,7 @@
+# `cargo verus` and plain cargo must not share build output: a library built
+# by Verus in `target/` can shadow the plain build and hide new items from
+# tests. These aliases give Verus its own folder.
+[alias]
+verify = "verus verify --features verus --target-dir target/verus"
+verify-solutions = "verus verify -p roboverus-solutions --target-dir target/verus"
+verify-exercises = "verus verify -p roboverus-exercises --target-dir target/verus"

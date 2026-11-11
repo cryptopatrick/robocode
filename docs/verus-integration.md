@@ -39,8 +39,8 @@ Without `gh`, download the zip from
 | Plain build/test (no Verus crates) | `cargo build` / `cargo test` |
 | Check no Verus crate is compiled | `cargo tree -e normal \| grep -Ei 'vstd\|verus'` prints nothing |
 | Feature on, plain cargo (must build) | `cargo build --features verus` |
-| Verify the crate | `cargo verus verify --features verus` |
-| Verify the guide's solutions | `cargo verus verify -p roboverus-solutions` |
+| Verify the crate | `cargo verify` (alias for `cargo verus verify --features verus --target-dir target/verus`) |
+| Verify the guide's solutions | `cargo verify-solutions` |
 | Exercises (build; verification fails at each `TODO` until solved) | `cargo build -p roboverus-exercises` |
 
 A successful verification ends with a line like `verification results:: N verified, 0 errors` for the `robocode` crate.
@@ -85,3 +85,7 @@ while i < targets.len() { /* ... */ }
 - Constants used in specs carry `#[cfg_attr(feature = "verus", verus_verify)]` too.
 - Functions that use floats (unit conversions) are left without `verus_verify`, so Verus ignores them.
 - `[package.metadata.verus] verify = true` tells `cargo verus` to verify this crate. Plain cargo ignores it.
+
+## Keep Verus's build separate
+
+`cargo verus` and plain `cargo` must not share `target/`: a library built by Verus can shadow the plain build, so a test suddenly can't see an item that plainly exists. The aliases in `.cargo/config.toml` (`cargo verify`, `cargo verify-solutions`, `cargo verify-exercises`) build into `target/verus`. If it happens anyway, `cargo clean -p robocode` fixes it.

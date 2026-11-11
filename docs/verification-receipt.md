@@ -3,7 +3,7 @@
 What is **proved** by Verus, what is only **tested** (a trusted assumption guarded by a named test), and what is **out of scope**. Modelled on the receipts in Microsoft Research's *Proof-Driven Development* (PDD Kit, 2026).
 
 To check it:
-- `cargo verus verify --features verus` (proofs);
+- `cargo verify` (proofs; alias for `cargo verus verify --features verus --target-dir target/verus`);
 - `cargo run -p verus-mutants` (every `ensures` clause rejects a planted bug);
 - `cargo test` (the tests named below).
 
