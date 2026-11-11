@@ -565,6 +565,12 @@ impl Battle {
             self.step();
             turns += 1;
         }
+        self.current_outcome(turns)
+    }
+
+    /// The outcome as things stand, without ending the round (no callbacks).
+    /// `turns` is reported as given.
+    pub fn current_outcome(&self, turns: u64) -> BattleOutcome {
         let survivors: Vec<RobotId> = self.state.robots.iter().filter(|r| r.alive).map(|r| r.id).collect();
         BattleOutcome {
             winner: if survivors.len() == 1 { Some(survivors[0]) } else { None },

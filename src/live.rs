@@ -6,6 +6,9 @@
 //! deterministic and testable. What a battle *does* never depends on timing;
 //! only *when* turns happen does.
 
+use crate::recording::{self, Frame, RecordingBuilder};
+use crate::runner::{Battle, BattleOutcome};
+
 /// Decides how many turns are due at a given moment for a target turns per
 /// second, like Java's `synchronizeTPS`. When the simulation falls behind
 /// (a slow turn, a stalled tab), it runs at most [`Pacer::MAX_CATCH_UP`]
@@ -114,5 +117,94 @@ impl Pacer {
     /// Turns per second actually achieved, measured over ~0.5 s windows.
     pub fn measured_tps(&self) -> f64 {
         self.measured
+    }
+}
+
+/// A battle advanced one turn at a time by its caller (a paced loop), producing
+/// a frame per turn. Its frames, and its finished recording, are identical to
+/// [`recording::record`] for the same battle: pacing never changes outcomes.
+pub struct LiveSession {
+    battle: Battle,
+    builder: RecordingBuilder,
+    header: String,
+    initial: Frame,
+    max_turns: u64,
+    played: u64,
+    outcome: Option<BattleOutcome>,
+}
+
+impl LiveSession {
+    /// A session that ends when one robot is left or after `max_turns` turns.
+    pub fn new(battle: Battle, max_turns: u64) -> LiveSession {
+        let mut builder = RecordingBuilder::new(&battle);
+        let initial = recording::initial_frame(&battle);
+        builder.push(&initial);
+        let header = recording::header_json(&battle);
+        let mut session = LiveSession { battle, builder, header, initial, max_turns, played: 0, outcome: None };
+        session.check_finished();
+        session
+    }
+
+    /// The recording header (first line of a live stream).
+    pub fn header(&self) -> &str {
+        &self.header
+    }
+
+    /// The turn-0 frame, before any step.
+    pub fn initial_frame(&self) -> &Frame {
+        &self.initial
+    }
+
+    /// Advances one turn and returns its frame, or `None` once finished.
+    pub fn step(&mut self) -> Option<Frame> {
+        if self.outcome.is_some() {
+            return None;
+        }
+        let events = self.battle.step();
+        let frame = recording::frame(&self.battle, &events);
+        self.builder.push(&frame);
+        self.played += 1;
+        self.check_finished();
+        Some(frame)
+    }
+
+    fn check_finished(&mut self) {
+        let alive = self.battle.state().robots.iter().filter(|r| r.alive).count();
+        if self.outcome.is_none() && (alive <= 1 || self.played >= self.max_turns) {
+            // Ends the round (on_win / on_round_ended), like `record`.
+            let mut outcome = self.battle.run(0);
+            outcome.turns = self.played;
+            self.outcome = Some(outcome);
+        }
+    }
+
+    pub fn finished(&self) -> bool {
+        self.outcome.is_some()
+    }
+
+    pub fn outcome(&self) -> Option<&BattleOutcome> {
+        self.outcome.as_ref()
+    }
+
+    pub fn turns_played(&self) -> u64 {
+        self.played
+    }
+
+    /// The recording so far (complete once finished), as v1 JSON.
+    pub fn recording(&self) -> String {
+        let outcome = match &self.outcome {
+            Some(o) => o.clone(),
+            None => self.battle.current_outcome(self.played),
+        };
+        self.builder.finish(&self.battle, &outcome).json
+    }
+
+    pub fn battle(&self) -> &Battle {
+        &self.battle
+    }
+
+    /// For settings such as [`Battle::set_time_budget`].
+    pub fn battle_mut(&mut self) -> &mut Battle {
+        &mut self.battle
     }
 }
