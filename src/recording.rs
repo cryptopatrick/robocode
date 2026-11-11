@@ -73,45 +73,114 @@ pub fn record(battle: Battle, max_turns: u64) -> String {
     record_with_summary(battle, max_turns).json
 }
 
-/// Like [`record`], also returning who won and after how many turns.
-pub fn record_with_summary(mut battle: Battle, max_turns: u64) -> Recorded {
+/// One recorded turn: its snapshot and every robot's decision (or `null`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Frame {
+    /// `TurnSnapshot` JSON.
+    pub snapshot: String,
+    /// JSON array, one decision (or `null`) per robot.
+    pub decisions: String,
+}
+
+impl Frame {
+    /// `{"turn":<snapshot>,"decisions":[…]}`, one line of a live stream.
+    pub fn to_json(&self) -> String {
+        format!(r#"{{"turn":{},"decisions":{}}}"#, self.snapshot, self.decisions)
+    }
+}
+
+fn robots_and_field(battle: &Battle) -> String {
     let n = battle.state().robots.len();
-    let config = battle.state().config;
-    let (w, h) = (config.battlefield.width, config.battlefield.height);
-
-    let mut turns = vec![battle.state().snapshot("viewer", &TurnEvents::default()).to_json_string()];
-    let mut decisions = vec![vec!["null".to_string(); n]];
-    let outcome = loop {
-        let alive = battle.state().robots.iter().filter(|r| r.alive).count();
-        if alive <= 1 || turns.len() as u64 > max_turns {
-            break battle.run(0);
-        }
-        let events = battle.step();
-        turns.push(battle.state().snapshot("viewer", &events).to_json_string());
-        decisions.push(
-            (0..n).map(|i| battle.last_decision(i).as_ref().map_or_else(|| "null".into(), decision_json)).collect(),
-        );
-    };
-
-    let mut out = String::from(r#"{"format":"roboverus-recording","version":1,"robots":["#);
+    let field = battle.state().config.battlefield;
+    let mut out = String::from(r#""robots":["#);
     for i in 0..n {
         let sep = if i > 0 { "," } else { "" };
         let name = battle.name(i).replace('\\', "\\\\").replace('"', "\\\"");
         let _ = write!(out, r#"{sep}{{"id":{i},"name":"{name}"}}"#);
     }
-    let _ = write!(out, r#"],"battlefield":{{"width":{w},"height":{h}}},"turns":[{}],"decisions":["#, turns.join(","));
-    let rows: Vec<String> = decisions.iter().map(|row| format!("[{}]", row.join(","))).collect();
-    out.push_str(&rows.join(","));
-    let energies: Vec<String> = outcome.energies.iter().map(|e| e.to_string()).collect();
-    let _ = write!(
-        out,
-        r#"],"outcome":{{"winner":{},"turns":{},"energies":[{}]}}}}"#,
-        opt(outcome.winner),
-        turns.len() - 1,
-        energies.join(",")
-    );
-    let winner = outcome.winner.and_then(|id| {
-        battle.state().robots.iter().position(|r| r.id == id).map(|i| battle.name(i).to_string())
-    });
-    Recorded { json: out, winner, turns: (turns.len() - 1) as u64 }
+    let _ = write!(out, r#"],"battlefield":{{"width":{},"height":{}}}"#, field.width, field.height);
+    out
+}
+
+/// The recording's header as a standalone JSON object (first line of a live stream).
+pub fn header_json(battle: &Battle) -> String {
+    format!(r#"{{"format":"roboverus-recording","version":1,{}}}"#, robots_and_field(battle))
+}
+
+/// The frame for the battle's current state before any step (turn 0).
+pub fn initial_frame(battle: &Battle) -> Frame {
+    let n = battle.state().robots.len();
+    Frame {
+        snapshot: battle.state().snapshot("viewer", &TurnEvents::default()).to_json_string(),
+        decisions: format!("[{}]", vec!["null"; n].join(",")),
+    }
+}
+
+/// The frame for the turn `battle.step()` just produced (with its `events`).
+pub fn frame(battle: &Battle, events: &TurnEvents) -> Frame {
+    let n = battle.state().robots.len();
+    let row: Vec<String> =
+        (0..n).map(|i| battle.last_decision(i).as_ref().map_or_else(|| "null".into(), decision_json)).collect();
+    Frame { snapshot: battle.state().snapshot("viewer", events).to_json_string(), decisions: format!("[{}]", row.join(",")) }
+}
+
+/// Builds a v1 recording one frame at a time (as a live battle produces them).
+pub struct RecordingBuilder {
+    head: String,
+    turns: Vec<String>,
+    decisions: Vec<String>,
+}
+
+impl RecordingBuilder {
+    pub fn new(battle: &Battle) -> Self {
+        RecordingBuilder { head: robots_and_field(battle), turns: Vec::new(), decisions: Vec::new() }
+    }
+
+    pub fn push(&mut self, frame: &Frame) {
+        self.turns.push(frame.snapshot.clone());
+        self.decisions.push(frame.decisions.clone());
+    }
+
+    /// Frames pushed so far.
+    pub fn len(&self) -> usize {
+        self.turns.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.turns.is_empty()
+    }
+
+    /// The finished recording, with `outcome` (from `battle.run(0)` or similar).
+    pub fn finish(&self, battle: &Battle, outcome: &crate::runner::BattleOutcome) -> Recorded {
+        let played = self.turns.len().saturating_sub(1);
+        let energies: Vec<String> = outcome.energies.iter().map(|e| e.to_string()).collect();
+        let json = format!(
+            r#"{{"format":"roboverus-recording","version":1,{},"turns":[{}],"decisions":[{}],"outcome":{{"winner":{},"turns":{},"energies":[{}]}}}}"#,
+            self.head,
+            self.turns.join(","),
+            self.decisions.join(","),
+            opt(outcome.winner),
+            played,
+            energies.join(",")
+        );
+        let winner = outcome.winner.and_then(|id| {
+            battle.state().robots.iter().position(|r| r.id == id).map(|i| battle.name(i).to_string())
+        });
+        Recorded { json, winner, turns: played as u64 }
+    }
+}
+
+/// Like [`record`], also returning who won and after how many turns.
+pub fn record_with_summary(mut battle: Battle, max_turns: u64) -> Recorded {
+    let mut builder = RecordingBuilder::new(&battle);
+    builder.push(&initial_frame(&battle));
+    let outcome = loop {
+        let alive = battle.state().robots.iter().filter(|r| r.alive).count();
+        if alive <= 1 || builder.len() as u64 > max_turns {
+            break battle.run(0);
+        }
+        let events = battle.step();
+        builder.push(&frame(&battle, &events));
+    };
+    builder.finish(&battle, &outcome)
 }
