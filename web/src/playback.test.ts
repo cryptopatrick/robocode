@@ -36,3 +36,12 @@ describe('playbackReducer', () => {
     expect(playbackReducer(at(7), { type: 'speed', speed: 120 }).speed).toBe(120);
   });
 });
+
+describe('extend (live recording grows)', () => {
+  it('follows the live head', () => {
+    expect(playbackReducer(at(10), { type: 'extend', last: 12, follow: true })).toEqual({ ...at(12), last: 12 });
+  });
+  it('stays where the viewer scrubbed to', () => {
+    expect(playbackReducer(at(4), { type: 'extend', last: 12, follow: false })).toEqual({ ...at(4), last: 12 });
+  });
+});

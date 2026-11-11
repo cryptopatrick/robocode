@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import ArenaCanvas from './components/ArenaCanvas';
 import Controls from './components/Controls';
+import LiveControls, { type LiveUi } from './components/LiveControls';
 import DecisionPanel from './components/DecisionPanel';
 import NewBattle, { type BattleSetup } from './components/NewBattle';
 import RecordingFile from './components/RecordingFile';
@@ -8,11 +9,13 @@ import Results from './components/Results';
 import RobotPanel from './components/RobotPanel';
 import ViewToggles from './components/ViewToggles';
 import type { ViewOptions } from './draw';
+import { appendFrames } from './live';
 import { playbackReducer } from './playback';
 import type { Recording } from './recording';
 import { loadRecording, recordingUrl } from './loadFromUrl';
 import { loadSprites, type Sprites } from './sprites';
-import { loadEngine, robotNames, runBattle } from './wasm';
+import { useLiveBattle } from './useLiveBattle';
+import { loadEngine, robotNames } from './wasm';
 
 const DEFAULT_VIEW: ViewOptions = { names: true, energy: true, scanArcs: true, effects: true };
 
@@ -27,25 +30,63 @@ export default function App() {
   const [selected, setSelected] = useState(0);
   const [sprites, setSprites] = useState<Sprites>({});
   const [playback, dispatch] = useReducer(playbackReducer, { turn: 0, last: 0, playing: false, speed: 30 });
+  /** Set while a battle runs live; `null` when replaying a recording. */
+  const [live, setLive] = useState<LiveUi | null>(null);
+  const following = useRef(true);
+  const lastTurn = useRef(0);
+  const liveTps = useRef<number | null>(30);
 
-  const show = useCallback((rec: Recording) => {
-    setRecording(rec);
-    setSelected(0);
-    setError(null);
-    dispatch({ type: 'load', last: rec.turns.length - 1 });
-  }, []);
+  const send = useLiveBattle({
+    started: (rec) => {
+      setRecording(rec);
+      setSelected(0);
+      setError(null);
+      lastTurn.current = 0;
+      following.current = true;
+      dispatch({ type: 'load', last: 0 });
+      setLive({ paused: false, tps: liveTps.current, measuredTps: 0, finished: false, following: true });
+    },
+    grew: (frames, measuredTps) => {
+      setRecording((r) => (r ? appendFrames(r, frames) : r));
+      lastTurn.current += frames.length;
+      dispatch({ type: 'extend', last: lastTurn.current, follow: following.current });
+      setLive((l) => (l ? { ...l, measuredTps } : l));
+    },
+    done: (rec) => {
+      setRecording(rec);
+      lastTurn.current = rec.turns.length - 1;
+      dispatch({ type: 'extend', last: lastTurn.current, follow: following.current });
+      setLive((l) => (l ? { ...l, finished: true } : l));
+    },
+    error: (message) => setError(message),
+  });
 
+  /** Replay a finished recording (opened file or `?recording=`). */
+  const show = useCallback(
+    (rec: Recording) => {
+      send({ type: 'stop' });
+      setLive(null);
+      setRecording(rec);
+      setSelected(0);
+      setError(null);
+      dispatch({ type: 'load', last: rec.turns.length - 1 });
+    },
+    [send],
+  );
+
+  /** Start a live battle in the engine worker. */
   const run = useCallback(
     (setup: BattleSetup) => {
-      try {
-        show(runBattle(setup.robots, setup.width, setup.height, setup.maxTurns));
-        dispatch({ type: 'play' });
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      }
+      setError(null);
+      send({ type: 'start', robots: setup.robots, width: setup.width, height: setup.height, maxTurns: setup.maxTurns, tps: liveTps.current });
     },
-    [show],
+    [send],
   );
+
+  const setFollowing = (f: boolean) => {
+    following.current = f;
+    setLive((l) => (l ? { ...l, following: f } : l));
+  };
 
   useEffect(() => {
     const fromUrl = recordingUrl(window.location.search);
@@ -106,7 +147,37 @@ export default function App() {
           {recording ? (
             <>
               <ArenaCanvas recording={recording} turn={playback.turn} view={view} sprites={sprites} />
-              <Controls playback={playback} dispatch={dispatch} />
+              {live ? (
+                <LiveControls
+                  live={live}
+                  turn={playback.turn}
+                  last={playback.last}
+                  onPause={() => {
+                    send({ type: 'pause' });
+                    setLive((l) => (l ? { ...l, paused: true } : l));
+                  }}
+                  onResume={() => {
+                    send({ type: 'resume' });
+                    setLive((l) => (l ? { ...l, paused: false } : l));
+                  }}
+                  onStep={() => send({ type: 'step' })}
+                  onTps={(tps) => {
+                    liveTps.current = tps;
+                    send({ type: 'tps', tps });
+                    setLive((l) => (l ? { ...l, tps } : l));
+                  }}
+                  onSeek={(turn) => {
+                    setFollowing(turn >= lastTurn.current);
+                    dispatch({ type: 'seek', turn });
+                  }}
+                  onBackToLive={() => {
+                    setFollowing(true);
+                    dispatch({ type: 'extend', last: lastTurn.current, follow: true });
+                  }}
+                />
+              ) : (
+                <Controls playback={playback} dispatch={dispatch} />
+              )}
             </>
           ) : (
             !error && <p className="text-sm text-slate-500">Loading the battle engine…</p>
@@ -135,7 +206,7 @@ export default function App() {
                   recordsDecisions={recording.decisions.some((row) => row[selected] !== null)}
                 />
               </section>
-              {playback.turn === playback.last && <Results recording={recording} />}
+              {playback.turn === playback.last && (!live || live.finished) && <Results recording={recording} />}
               <section aria-labelledby="view-h" className="flex flex-col gap-2">
                 <h2 id="view-h" className="text-sm font-semibold">Show</h2>
                 <ViewToggles view={view} onChange={setView} />

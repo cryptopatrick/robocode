@@ -20,7 +20,9 @@ export type PlaybackAction =
   | { type: 'restart' }
   | { type: 'speed'; speed: number }
   | { type: 'tick' }
-  | { type: 'load'; last: number };
+  | { type: 'load'; last: number }
+  /** A live recording grew to `last`; `follow` keeps the view on the newest turn. */
+  | { type: 'extend'; last: number; follow: boolean };
 
 const clamp = (turn: number, last: number) => Math.min(Math.max(Math.round(turn), 0), last);
 
@@ -47,5 +49,9 @@ export function playbackReducer(s: Playback, a: PlaybackAction): Playback {
     }
     case 'load':
       return { ...s, turn: 0, last: Math.max(a.last, 0), playing: false };
+    case 'extend': {
+      const last = Math.max(a.last, 0);
+      return { ...s, last, turn: a.follow ? last : clamp(s.turn, last) };
+    }
   }
 }

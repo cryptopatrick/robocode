@@ -91,3 +91,32 @@ fn recording_fingerprint_is_unchanged() {
     let json = record_battle(&spec(&["SafeShooter", "Spinner"])).unwrap();
     assert_eq!((json.len(), fnv1a(&json)), (716_414, 0xa87d_8e29_504d_8bfd));
 }
+
+#[test]
+fn live_battle_streams_the_same_battle() {
+    use robocode_wasm::LiveBattle;
+    let expected: Value = serde_json::from_str(&record_battle(&spec(&["SafeShooter", "Spinner"])).unwrap()).unwrap();
+    let mut live = LiveBattle::create("SafeShooter,Spinner", 800.0, 600.0, 5000).unwrap();
+    let header: Value = serde_json::from_str(&live.header()).unwrap();
+    assert_eq!(header["robots"], expected["robots"]);
+    let mut turns = vec![serde_json::from_str::<Value>(&live.initial_frame()).unwrap()["turn"].clone()];
+    while !live.finished() {
+        let batch: Value = serde_json::from_str(&live.step_many(7)).unwrap();
+        turns.extend(batch.as_array().unwrap().iter().map(|f| f["turn"].clone()));
+    }
+    assert_eq!(Value::Array(turns), expected["turns"]);
+    let finished: Value = serde_json::from_str(&live.recording()).unwrap();
+    assert_eq!(finished, expected);
+}
+
+#[test]
+fn live_pacer_counts_due_turns_from_milliseconds() {
+    use robocode_wasm::LivePacer;
+    let mut p = LivePacer::new(30);
+    let total: u32 = (0..1000).map(|ms| p.due(ms as f64)).sum();
+    assert_eq!(total, 30);
+    p.pause();
+    assert_eq!(p.due(1500.0), 0);
+    p.step();
+    assert_eq!(p.due(1501.0), 1);
+}
