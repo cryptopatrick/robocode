@@ -1,5 +1,8 @@
 ## Unreleased
- - Unreleased changes.
+ - Robocode scoring: `runner::Score`, `BattleResults::scores`, `Battle::scores()`; `cargo robocode battle --rounds` prints scores.
+ - Viewer: robot labels stay inside the arena's side edges.
+ - `cargo verify` aliases keep Verus's build in `target/verus`.
+ - CI on `actions/checkout` and `actions/setup-node` v7 (Node 24).
 
 ## v0.3.0 - 2026-11-06
  - *Breaking* New variants in the public `api::Event` enum (`HitRobot`, `BulletHitBullet`) and new public fields on `RobotControl`, `RobotState`, `TurnEvents` and `BulletState`.
