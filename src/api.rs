@@ -136,6 +136,14 @@ pub struct RobotDeathEvent {
     pub name: String,
 }
 
+/// Your robot took longer than its time budget and missed turns (Java
+/// `SkippedTurnEvent`). Only happens when the battle sets a time budget.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SkippedTurnEvent {
+    /// Turns missed since your last turn.
+    pub turns: u32,
+}
+
 /// A round finished (sent to every robot, alive or not).
 #[derive(Debug, Clone, PartialEq)]
 pub struct RoundEndedEvent {
@@ -326,6 +334,10 @@ pub trait Robot {
     fn on_hit_wall(&mut self, _event: &HitWallEvent, _status: &Status, _cmd: &mut Commands) {}
     fn on_hit_robot(&mut self, _event: &HitRobotEvent, _status: &Status, _cmd: &mut Commands) {}
     fn on_robot_death(&mut self, _event: &RobotDeathEvent, _status: &Status, _cmd: &mut Commands) {}
+
+    /// You missed turns because you exceeded the battle's time budget
+    /// (called first, on your next turn).
+    fn on_skipped_turn(&mut self, _event: &SkippedTurnEvent, _status: &Status, _cmd: &mut Commands) {}
 
     /// You died (called right away, with your final status).
     fn on_death(&mut self, _status: &Status) {}

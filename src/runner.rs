@@ -6,7 +6,7 @@
 //! take part through [`StrategyRobot`], which builds their [`Observation`].
 
 use crate::api::{
-    BulletHitBulletEvent, BulletHitEvent, BulletMissedEvent, Commands, RoundEndedEvent, Event, HitByBulletEvent, HitRobotEvent, HitWallEvent, Robot,
+    BulletHitBulletEvent, BulletHitEvent, BulletMissedEvent, Commands, RoundEndedEvent, SkippedTurnEvent, Event, HitByBulletEvent, HitRobotEvent, HitWallEvent, Robot,
     RobotDeathEvent, ScannedRobotEvent, Status, relative_bearing,
 };
 use crate::geometry::angle_to_point;
@@ -213,6 +213,14 @@ pub struct Battle {
     scores: Vec<Score>,
     /// `damage_to[i][j]`: damage robot `i` dealt robot `j` this round (for kill bonuses).
     damage_to: Vec<Vec<f64>>,
+    /// Per-robot time budget per turn (Java-style); `None` = unlimited.
+    time_budget: Option<std::time::Duration>,
+    /// Turns each robot still has to skip, how many in a row it has skipped,
+    /// how many it hasn't been told about, and its total.
+    skip_left: Vec<u32>,
+    skip_streak: Vec<u32>,
+    skip_unreported: Vec<u32>,
+    skipped: Vec<u32>,
 }
 
 /// Robocode's score, as Java's `RobotStatistics` computes it.
@@ -260,6 +268,8 @@ pub struct BattleResults {
     pub bullet_damage: Vec<f64>,
     /// Robocode score per robot, summed over all rounds.
     pub scores: Vec<Score>,
+    /// Turns each robot skipped for exceeding the time budget (0 without one).
+    pub skipped_turns: Vec<u32>,
 }
 
 /// Names as classic RoboCode shows them: repeats get " (2)", " (3)", …
@@ -319,6 +329,11 @@ impl Battle {
             round_scores: vec![Score::default(); n],
             scores: vec![Score::default(); n],
             damage_to: vec![vec![0.0; n]; n],
+            time_budget: None,
+            skip_left: vec![0; n],
+            skip_streak: vec![0; n],
+            skip_unreported: vec![0; n],
+            skipped: vec![0; n],
         }
     }
 
@@ -343,9 +358,28 @@ impl Battle {
             if !self.state.robots[i].alive {
                 continue;
             }
+            if self.skip_left[i] > 0 {
+                // Still "busy" from an over-budget turn: no events, no run;
+                // events wait for the next turn, pending commands keep executing.
+                self.skip_left[i] -= 1;
+                self.skip_streak[i] += 1;
+                self.skip_unreported[i] += 1;
+                self.skipped[i] += 1;
+                self.pending[i] = events;
+                if self.skip_streak[i] >= Self::MAX_SKIPPED_TURNS {
+                    self.state.robots[i].energy = 0.0; // disabled, as in Java
+                }
+                continue;
+            }
+            self.skip_streak[i] = 0;
+            let started = self.start_timer();
             let status = status_of(&self.state.robots[i], &config, turn, &self.names[i], alive - 1);
             let mut cmd = Commands::default();
             let robot = &mut self.robots[i];
+            if self.skip_unreported[i] > 0 {
+                let event = SkippedTurnEvent { turns: std::mem::take(&mut self.skip_unreported[i]) };
+                robot.on_skipped_turn(&event, &status, &mut cmd);
+            }
             for event in &events {
                 match event {
                     Event::ScannedRobot(e) => robot.on_scanned_robot(e, &status, &mut cmd),
@@ -361,6 +395,7 @@ impl Battle {
             robot.run(&status, &mut cmd);
             cmd.apply_to(&mut self.state.robots[i]);
             self.acted[i] = true;
+            self.skip_left[i] = self.turns_over_budget(started);
         }
 
         let events = self.state.step();
@@ -472,7 +507,9 @@ impl Battle {
             self.wall_hits[i] +=
                 events.wall_collisions.iter().filter(|w| w.robot_id == robot.id).count() as u32;
         }
-        self.pending = pending;
+        for (queue, new) in self.pending.iter_mut().zip(pending) {
+            queue.extend(new);
+        }
     }
 
     /// Steps until at most one robot is alive or `max_turns` turns have run.
@@ -490,7 +527,15 @@ impl Battle {
         let n = self.robots.len();
         self.bullet_damage = vec![0.0; n];
         self.scores = vec![Score::default(); n];
-        let mut results = BattleResults { rounds: Vec::new(), wins: vec![0; n], survived: vec![0; n], bullet_damage: Vec::new(), scores: Vec::new() };
+        self.skipped = vec![0; n];
+        let mut results = BattleResults {
+            rounds: Vec::new(),
+            wins: vec![0; n],
+            survived: vec![0; n],
+            bullet_damage: Vec::new(),
+            scores: Vec::new(),
+            skipped_turns: Vec::new(),
+        };
         for round in 0..rounds {
             if round > 0 {
                 self.reset_round(round);
@@ -509,6 +554,7 @@ impl Battle {
         }
         results.bullet_damage = self.bullet_damage.clone();
         results.scores = self.scores.clone();
+        results.skipped_turns = self.skipped.clone();
         results
     }
 
@@ -570,6 +616,46 @@ impl Battle {
         }
     }
 
+    /// Consecutive skipped turns after which a robot is disabled (Java's rule).
+    pub const MAX_SKIPPED_TURNS: u32 = 30;
+
+    /// Give each robot at most `budget` per turn (handlers plus `run`), like
+    /// Java's CPU constant. A turn taking `k` whole budgets skips the robot's
+    /// next `k` turns; 30 in a row disable it. `None` (the default) keeps
+    /// battles fully deterministic. There is no preemption: a robot that never
+    /// returns still hangs the battle. Has no effect on `wasm32`, which has no clock.
+    pub fn set_time_budget(&mut self, budget: Option<std::time::Duration>) {
+        self.time_budget = budget;
+    }
+
+    /// Turns each robot has skipped for exceeding the time budget.
+    pub fn skipped_turns(&self) -> &[u32] {
+        &self.skipped
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn start_timer(&self) -> Option<std::time::Instant> {
+        self.time_budget.map(|_| std::time::Instant::now())
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn start_timer(&self) -> Option<()> {
+        None
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn turns_over_budget(&self, started: Option<std::time::Instant>) -> u32 {
+        match (self.time_budget, started) {
+            (Some(budget), Some(t)) if !budget.is_zero() => (t.elapsed().as_nanos() / budget.as_nanos()) as u32,
+            _ => 0,
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn turns_over_budget(&self, _started: Option<()>) -> u32 {
+        0
+    }
+
     /// Robocode scores so far: finished rounds plus the current one.
     pub fn scores(&self) -> &[Score] {
         &self.scores
@@ -611,6 +697,9 @@ impl Battle {
         self.pending = vec![Vec::new(); n];
         self.acted = vec![false; n];
         self.wall_hits = vec![0; n];
+        self.skip_left = vec![0; n];
+        self.skip_streak = vec![0; n];
+        self.skip_unreported = vec![0; n];
     }
 
     /// The observation and action robot `i` used in the most recent step, if
