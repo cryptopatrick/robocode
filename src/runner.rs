@@ -208,6 +208,43 @@ pub struct Battle {
     spawns: Vec<SpawnSpec>,
     /// Bullet damage dealt by each robot since the last `run_rounds` began.
     bullet_damage: Vec<f64>,
+    /// Score this round, and totals over finished rounds.
+    round_scores: Vec<Score>,
+    scores: Vec<Score>,
+    /// `damage_to[i][j]`: damage robot `i` dealt robot `j` this round (for kill bonuses).
+    damage_to: Vec<Vec<f64>>,
+}
+
+/// Robocode's score, as Java's `RobotStatistics` computes it.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Score {
+    /// +50 each time another robot dies while this one is alive.
+    pub survival: f64,
+    /// +10 per opponent for being the last robot standing.
+    pub last_survivor_bonus: f64,
+    /// Bullet damage dealt, capped at each victim's remaining energy.
+    pub bullet_damage: f64,
+    /// 20% of all damage dealt to a robot this one killed with a bullet.
+    pub bullet_kill_bonus: f64,
+    /// +1.2 (2 × ram damage) per collision this robot caused.
+    pub ram_damage: f64,
+    /// 30% of all damage dealt to a robot this one rammed to death.
+    pub ram_kill_bonus: f64,
+}
+
+impl Score {
+    pub fn total(&self) -> f64 {
+        self.survival + self.last_survivor_bonus + self.bullet_damage + self.bullet_kill_bonus + self.ram_damage + self.ram_kill_bonus
+    }
+
+    fn add(&mut self, other: &Score) {
+        self.survival += other.survival;
+        self.last_survivor_bonus += other.last_survivor_bonus;
+        self.bullet_damage += other.bullet_damage;
+        self.bullet_kill_bonus += other.bullet_kill_bonus;
+        self.ram_damage += other.ram_damage;
+        self.ram_kill_bonus += other.ram_kill_bonus;
+    }
 }
 
 /// Results of [`Battle::run_rounds`].
@@ -221,6 +258,8 @@ pub struct BattleResults {
     pub survived: Vec<u32>,
     /// Total bullet damage each robot dealt.
     pub bullet_damage: Vec<f64>,
+    /// Robocode score per robot, summed over all rounds.
+    pub scores: Vec<Score>,
 }
 
 /// Names as classic RoboCode shows them: repeats get " (2)", " (3)", …
@@ -277,6 +316,9 @@ impl Battle {
             wall_hits: vec![0; n],
             spawns: spawns.to_vec(),
             bullet_damage: vec![0.0; n],
+            round_scores: vec![Score::default(); n],
+            scores: vec![Score::default(); n],
+            damage_to: vec![vec![0.0; n]; n],
         }
     }
 
@@ -331,6 +373,7 @@ impl Battle {
                 self.bullet_damage[s] += crate::rules::bullet_damage(hit.power);
             }
         }
+        self.score_turn(&events);
         for &dead in &events.robot_deaths {
             if let Some(d) = self.state.robots.iter().position(|r| r.id == dead) {
                 let status = status_of(&self.state.robots[d], &config, turn, &self.names[d], alive);
@@ -446,7 +489,8 @@ impl Battle {
     pub fn run_rounds(&mut self, rounds: u32, max_turns_per_round: u64) -> BattleResults {
         let n = self.robots.len();
         self.bullet_damage = vec![0.0; n];
-        let mut results = BattleResults { rounds: Vec::new(), wins: vec![0; n], survived: vec![0; n], bullet_damage: Vec::new() };
+        self.scores = vec![Score::default(); n];
+        let mut results = BattleResults { rounds: Vec::new(), wins: vec![0; n], survived: vec![0; n], bullet_damage: Vec::new(), scores: Vec::new() };
         for round in 0..rounds {
             if round > 0 {
                 self.reset_round(round);
@@ -464,6 +508,7 @@ impl Battle {
             results.rounds.push(outcome);
         }
         results.bullet_damage = self.bullet_damage.clone();
+        results.scores = self.scores.clone();
         results
     }
 
@@ -483,15 +528,69 @@ impl Battle {
         }
     }
 
+    /// Java's per-turn scoring: damage, ramming, kill bonuses, survival.
+    fn score_turn(&mut self, events: &TurnEvents) {
+        let index = |id: RobotId| self.state.robots.iter().position(|r| r.id == id);
+        for hit in &events.bullet_hits {
+            if let (Some(s), Some(v)) = (index(hit.shooter), index(hit.victim)) {
+                let damage = crate::rules::bullet_damage(hit.power);
+                // Java caps the score at the victim's energy before the hit.
+                let before = self.state.robots[v].energy + damage;
+                let score = damage.min(before.max(0.0));
+                self.round_scores[s].bullet_damage += score;
+                self.damage_to[s][v] += score;
+            }
+        }
+        for c in events.robot_collisions.iter().filter(|c| c.at_fault) {
+            if let (Some(a), Some(o)) = (index(c.robot_id), index(c.other_robot_id)) {
+                self.round_scores[a].ram_damage += crate::rules::ROBOT_HIT_BONUS;
+                self.damage_to[a][o] += crate::rules::ROBOT_HIT_DAMAGE;
+            }
+        }
+        for &dead in &events.robot_deaths {
+            let Some(d) = index(dead) else { continue };
+            // Kill bonus to whoever dealt the fatal blow this turn.
+            let fatal_hit = events.bullet_hits.iter().rev().find(|h| h.victim == dead);
+            let fatal_ram = events.robot_collisions.iter().rev().find(|c| c.at_fault && c.other_robot_id == dead);
+            if let Some(hit) = fatal_hit
+                && let Some(s) = index(hit.shooter)
+            {
+                self.round_scores[s].bullet_kill_bonus += 0.2 * self.damage_to[s][d];
+            } else if fatal_hit.is_none()
+                && let Some(c) = fatal_ram
+                && let Some(a) = index(c.robot_id)
+            {
+                self.round_scores[a].ram_kill_bonus += 0.3 * self.damage_to[a][d];
+            }
+            for (i, r) in self.state.robots.iter().enumerate() {
+                if r.alive {
+                    self.round_scores[i].survival += 50.0;
+                }
+            }
+        }
+    }
+
+    /// Robocode scores so far: finished rounds plus the current one.
+    pub fn scores(&self) -> &[Score] {
+        &self.scores
+    }
+
     /// End-of-round callbacks: `on_win` for a sole survivor, then
     /// `on_round_ended` for everyone.
     fn finish_round(&mut self, round: u32, total_rounds: u32, outcome: &BattleOutcome) {
         let config = self.state.config;
         let turn = self.state.turn;
         if let Some(w) = outcome.winner.and_then(|id| self.state.robots.iter().position(|r| r.id == id)) {
+            self.round_scores[w].last_survivor_bonus += 10.0 * (self.robots.len() - 1) as f64;
             let status = status_of(&self.state.robots[w], &config, turn, &self.names[w], 0);
             self.robots[w].on_win(&status);
         }
+        let n = self.robots.len();
+        for (total, round) in self.scores.iter_mut().zip(&self.round_scores) {
+            total.add(round);
+        }
+        self.round_scores = vec![Score::default(); n];
+        self.damage_to = vec![vec![0.0; n]; n];
         let event = RoundEndedEvent { round, total_rounds, turns: outcome.turns };
         for robot in &mut self.robots {
             robot.on_round_ended(&event);

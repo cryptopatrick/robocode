@@ -130,7 +130,7 @@ fn rounds_print_each_round_and_totals() {
     let out = tool(&["battle", "bot.rs", "--rounds", "3", "--output", "b.json", "--no-open"], &dir);
     assert!(out.status.success(), "{}", stderr(&out));
     let stdout = String::from_utf8_lossy(&out.stdout);
-    for line in ["Round 1:", "Round 2:", "Round 3:", "Wins: Bot "] {
+    for line in ["Round 1:", "Round 2:", "Round 3:", "Wins: Bot ", "Score: Bot "] {
         assert!(stdout.contains(line), "missing {line:?} in:\n{stdout}");
     }
     assert!(std::fs::read_to_string(dir.join("b.json")).unwrap().starts_with(r#"{"format":"roboverus-recording""#));

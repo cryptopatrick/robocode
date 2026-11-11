@@ -87,6 +87,8 @@ fn battle_program(entries: &[Entry], files: &[PathBuf], width: f64, height: f64,
          \x20   println!(\"Wins: {{}}\", wins.join(\", \"));\n\
          \x20   let damage: Vec<String> = (0..results.bullet_damage.len()).map(|i| format!(\"{{}} {{:.0}}\", battle.name(i), results.bullet_damage[i])).collect();\n\
          \x20   println!(\"Bullet damage: {{}}\", damage.join(\", \"));\n\
+         \x20   let score: Vec<String> = (0..results.scores.len()).map(|i| format!(\"{{}} {{:.0}}\", battle.name(i), results.scores[i].total())).collect();\n\
+         \x20   println!(\"Score: {{}}\", score.join(\", \"));\n\
          }}\n",
         n = entries.len()
     ));
