@@ -125,7 +125,7 @@ pub fn serve_live(
             .await
             .map_err(|e| Failure::usage(format!("could not start the server: {e}")))?;
         let port = listener.local_addr().map_err(|e| Failure::usage(e.to_string()))?.port();
-        let (live_state, json_state) = (state.clone(), state.clone());
+        let (live_state, json_state, shutdown_state) = (state.clone(), state.clone(), state.clone());
         let app = Router::new()
             .route("/", get(|| async { asset("index.html") }))
             .route(
@@ -176,8 +176,11 @@ pub fn serve_live(
             println!("Could not open a browser; open the address above.");
         }
         axum::serve(listener, app)
-            .with_graceful_shutdown(async {
+            .with_graceful_shutdown(async move {
                 let _ = tokio::signal::ctrl_c().await;
+                // Graceful shutdown waits for open connections, and a viewer's
+                // event stream never ends by itself: end them all.
+                shutdown_state.lock().unwrap().viewers.clear();
             })
             .await
             .map_err(|e| Failure::usage(format!("the server stopped: {e}")))

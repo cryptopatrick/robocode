@@ -154,3 +154,23 @@ fn live_with_several_rounds_is_a_usage_error() {
     assert_eq!(out.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&out.stderr).contains("--live plays one round"), "{}", String::from_utf8_lossy(&out.stderr));
 }
+
+/// Ctrl+C stops the server even while a viewer's event stream is open.
+#[cfg(unix)]
+#[test]
+fn ctrl_c_stops_the_server_with_a_viewer_connected() {
+    let dir = temp_dir("ctrlc");
+    let (mut child, port) = start(&dir, "30");
+    let rx = subscribe(port);
+    rx.recv_timeout(Duration::from_secs(60)).expect("the stream is open");
+
+    assert!(Command::new("kill").args(["-INT", &child.id().to_string()]).status().unwrap().success());
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while child.try_wait().unwrap().is_none() {
+        if Instant::now() > deadline {
+            child.kill().unwrap();
+            panic!("the server ignored Ctrl+C while a viewer was connected");
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
