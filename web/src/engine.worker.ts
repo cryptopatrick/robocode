@@ -45,7 +45,7 @@ self.onmessage = async (e: MessageEvent<ToWorker>) => {
         stop();
         ready ??= init();
         await ready;
-        battle = new LiveBattle(m.robots.join(','), m.width, m.height, m.maxTurns);
+        battle = new LiveBattle(m.robots.join(','), m.width, m.height, m.maxTurns, m.urban);
         pacer = new LivePacer(m.tps ?? 0);
         post({
           type: 'started',

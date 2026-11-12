@@ -32,10 +32,11 @@ pub mod roster;
 pub mod physics;
 pub mod rules;
 pub mod runner;
+pub mod terrain;
 pub mod strategy;
 pub mod units;
 
-pub use geometry::{Battlefield, Point};
+pub use geometry::{Battlefield, Point, Rect};
 
 /// Names the robot defined in a robot file, for `cargo robocode`.
 ///

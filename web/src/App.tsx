@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import ArenaCanvas from './components/ArenaCanvas';
+// three.js loads only when the 3D view is chosen.
+const ArenaScene3D = lazy(() => import('./components/ArenaScene3D'));
 import Controls from './components/Controls';
 import LiveControls, { type LiveUi } from './components/LiveControls';
 import DecisionPanel from './components/DecisionPanel';
@@ -27,6 +29,7 @@ export default function App() {
   const [recording, setRecording] = useState<Recording | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewOptions>(DEFAULT_VIEW);
+  const [mode, setMode] = useState<'2d' | '3d'>('2d');
   const [selected, setSelected] = useState(0);
   const [sprites, setSprites] = useState<Sprites>({});
   const [playback, dispatch] = useReducer(playbackReducer, { turn: 0, last: 0, playing: false, speed: 30 });
@@ -80,7 +83,7 @@ export default function App() {
   const run = useCallback(
     (setup: BattleSetup) => {
       setError(null);
-      send({ type: 'start', robots: setup.robots, width: setup.width, height: setup.height, maxTurns: setup.maxTurns, tps: liveTps.current });
+      send({ type: 'start', robots: setup.robots, width: setup.width, height: setup.height, maxTurns: setup.maxTurns, urban: setup.urban, tps: liveTps.current });
     },
     [send],
   );
@@ -103,7 +106,7 @@ export default function App() {
     loadEngine()
       .then(() => {
         setNames(robotNames());
-        if (!fromUrl && !streamUrl) run({ robots: ['SafeShooter', 'Spinner'], width: 800, height: 600, maxTurns: 5000 });
+        if (!fromUrl && !streamUrl) run({ robots: ['SafeShooter', 'Spinner'], width: 800, height: 600, maxTurns: 5000, urban: false });
       })
       .catch((e: unknown) => setError(`Could not load the battle engine: ${e instanceof Error ? e.message : String(e)}`));
   }, [run, show, streamUrl]);
@@ -148,7 +151,28 @@ export default function App() {
           )}
           {recording ? (
             <>
-              <ArenaCanvas recording={recording} turn={playback.turn} view={view} sprites={sprites} />
+              <div role="group" aria-label="Arena view" className="flex gap-2 self-end text-sm">
+                {(['2d', '3d'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={mode === m}
+                    onClick={() => setMode(m)}
+                    className={`rounded-md border px-3 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 ${
+                      mode === m ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-slate-500'
+                    }`}
+                  >
+                    {m === '2d' ? '2D' : '3D'}
+                  </button>
+                ))}
+              </div>
+              {mode === '2d' ? (
+                <ArenaCanvas recording={recording} turn={playback.turn} view={view} sprites={sprites} />
+              ) : (
+                <Suspense fallback={<p className="text-sm text-slate-600">Loading the 3D view…</p>}>
+                  <ArenaScene3D recording={recording} turn={playback.turn} />
+                </Suspense>
+              )}
               {live ? (
                 <LiveControls
                   live={live}

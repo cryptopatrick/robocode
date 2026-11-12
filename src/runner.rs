@@ -630,6 +630,11 @@ impl Battle {
     /// next `k` turns; 30 in a row disable it. `None` (the default) keeps
     /// battles fully deterministic. There is no preemption: a robot that never
     /// returns still hangs the battle. Has no effect on `wasm32`, which has no clock.
+    /// Map objects for this battle. The default is an empty arena.
+    pub fn set_terrain(&mut self, terrain: crate::terrain::Terrain) {
+        self.state.terrain = terrain;
+    }
+
     pub fn set_time_budget(&mut self, budget: Option<std::time::Duration>) {
         self.time_budget = budget;
     }

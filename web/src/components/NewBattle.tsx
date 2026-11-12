@@ -5,6 +5,7 @@ export interface BattleSetup {
   width: number;
   height: number;
   maxTurns: number;
+  urban: boolean;
 }
 
 const ARENAS = [
@@ -25,6 +26,7 @@ export default function NewBattle({ names, onRun }: Props) {
   const [robots, setRobots] = useState<string[]>(['SafeShooter', 'Spinner']);
   const [arena, setArena] = useState(1);
   const [maxTurns, setMaxTurns] = useState(5000);
+  const [urban, setUrban] = useState(false);
 
   const setRobot = (i: number, name: string) => setRobots(robots.map((r, j) => (j === i ? name : r)));
 
@@ -33,7 +35,7 @@ export default function NewBattle({ names, onRun }: Props) {
       className="flex flex-wrap items-end gap-3"
       onSubmit={(e) => {
         e.preventDefault();
-        onRun({ robots, width: ARENAS[arena].width, height: ARENAS[arena].height, maxTurns });
+        onRun({ robots, width: ARENAS[arena].width, height: ARENAS[arena].height, maxTurns, urban });
       }}
     >
       {robots.map((r, i) => (
@@ -76,6 +78,10 @@ export default function NewBattle({ names, onRun }: Props) {
             </option>
           ))}
         </select>
+      </label>
+      <label className="flex items-center gap-2 text-xs text-slate-600">
+        <input type="checkbox" checked={urban} onChange={(e) => setUrban(e.target.checked)} />
+        Urban (buildings block tanks and bullets)
       </label>
       <label className="flex flex-col gap-1 text-xs text-slate-600">
         Turn limit

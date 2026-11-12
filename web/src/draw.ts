@@ -135,6 +135,24 @@ function drawRobot(ctx: CanvasRenderingContext2D, r: RobotSnapshot, color: strin
 }
 
 /** Draws turn `turn` of `rec`. */
+const ROAD = '#1e2b3a';
+const BUILDING = '#34465c';
+const BUILDING_EDGE = '#56708c';
+
+/** Roads, then buildings. Map objects only: they are drawn under the robots. */
+function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Recording['terrain']) {
+  if (!terrain) return;
+  ctx.fillStyle = ROAD;
+  for (const [x, y, w, h] of terrain.roads) ctx.fillRect(x, y, w, h);
+  for (const [x, y, w, h] of terrain.buildings) {
+    ctx.fillStyle = BUILDING;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = BUILDING_EDGE;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  }
+}
+
 export function drawArena(
   ctx: CanvasRenderingContext2D,
   rec: Recording,
@@ -146,6 +164,7 @@ export function drawArena(
   const snap = rec.turns[turn];
   const prev = rec.turns[Math.max(turn - 1, 0)];
   drawGrid(ctx, w, h);
+  drawTerrain(ctx, rec.terrain);
 
   if (view.scanArcs) {
     snap.robots.forEach((r, i) => {

@@ -99,6 +99,17 @@ fn robots_and_field(battle: &Battle) -> String {
         let _ = write!(out, r#"{sep}{{"id":{i},"name":"{name}"}}"#);
     }
     let _ = write!(out, r#"],"battlefield":{{"width":{},"height":{}}}"#, field.width, field.height);
+    let terrain = &battle.state().terrain;
+    if !terrain.buildings.is_empty() || !terrain.roads.is_empty() {
+        let rects = |rects: &[crate::geometry::Rect]| {
+            rects
+                .iter()
+                .map(|r| format!("[{},{},{},{}]", r.min.x, r.min.y, r.max.x - r.min.x, r.max.y - r.min.y))
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        let _ = write!(out, r#","terrain":{{"buildings":[{}],"roads":[{}]}}"#, rects(&terrain.buildings), rects(&terrain.roads));
+    }
     out
 }
 

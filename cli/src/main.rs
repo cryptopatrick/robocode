@@ -56,6 +56,9 @@ enum Command {
         /// Run the battle live: it advances while you watch, at --tps turns per second.
         #[arg(long)]
         live: bool,
+        /// Fight on the fixed urban map: buildings stop tanks and absorb bullets.
+        #[arg(long)]
+        urban: bool,
         /// Live speed: turns per second (1-1000) or "max".
         #[arg(long, default_value = "30")]
         tps: String,
@@ -113,7 +116,7 @@ fn main() -> ExitCode {
             Ok(())
         }
         Command::New { name } => new_robot(&name),
-        Command::Battle { robot, vs, arena, turns, rounds, output, no_open, verbose, live, tps, robocode_path } => {
+        Command::Battle { robot, vs, arena, turns, rounds, output, no_open, verbose, live, urban, tps, robocode_path } => {
             let tps = match tps.as_str() {
                 "max" => Ok(None),
                 t => t.parse::<u32>().ok().filter(|t| (1..=1000).contains(t)).map(Some).ok_or_else(|| {
@@ -124,7 +127,7 @@ fn main() -> ExitCode {
                 Err(f) => Err(f),
                 Ok(tps) => {
                     let save_only = no_open && output.is_some() && !live;
-                    let args = battle::BattleArgs { robot, vs, arena, turns, rounds, live, output, verbose, robocode_path };
+                    let args = battle::BattleArgs { robot, vs, arena, turns, rounds, live, urban, output, verbose, robocode_path };
                     if live {
                         battle::compile(&args).and_then(|c| serve::serve_live(&c, tps, args.output.clone(), no_open))
                     } else {

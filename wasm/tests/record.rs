@@ -2,7 +2,7 @@ use robocode_wasm::{BattleSpec, record_battle};
 use serde_json::Value;
 
 fn spec(robots: &[&str]) -> BattleSpec {
-    BattleSpec { robots: robots.iter().map(|s| s.to_string()).collect(), width: 800.0, height: 600.0, max_turns: 5000 }
+    BattleSpec { robots: robots.iter().map(|s| s.to_string()).collect(), width: 800.0, height: 600.0, max_turns: 5000, urban: false }
 }
 
 fn record(robots: &[&str]) -> Value {
@@ -96,7 +96,7 @@ fn recording_fingerprint_is_unchanged() {
 fn live_battle_streams_the_same_battle() {
     use robocode_wasm::LiveBattle;
     let expected: Value = serde_json::from_str(&record_battle(&spec(&["SafeShooter", "Spinner"])).unwrap()).unwrap();
-    let mut live = LiveBattle::create("SafeShooter,Spinner", 800.0, 600.0, 5000).unwrap();
+    let mut live = LiveBattle::create("SafeShooter,Spinner", 800.0, 600.0, 5000, false).unwrap();
     let header: Value = serde_json::from_str(&live.header()).unwrap();
     assert_eq!(header["robots"], expected["robots"]);
     let mut turns = vec![serde_json::from_str::<Value>(&live.initial_frame()).unwrap()["turn"].clone()];
@@ -119,4 +119,28 @@ fn live_pacer_counts_due_turns_from_milliseconds() {
     assert_eq!(p.due(1500.0), 0);
     p.step();
     assert_eq!(p.due(1501.0), 1);
+}
+
+#[test]
+fn an_urban_recording_carries_its_terrain_and_an_empty_one_does_not() {
+    let urban = BattleSpec { urban: true, ..spec(&["SafeShooter", "Spinner"]) };
+    let json: Value = serde_json::from_str(&record_battle(&urban).unwrap()).unwrap();
+    assert_eq!(json["terrain"]["buildings"].as_array().unwrap().len(), 9);
+    assert_eq!(json["terrain"]["roads"].as_array().unwrap().len(), 2);
+
+    let plain: Value = serde_json::from_str(&record_battle(&spec(&["SafeShooter", "Spinner"])).unwrap()).unwrap();
+    assert!(plain.get("terrain").is_none());
+}
+
+#[test]
+fn bullets_are_absorbed_in_an_urban_battle() {
+    let urban = BattleSpec { urban: true, ..spec(&["Spinner", "SafeShooter"]) };
+    let json: Value = serde_json::from_str(&record_battle(&urban).unwrap()).unwrap();
+    let absorbed: usize = json["turns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["events"]["bullet_hit_obstacles"].as_array().map_or(0, Vec::len))
+        .sum();
+    assert!(absorbed > 0, "no bullet met a building in the whole battle");
 }

@@ -8,6 +8,7 @@ use robocode::live::{LiveSession, Pacer};
 use robocode::physics::BattleConfig;
 use robocode::recording;
 use robocode::roster;
+use robocode::terrain::Terrain;
 use robocode::runner::Battle;
 use wasm_bindgen::prelude::*;
 
@@ -21,6 +22,8 @@ pub struct BattleSpec {
     pub width: f64,
     pub height: f64,
     pub max_turns: u64,
+    /// The fixed urban map (buildings and roads) instead of an empty arena.
+    pub urban: bool,
 }
 
 /// Builds the battle described by `spec`, checking it like the viewer does.
@@ -36,7 +39,11 @@ fn build_battle(spec: &BattleSpec) -> Result<Battle, String> {
         .collect::<Result<Vec<_>, _>>()?;
     recording::validate_setup(n, spec.width, spec.height, spec.max_turns)?;
     let config = BattleConfig { battlefield: Battlefield::new(spec.width, spec.height), ..BattleConfig::default() };
-    Ok(Battle::new(config, &roster::spawns(n, spec.width, spec.height), robots))
+    let mut battle = Battle::new(config, &roster::spawns(n, spec.width, spec.height), robots);
+    if spec.urban {
+        battle.set_terrain(Terrain::urban(spec.width, spec.height));
+    }
+    Ok(battle)
 }
 
 /// Runs the battle described by `spec` and returns its JSON recording.
@@ -44,12 +51,13 @@ pub fn record_battle(spec: &BattleSpec) -> Result<String, String> {
     Ok(recording::record(build_battle(spec)?, spec.max_turns))
 }
 
-fn spec_from_csv(robots_csv: &str, width: f64, height: f64, max_turns: u32) -> BattleSpec {
+fn spec_from_csv(robots_csv: &str, width: f64, height: f64, max_turns: u32, urban: bool) -> BattleSpec {
     BattleSpec {
         robots: robots_csv.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
         width,
         height,
         max_turns: max_turns as u64,
+        urban,
     }
 }
 
@@ -63,8 +71,8 @@ pub struct LiveBattle {
 impl LiveBattle {
     /// Same robots and checks as [`run_battle`]; throws on a bad setup.
     #[wasm_bindgen(constructor)]
-    pub fn new(robots_csv: &str, width: f64, height: f64, max_turns: u32) -> Result<LiveBattle, JsError> {
-        Self::create(robots_csv, width, height, max_turns).map_err(|e| JsError::new(&e))
+    pub fn new(robots_csv: &str, width: f64, height: f64, max_turns: u32, urban: bool) -> Result<LiveBattle, JsError> {
+        Self::create(robots_csv, width, height, max_turns, urban).map_err(|e| JsError::new(&e))
     }
 
     /// The v1 header object.
@@ -96,8 +104,8 @@ impl LiveBattle {
 
 impl LiveBattle {
     /// Native constructor (errors as strings).
-    pub fn create(robots_csv: &str, width: f64, height: f64, max_turns: u32) -> Result<LiveBattle, String> {
-        let spec = spec_from_csv(robots_csv, width, height, max_turns);
+    pub fn create(robots_csv: &str, width: f64, height: f64, max_turns: u32, urban: bool) -> Result<LiveBattle, String> {
+        let spec = spec_from_csv(robots_csv, width, height, max_turns, urban);
         Ok(LiveBattle { session: LiveSession::new(build_battle(&spec)?, spec.max_turns) })
     }
 }
@@ -152,6 +160,6 @@ pub fn robot_names() -> String {
 /// Runs a battle; `robots_csv` is a comma-separated list of robot names.
 /// Throws a JS `Error` with a readable message if the setup is invalid.
 #[wasm_bindgen]
-pub fn run_battle(robots_csv: &str, width: f64, height: f64, max_turns: u32) -> Result<String, JsError> {
-    record_battle(&spec_from_csv(robots_csv, width, height, max_turns)).map_err(|e| JsError::new(&e))
+pub fn run_battle(robots_csv: &str, width: f64, height: f64, max_turns: u32, urban: bool) -> Result<String, JsError> {
+    record_battle(&spec_from_csv(robots_csv, width, height, max_turns, urban)).map_err(|e| JsError::new(&e))
 }
