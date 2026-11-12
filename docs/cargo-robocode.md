@@ -19,6 +19,8 @@ cargo robocode battle hunter.rs                        # vs SittingDuck, opens t
 cargo robocode battle hunter.rs --vs Circler --vs ../friends/bot.rs
 cargo robocode battle hunter.rs --arena 1000x1000 --turns 3000
 cargo robocode battle hunter.rs --vs Circler --rounds 10       # each round's winner, then totals
+cargo robocode battle hunter.rs --vs Circler --live            # runs while you watch (30 turns/s)
+cargo robocode battle hunter.rs --live --tps max               # live, as fast as possible
 cargo robocode battle hunter.rs --output battle.json --no-open   # just save the recording
 cargo robocode verify hunter.rs                        # run Verus on it
 cargo robocode list                                    # built-in robots

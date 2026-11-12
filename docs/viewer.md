@@ -17,7 +17,7 @@ npm run dev      # open the printed http://localhost:5173 address
 
 ## What's on the page
 
-- **New battle** (top): pick 2–4 robots (`SafeShooter`, `Spinner`, `SittingDuck`), the arena size and a turn limit, then *Run battle*. The page simulates the whole battle at once and plays it back.
+- **New battle** (top): pick 2–4 robots, the arena size and a turn limit, then *Run battle*. The battle runs **live**: a Web Worker advances it at the chosen speed while the page draws the newest turn. Pause and step act on the simulation itself; scrub back through history and use *Back to live* to return. Opened recordings and `?recording=` play back as before. See `docs/architecture.md`.
 - **Arena**: robots (body, gun and radar), bullets, hit rings, death bursts, and each radar's sweep this turn. Labels show name and energy, *Disabled* at 0 energy, *Dead* once removed.
 - **Playback**: Restart, step back, Play/Pause, step forward, speed (1–120 turns/s), a seek bar, and the current turn. Pressing Play on the last turn replays from the start.
 - **Robots**: energy bars; click a robot for its energy, gun heat, velocity, headings and position.

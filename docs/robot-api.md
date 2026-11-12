@@ -58,6 +58,10 @@ let outcome = battle.run(5000);
 
 Dead robots get no calls, except `on_death`, which is called right away when your robot dies. At the end of a round, `on_win` goes to the last robot standing, and `on_round_ended` goes to everyone.
 
+## Time budgets
+
+A battle can give each robot a time budget per turn, like Java's CPU constant: `battle.set_time_budget(Some(Duration::from_millis(5)))`. A turn taking *k* whole budgets skips the robot's next *k* turns, and it then gets `on_skipped_turn(&SkippedTurnEvent { turns }, …)`. 30 skipped turns in a row disable it. Budgets are off by default, so battles stay deterministic. Nothing can interrupt a robot that never returns.
+
 ## Turret mode
 
 By default the gun and radar are **independent**: turning the body never moves them. Classic Robocode works differently. Turning the body drags the gun and radar along, and turning the gun drags the radar, unless the robot calls `setAdjustGunForRobotTurn(true)` and friends. To run a robot ported from Java the way its author intended, switch to Java mode once (it stays in effect):
