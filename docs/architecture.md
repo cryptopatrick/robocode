@@ -65,3 +65,18 @@ The engine advances a battle **one turn at a time**. On every turn, each robot d
 | Energy 0 | the robot is disabled | the robot is removed |
 | Spawns, randomness | random positions, seeded RNG | fixed corners rotated per round; deterministic |
 | Not here | teams, sentry robots, robot console, `onPaint`, custom events, data files, blocking calls | |
+
+## Is it real-time? (checked 2026-11-12)
+
+Answers to the eight questions from the original analysis, for the **live** path:
+
+1. **Execution:** the battle is computed incrementally, one `LiveSession::step` → `Battle::step` per turn, while it's on screen. In live mode nothing is calculated ahead. Replay mode is unchanged.
+2. **Real-time behaviour:** the state keeps advancing while you watch. The viewer draws the newest computed turn, not a replay (`useLiveBattle`, `follow`). A headless check confirmed the turn count rises while `finished` is false, then stops on pause.
+3. **Timing:** the tick rate is the target turns per second, held by `Pacer::due` against a monotonic clock: `performance.now()` in the worker, `Instant` in the CLI. Measured at 31 turns/s against a target of 30, in both the browser and the CLI.
+4. **Robot decisions:** robots decide every turn, from that turn's events and `Status`. Nothing is planned ahead.
+5. **Physics:** movement, turning, collisions, bullets, firing and damage are all computed each turn in `BattleState::step`.
+6. **Rendering:** rendering is decoupled. The simulation (Worker or child process) never waits for the renderer. `requestAnimationFrame` draws whatever is newest, and frames that arrive between paints are coalesced. You can scrub into history while the simulation runs on.
+7. **Performance:** speeds run from 1 to 120 turns/s in the viewer, and from 1 to 1000 or "max" in the CLI. A simulation that can't keep up runs as fast as it can, at most 5 catch-up turns at once, without a time-warp burst (`tests/live_pacer.rs`), and the measured turns/s shows the shortfall. Optional time budgets let a slow *robot* skip turns, as in Java.
+8. **Compared with Java:** see the table above. The remaining differences are engine semantics (robot and turn order, bounding shapes, energy 0, spawns) and the lack of preemption, not timing.
+
+**Classification:** the live path is **B, real-time simulation with decoupled rendering**, the same category as Java Robocode. The replay path (`?recording=`, *Open recording*, `cargo robocode battle` without `--live`) is deliberately still **C**. Live and replay produce identical battles.
