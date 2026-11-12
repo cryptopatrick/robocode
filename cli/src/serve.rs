@@ -99,16 +99,17 @@ pub fn serve_live(
         for line in std::io::BufReader::new(stdout).lines() {
             let Ok(line) = line else { break };
             let mut s = reader_state.lock().unwrap();
-            if line.contains(r#""done":true"#) && line.len() < 20 {
-                if let Ok(json) = std::fs::read_to_string(&recording_path) {
-                    if let Some(out) = &output {
-                        match std::fs::write(out, &json) {
-                            Ok(()) => eprintln!("Saved the recording to {}", out.display()),
-                            Err(e) => eprintln!("could not write {}: {e}", out.display()),
-                        }
+            if line.contains(r#""done":true"#)
+                && line.len() < 20
+                && let Ok(json) = std::fs::read_to_string(&recording_path)
+            {
+                if let Some(out) = &output {
+                    match std::fs::write(out, &json) {
+                        Ok(()) => eprintln!("Saved the recording to {}", out.display()),
+                        Err(e) => eprintln!("could not write {}: {e}", out.display()),
                     }
-                    s.recording = Some(json);
                 }
+                s.recording = Some(json);
             }
             s.viewers.retain(|v| v.send(line.clone()).is_ok());
             s.lines.push(line);
