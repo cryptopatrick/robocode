@@ -1,4 +1,6 @@
-## Unreleased
+ - *Breaking* New public field `TurnEvents::bullet_hit_obstacles` and new `BulletHitObstacle` type; `BattleState` and `EventSnapshot` gained fields.
+
+## v0.5.0 - 2026-11-12
  - **Urban arena** (opt-in): a fixed map of buildings and roads. Buildings stop tanks at their face (no damage) and absorb bullets, raising the new `BulletHitObstacle` event (`TurnEvents::bullet_hit_obstacles`). Roads are display only. Buildings do not block radar. Set with `runner::Battle::set_terrain(terrain::Terrain::urban(w, h))`. Recordings gain an optional `terrain` header key; battles without buildings are unchanged.
  - `cargo robocode battle --urban` fights on the city map.
  - Viewer: a **3D view** (three.js, loaded on demand) next to the 2D view, and an *Urban* option in New battle.
