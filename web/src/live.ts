@@ -32,7 +32,7 @@ export function appendFrames(rec: Recording, frames: Frame[]): Recording {
 
 /** Messages to the engine worker. `tps: null` means as fast as possible. */
 export type ToWorker =
-  | { type: 'start'; robots: string[]; width: number; height: number; maxTurns: number; tps: number | null }
+  | { type: 'start'; robots: string[]; width: number; height: number; maxTurns: number; urban: boolean; tps: number | null }
   | { type: 'pause' }
   | { type: 'resume' }
   | { type: 'step' }

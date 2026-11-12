@@ -1,3 +1,8 @@
+## Unreleased
+ - **Urban arena** (opt-in): a fixed map of buildings and roads. Buildings stop tanks at their face (no damage) and absorb bullets, raising the new `BulletHitObstacle` event (`TurnEvents::bullet_hit_obstacles`). Roads are display only. Buildings do not block radar. Set with `runner::Battle::set_terrain(terrain::Terrain::urban(w, h))`. Recordings gain an optional `terrain` header key; battles without buildings are unchanged.
+ - `cargo robocode battle --urban` fights on the city map.
+ - Viewer: a **3D view** (three.js, loaded on demand) next to the 2D view, and an *Urban* option in New battle.
+
 ## v0.4.0 - 2026-11-12
  - **Live battles** (real-time with decoupled rendering, like Java Robocode): `live::Pacer`, `live::LiveSession`, and `recording::{Frame, RecordingBuilder, header_json, frame, initial_frame}`. The viewer runs new battles live in a Web Worker (pause, step, speed incl. Max, measured turns/s, Back to live). `cargo robocode battle --live [--tps N|max]` streams a native battle over Server-Sent Events. Live and precomputed battles are identical turn for turn.
  - Optional per-robot time budgets with Java-style skipped turns: `Battle::set_time_budget`, `on_skipped_turn`, `BattleResults::skipped_turns`.

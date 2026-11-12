@@ -9,6 +9,8 @@ pub struct TurnEvents {
     pub bullet_misses: Vec<BulletMissed>,
     pub bullet_hit_bullets: Vec<BulletHitBullet>,
     pub wall_collisions: Vec<WallCollision>,
+    /// Bullets absorbed by a building (no damage to anyone).
+    pub bullet_hit_obstacles: Vec<BulletHitObstacle>,
     pub robot_collisions: Vec<RobotCollision>,
     pub robot_deaths: Vec<RobotId>,
     pub scans: Vec<ScannedRobot>,
@@ -27,6 +29,15 @@ pub struct BulletImpact {
     pub victim: RobotId,
     pub bullet_id: BulletId,
     pub power: f64,
+}
+
+/// A bullet absorbed by a building, at the point where it hit.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BulletHitObstacle {
+    pub bullet_id: BulletId,
+    pub owner: RobotId,
+    pub power: f64,
+    pub position: crate::geometry::Point,
 }
 
 /// Two bullets collided in mid-air; both are gone.

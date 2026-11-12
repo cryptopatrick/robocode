@@ -4,12 +4,15 @@ use crate::geometry::{
 };
 use crate::physics::bullet::BulletState;
 use crate::physics::events::{
-    BulletFired, BulletHitBullet, BulletImpact, BulletMissed, RobotCollision, ScannedRobot,
+    BulletFired, BulletHitBullet, BulletHitObstacle, BulletImpact, BulletMissed, RobotCollision,
+    ScannedRobot,
     TurnEvents, WallCollision,
 };
 use crate::physics::robot::{RobotId, RobotState, TurretMode};
 use crate::physics::snapshot::TurnSnapshot;
+use crate::geometry::Rect;
 use crate::rules::{self, EPSILON};
+use crate::terrain::Terrain;
 
 #[derive(Debug, Clone, Copy)]
 pub struct BattleConfig {
@@ -44,6 +47,8 @@ pub struct BattleState {
     pub turn: u64,
     pub robots: Vec<RobotState>,
     pub bullets: Vec<BulletState>,
+    /// Buildings block robots and bullets; roads are display only. Empty by default.
+    pub terrain: Terrain,
     next_bullet_id: u64,
 }
 
@@ -54,6 +59,7 @@ impl BattleState {
             turn: 0,
             robots,
             bullets: Vec::new(),
+            terrain: Terrain::default(),
             next_bullet_id: 0,
         }
     }
@@ -88,6 +94,7 @@ impl BattleState {
                 let wall_collision = apply_movement(
                     &mut self.robots[idx],
                     self.config.battlefield,
+                    &self.terrain.buildings,
                 );
                 if wall_collision {
                     let id = self.robots[idx].id;
@@ -169,6 +176,22 @@ impl BattleState {
     fn apply_bullets(&mut self, events: &mut TurnEvents) {
         for bullet in self.bullets.iter_mut().filter(|b| b.alive) {
             bullet.advance();
+        }
+
+        // Buildings absorb bullets on the path they cross this turn.
+        for bullet in self.bullets.iter_mut().filter(|b| b.alive) {
+            let absorbed = self.terrain.buildings.iter().any(|b| {
+                b.first_contact(bullet.previous_position, bullet.position).is_some()
+            });
+            if absorbed {
+                events.bullet_hit_obstacles.push(BulletHitObstacle {
+                    bullet_id: bullet.id,
+                    owner: bullet.owner_id,
+                    power: bullet.power,
+                    position: bullet.position,
+                });
+                bullet.alive = false;
+            }
         }
 
         // Bullet on bullet (Java `BulletPeer.checkBulletCollision`): two bullets
@@ -393,7 +416,7 @@ fn clamp_turn(requested: f64, limit: f64) -> f64 {
     requested.clamp(-limit, limit)
 }
 
-fn apply_movement(robot: &mut RobotState, battlefield: Battlefield) -> bool {
+fn apply_movement(robot: &mut RobotState, battlefield: Battlefield, buildings: &[Rect]) -> bool {
     if !robot.alive {
         robot.velocity = 0.0;
         robot.control.distance_remaining = 0.0;
@@ -404,12 +427,25 @@ fn apply_movement(robot: &mut RobotState, battlefield: Battlefield) -> bool {
     robot.velocity = adjust_velocity(robot.velocity, desired_velocity);
     let previous_distance = robot.control.distance_remaining;
     let travel = robot.velocity;
+    let from = robot.position;
     robot.position = robot.position.translate(robot.heading, travel);
     robot.control.distance_remaining -= travel;
     if previous_distance.signum() != robot.control.distance_remaining.signum()
         && robot.control.distance_remaining.abs() < rules::MAX_VELOCITY
     {
         robot.control.distance_remaining = 0.0;
+    }
+
+    // A building stops the robot at its face. No damage: only walls hurt.
+    let blocked = buildings
+        .iter()
+        .filter_map(|b| b.grow(robot.radius).first_contact(from, robot.position))
+        .fold(None, |best: Option<f64>, t| Some(best.map_or(t, |b| b.min(t))));
+    if let Some(t) = blocked {
+        robot.position = Point::new(from.x + (robot.position.x - from.x) * t, from.y + (robot.position.y - from.y) * t);
+        robot.velocity = 0.0;
+        robot.control.distance_remaining = 0.0;
+        return false;
     }
 
     let (clamped, collided) =

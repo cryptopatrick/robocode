@@ -2,7 +2,7 @@ use std::fmt::Write as _;
 use std::io::{self, Write};
 
 use super::bullet::BulletState;
-use super::events::{RobotCollision, TurnEvents};
+use super::events::{BulletHitObstacle, RobotCollision, TurnEvents};
 use super::robot::RobotState;
 use super::{BattleConfig, BulletId, RobotId};
 use crate::geometry::Point;
@@ -140,6 +140,7 @@ pub struct EventSnapshot {
     pub wall_collisions: Vec<WallCollisionSnapshot>,
     pub robot_collisions: Vec<RobotCollisionSnapshot>,
     pub robot_deaths: Vec<RobotId>,
+    pub bullet_hit_obstacles: Vec<BulletHitObstacle>,
 }
 
 impl From<&TurnEvents> for EventSnapshot {
@@ -158,6 +159,7 @@ impl From<&TurnEvents> for EventSnapshot {
                 .map(Into::into)
                 .collect(),
             robot_deaths: events.robot_deaths.clone(),
+            bullet_hit_obstacles: events.bullet_hit_obstacles.clone(),
         }
     }
 }
@@ -443,7 +445,31 @@ fn append_events_object(out: &mut String, events: &EventSnapshot) {
     append_wall_collisions_array(out, &mut first, &events.wall_collisions);
     append_robot_collisions_array(out, &mut first, &events.robot_collisions);
     append_robot_deaths_array(out, &mut first, &events.robot_deaths);
+    // Only battles with buildings have this key, so other recordings are unchanged.
+    if !events.bullet_hit_obstacles.is_empty() {
+        append_bullet_hit_obstacles_array(out, &mut first, &events.bullet_hit_obstacles);
+    }
     out.push('}');
+}
+
+fn append_bullet_hit_obstacles_array(out: &mut String, first: &mut bool, events: &[BulletHitObstacle]) {
+    append_field_sep(out, first);
+    push_string(out, "bullet_hit_obstacles");
+    out.push(':');
+    out.push('[');
+    for (idx, event) in events.iter().enumerate() {
+        if idx > 0 {
+            out.push(',');
+        }
+        out.push('{');
+        let mut inner_first = true;
+        append_u64_field(out, &mut inner_first, "bullet_id", event.bullet_id);
+        append_u64_field(out, &mut inner_first, "owner", event.owner as u64);
+        append_f64_field(out, &mut inner_first, "power", event.power);
+        append_point_field(out, &mut inner_first, "position", event.position);
+        out.push('}');
+    }
+    out.push(']');
 }
 
 fn append_bullet_fired_array(

@@ -17,6 +17,7 @@ npm run dev      # open the printed http://localhost:5173 address
 
 ## What's on the page
 
+- **Urban** (New battle): tick it for the fixed city map: buildings block tanks and absorb bullets; roads are display only. Buildings don't block radar. The 2D/3D buttons above the arena switch views; the 3D view (three.js, loaded when first chosen) shows the same battle. The Show toggles apply to the 2D view.
 - **New battle** (top): pick 2–4 robots, the arena size and a turn limit, then *Run battle*. The battle runs **live**: a Web Worker advances it at the chosen speed while the page draws the newest turn. Pause and step act on the simulation itself; scrub back through history and use *Back to live* to return. Opened recordings and `?recording=` play back as before. See `docs/architecture.md`.
 - **Arena**: robots (body, gun and radar), bullets, hit rings, death bursts, and each radar's sweep this turn. Labels show name and energy, *Disabled* at 0 energy, *Dead* once removed.
 - **Playback**: Restart, step back, Play/Pause, step forward, speed (1–120 turns/s), a seek bar, and the current turn. Pressing Play on the last turn replays from the start.

@@ -5,6 +5,8 @@
 
 export interface Point { x: number; y: number }
 
+export type Rect = [number, number, number, number];
+
 export interface RobotSnapshot {
   id: number;
   position: Point;
@@ -34,6 +36,8 @@ export interface TurnEvents {
   wall_collisions: { robot_id: number; position: Point }[];
   robot_collisions: { robot_id: number; other_robot_id: number; at_fault: boolean }[];
   robot_deaths: number[];
+  /** Only in battles with buildings. */
+  bullet_hit_obstacles?: { bullet_id: number; owner: number; power: number; position: Point }[];
 }
 
 export interface TurnSnapshot {
@@ -60,6 +64,8 @@ export interface Recording {
   version: 1;
   robots: { id: number; name: string }[];
   battlefield: { width: number; height: number };
+  /** Map objects as [x, y, width, height]. Absent in an empty arena. */
+  terrain?: { buildings: Rect[]; roads: Rect[] };
   turns: TurnSnapshot[];
   decisions: (Decision | null)[][];
   outcome: { winner: number | null; turns: number; energies: number[] };

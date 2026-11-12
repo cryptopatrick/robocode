@@ -144,3 +144,18 @@ fn rounds_out_of_range_exits_2() {
     assert_eq!(out.status.code(), Some(2));
     assert!(stderr(&out).contains("--rounds must be 1..=100"), "{}", stderr(&out));
 }
+
+#[test]
+fn urban_battle_records_the_city_and_plain_battle_does_not() {
+    let dir = temp_dir("urban");
+    new_robot(&dir, "bot");
+    let out = tool(&["battle", "bot.rs", "--urban", "--output", "urban.json", "--no-open"], &dir);
+    assert!(out.status.success(), "{}", stderr(&out));
+    let urban = std::fs::read_to_string(dir.join("urban.json")).unwrap();
+    assert!(urban.contains(r#""terrain":{"buildings":[["#), "{}", &urban[..300.min(urban.len())]);
+
+    let out = tool(&["battle", "bot.rs", "--output", "plain.json", "--no-open"], &dir);
+    assert!(out.status.success(), "{}", stderr(&out));
+    let plain = std::fs::read_to_string(dir.join("plain.json")).unwrap();
+    assert!(!plain.contains("terrain"));
+}
