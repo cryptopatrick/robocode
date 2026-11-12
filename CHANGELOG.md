@@ -1,8 +1,9 @@
-## Unreleased
+## v0.4.0 - 2026-11-12
  - **Live battles** (real-time with decoupled rendering, like Java Robocode): `live::Pacer`, `live::LiveSession`, and `recording::{Frame, RecordingBuilder, header_json, frame, initial_frame}`. The viewer runs new battles live in a Web Worker (pause, step, speed incl. Max, measured turns/s, Back to live). `cargo robocode battle --live [--tps N|max]` streams a native battle over Server-Sent Events. Live and precomputed battles are identical turn for turn.
  - Optional per-robot time budgets with Java-style skipped turns: `Battle::set_time_budget`, `on_skipped_turn`, `BattleResults::skipped_turns`.
  - `Battle::current_outcome`.
  - See `docs/architecture.md`.
+ - *Breaking* New public field `BattleResults::skipped_turns`.
  - Robocode scoring: `runner::Score`, `BattleResults::scores`, `Battle::scores()`; `cargo robocode battle --rounds` prints scores.
  - Viewer: robot labels stay inside the arena's side edges.
  - `cargo verify` aliases keep Verus's build in `target/verus`.
