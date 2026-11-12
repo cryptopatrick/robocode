@@ -53,6 +53,12 @@ enum Command {
         /// Show cargo's build output.
         #[arg(long)]
         verbose: bool,
+        /// Run the battle live: it advances while you watch, at --tps turns per second.
+        #[arg(long)]
+        live: bool,
+        /// Live speed: turns per second (1-1000) or "max".
+        #[arg(long, default_value = "30")]
+        tps: String,
         /// The robocode source to compile against.
         #[arg(long)]
         robocode_path: Option<PathBuf>,
@@ -107,10 +113,25 @@ fn main() -> ExitCode {
             Ok(())
         }
         Command::New { name } => new_robot(&name),
-        Command::Battle { robot, vs, arena, turns, rounds, output, no_open, verbose, robocode_path } => {
-            let save_only = no_open && output.is_some();
-            let args = battle::BattleArgs { robot, vs, arena, turns, rounds, output, verbose, robocode_path };
-            battle::run(&args).and_then(|json| if save_only { Ok(()) } else { serve::serve(json, no_open) })
+        Command::Battle { robot, vs, arena, turns, rounds, output, no_open, verbose, live, tps, robocode_path } => {
+            let tps = match tps.as_str() {
+                "max" => Ok(None),
+                t => t.parse::<u32>().ok().filter(|t| (1..=1000).contains(t)).map(Some).ok_or_else(|| {
+                    Failure::usage(format!("--tps must be 1..=1000 or max, got {t}"))
+                }),
+            };
+            match tps {
+                Err(f) => Err(f),
+                Ok(tps) => {
+                    let save_only = no_open && output.is_some() && !live;
+                    let args = battle::BattleArgs { robot, vs, arena, turns, rounds, live, output, verbose, robocode_path };
+                    if live {
+                        battle::compile(&args).and_then(|c| serve::serve_live(&c, tps, args.output.clone(), no_open))
+                    } else {
+                        battle::run(&args).and_then(|json| if save_only { Ok(()) } else { serve::serve(json, no_open) })
+                    }
+                }
+            }
         }
         Command::Verify { robot, robocode_path } => verify::run(&robot, robocode_path.as_deref()),
     };

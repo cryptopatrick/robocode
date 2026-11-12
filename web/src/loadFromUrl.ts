@@ -16,3 +16,23 @@ export async function loadRecording(url: string, fetchFn: typeof fetch = fetch):
   }
   return parseRecording(await response.text());
 }
+
+/** The `live` query parameter (a Server-Sent Events URL), or null. */
+export function liveUrl(search: string): string | null {
+  const value = new URLSearchParams(search).get('live');
+  return value ? value : null;
+}
+
+/** A viewer command as a line for the CLI server's `POST /control`, or null if it has none. */
+export function controlLine(m: import('./live').ToWorker): string | null {
+  switch (m.type) {
+    case 'pause':
+    case 'resume':
+    case 'step':
+      return m.type;
+    case 'tps':
+      return `tps ${m.tps ?? 'max'}`;
+    default:
+      return null;
+  }
+}

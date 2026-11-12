@@ -12,7 +12,7 @@ import type { ViewOptions } from './draw';
 import { appendFrames } from './live';
 import { playbackReducer } from './playback';
 import type { Recording } from './recording';
-import { loadRecording, recordingUrl } from './loadFromUrl';
+import { liveUrl, loadRecording, recordingUrl } from './loadFromUrl';
 import { loadSprites, type Sprites } from './sprites';
 import { useLiveBattle } from './useLiveBattle';
 import { loadEngine, robotNames } from './wasm';
@@ -36,6 +36,8 @@ export default function App() {
   const lastTurn = useRef(0);
   const liveTps = useRef<number | null>(30);
 
+  // `?live=` means cargo robocode runs the battle and streams it here.
+  const [streamUrl] = useState(() => liveUrl(window.location.search));
   const send = useLiveBattle({
     started: (rec) => {
       setRecording(rec);
@@ -59,7 +61,7 @@ export default function App() {
       setLive((l) => (l ? { ...l, finished: true } : l));
     },
     error: (message) => setError(message),
-  });
+  }, streamUrl);
 
   /** Replay a finished recording (opened file or `?recording=`). */
   const show = useCallback(
@@ -101,10 +103,10 @@ export default function App() {
     loadEngine()
       .then(() => {
         setNames(robotNames());
-        if (!fromUrl) run({ robots: ['SafeShooter', 'Spinner'], width: 800, height: 600, maxTurns: 5000 });
+        if (!fromUrl && !streamUrl) run({ robots: ['SafeShooter', 'Spinner'], width: 800, height: 600, maxTurns: 5000 });
       })
       .catch((e: unknown) => setError(`Could not load the battle engine: ${e instanceof Error ? e.message : String(e)}`));
-  }, [run, show]);
+  }, [run, show, streamUrl]);
 
   // Advance playback at `speed` turns per second.
   const carry = useRef(0);
@@ -133,7 +135,7 @@ export default function App() {
             <h1 className="text-lg font-semibold tracking-tight">RoboVerus Arena</h1>
             <p className="text-sm text-slate-500">Pick robots, run a battle, and watch every decision.</p>
           </div>
-          {names.length > 0 && <NewBattle names={names} onRun={run} />}
+          {names.length > 0 && !streamUrl && <NewBattle names={names} onRun={run} />}
         </div>
       </header>
 

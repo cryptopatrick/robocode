@@ -13,6 +13,8 @@ pub struct BattleArgs {
     pub arena: String,
     pub turns: u64,
     pub rounds: u32,
+    /// Run live (paced, streamed) instead of precomputing.
+    pub live: bool,
     pub output: Option<PathBuf>,
     pub verbose: bool,
     pub robocode_path: Option<PathBuf>,
@@ -70,8 +72,13 @@ fn battle_program(entries: &[Entry], files: &[PathBuf], width: f64, height: f64,
          \x20   robocode::runner::Battle::new(config, &robocode::roster::spawns({n}, {width:?}, {height:?}), robots)\n\
          }}\n\n\
          fn main() {{\n\
+         \x20   let args: Vec<String> = std::env::args().collect();\n\
+         \x20   let out = args.get(1).expect(\"output path\").clone();\n\
+         \x20   if args.get(2).map(String::as_str) == Some(\"--live\") {{\n\
+         \x20       live(&out, args.get(3).and_then(|t| t.parse::<u32>().ok()));\n\
+         \x20       return;\n\
+         \x20   }}\n\
          \x20   let recorded = robocode::recording::record_with_summary(make_battle(), {turns});\n\
-         \x20   let out = std::env::args().nth(1).expect(\"output path\");\n\
          \x20   std::fs::write(out, &recorded.json).expect(\"write recording\");\n\
          \x20   if {rounds} <= 1 {{\n\
          \x20       println!(\"{{}}\", recorded.summary());\n\
@@ -89,14 +96,60 @@ fn battle_program(entries: &[Entry], files: &[PathBuf], width: f64, height: f64,
          \x20   println!(\"Bullet damage: {{}}\", damage.join(\", \"));\n\
          \x20   let score: Vec<String> = (0..results.scores.len()).map(|i| format!(\"{{}} {{:.0}}\", battle.name(i), results.scores[i].total())).collect();\n\
          \x20   println!(\"Score: {{}}\", score.join(\", \"));\n\
+         }}\n\n\
+         /// Live mode: one JSON line per turn on stdout, paced; commands on stdin.\n\
+         fn live(out: &str, tps: Option<u32>) {{\n\
+         \x20   use std::io::{{BufRead, Write}};\n\
+         \x20   let (tx, rx) = std::sync::mpsc::channel::<String>();\n\
+         \x20   std::thread::spawn(move || {{\n\
+         \x20       for line in std::io::stdin().lock().lines() {{\n\
+         \x20           let Ok(line) = line else {{ break }};\n\
+         \x20           if tx.send(line).is_err() {{ break; }}\n\
+         \x20       }}\n\
+         \x20   }});\n\
+         \x20   let mut session = robocode::live::LiveSession::new(make_battle(), {turns});\n\
+         \x20   let mut pacer = robocode::live::Pacer::new(tps);\n\
+         \x20   let start = std::time::Instant::now();\n\
+         \x20   let now = || start.elapsed().as_nanos() as u64;\n\
+         \x20   let mut o = std::io::stdout().lock();\n\
+         \x20   writeln!(o, \"{{}}\", session.header()).unwrap();\n\
+         \x20   writeln!(o, \"{{}}\", session.initial_frame().to_json()).unwrap();\n\
+         \x20   o.flush().unwrap();\n\
+         \x20   while !session.finished() {{\n\
+         \x20       while let Ok(cmd) = rx.try_recv() {{\n\
+         \x20           match cmd.trim() {{\n\
+         \x20               \"pause\" => pacer.pause(),\n\
+         \x20               \"resume\" => pacer.resume(now()),\n\
+         \x20               \"step\" => pacer.request_step(),\n\
+         \x20               c => if let Some(v) = c.strip_prefix(\"tps \") {{ pacer.set_tps(v.parse().ok(), now()); }},\n\
+         \x20           }}\n\
+         \x20       }}\n\
+         \x20       for _ in 0..pacer.due(now()) {{\n\
+         \x20           match session.step() {{\n\
+         \x20               Some(frame) => writeln!(o, \"{{}}\", frame.to_json()).unwrap(),\n\
+         \x20               None => break,\n\
+         \x20           }}\n\
+         \x20       }}\n\
+         \x20       o.flush().unwrap();\n\
+         \x20       std::thread::sleep(std::time::Duration::from_millis(2));\n\
+         \x20   }}\n\
+         \x20   std::fs::write(out, session.recording()).expect(\"write recording\");\n\
+         \x20   writeln!(o, \"{{{{\\\"done\\\":true}}}}\").unwrap();\n\
+         \x20   o.flush().unwrap();\n\
          }}\n",
         n = entries.len()
     ));
     src
 }
 
-/// Compiles and runs the battle; returns the recording JSON.
-pub fn run(args: &BattleArgs) -> Result<String, Failure> {
+/// The compiled battle program and where it writes its recording.
+pub struct Compiled {
+    pub exe: PathBuf,
+    pub recording_path: PathBuf,
+}
+
+/// Compiles the robots into a battle program.
+pub fn compile(args: &BattleArgs) -> Result<Compiled, Failure> {
     let mut entries = vec![entry(&args.robot)?];
     let vs = if args.vs.is_empty() { vec!["SittingDuck".to_string()] } else { args.vs.clone() };
     for v in &vs {
@@ -106,6 +159,9 @@ pub fn run(args: &BattleArgs) -> Result<String, Failure> {
     robocode::recording::validate_setup(entries.len(), width, height, args.turns).map_err(Failure::usage)?;
     if !(1..=100).contains(&args.rounds) {
         return Err(Failure::usage(format!("--rounds must be 1..=100, got {}", args.rounds)));
+    }
+    if args.live && args.rounds > 1 {
+        return Err(Failure::usage("--live plays one round; drop --rounds (or run without --live)"));
     }
     let source = robocode_source(args.robocode_path.as_deref())?;
 
@@ -140,7 +196,12 @@ pub fn run(args: &BattleArgs) -> Result<String, Failure> {
     }
 
     let exe = project.target_dir.join("release").join(format!("{}{}", project.package, std::env::consts::EXE_SUFFIX));
-    let recording_path = project.dir.join("battle.json");
+    Ok(Compiled { exe, recording_path: project.dir.join("battle.json") })
+}
+
+/// Compiles and runs the battle to completion; returns the recording JSON.
+pub fn run(args: &BattleArgs) -> Result<String, Failure> {
+    let Compiled { exe, recording_path } = compile(args)?;
     let ran = std::process::Command::new(&exe)
         .arg(&recording_path)
         .stderr(Stdio::inherit())
@@ -157,4 +218,18 @@ pub fn run(args: &BattleArgs) -> Result<String, Failure> {
         eprintln!("Saved the recording to {}", out.display());
     }
     Ok(json)
+}
+
+/// Starts the battle program in live mode: frames on its stdout, commands on its stdin.
+pub fn spawn_live(compiled: &Compiled, tps: Option<u32>) -> Result<std::process::Child, Failure> {
+    let _ = std::fs::remove_file(&compiled.recording_path);
+    std::process::Command::new(&compiled.exe)
+        .arg(&compiled.recording_path)
+        .arg("--live")
+        .arg(tps.map_or_else(|| "max".to_string(), |t| t.to_string()))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .map_err(|e| Failure::usage(format!("could not start the battle: {e}")))
 }

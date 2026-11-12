@@ -36,3 +36,24 @@ describe('loadRecording', () => {
     await expect(loadRecording('/battle.json', stubFetch(200, '{}'))).rejects.toThrow('Not a RoboVerus recording');
   });
 });
+
+import { liveUrl, controlLine } from './loadFromUrl';
+
+describe('liveUrl', () => {
+  it('reads the live parameter', () => {
+    expect(liveUrl('?live=/live')).toBe('/live');
+    expect(liveUrl('?recording=/battle.json')).toBeNull();
+    expect(liveUrl('?live=')).toBeNull();
+  });
+});
+
+describe('controlLine', () => {
+  it('turns viewer commands into the server control protocol', () => {
+    expect(controlLine({ type: 'pause' })).toBe('pause');
+    expect(controlLine({ type: 'resume' })).toBe('resume');
+    expect(controlLine({ type: 'step' })).toBe('step');
+    expect(controlLine({ type: 'tps', tps: 60 })).toBe('tps 60');
+    expect(controlLine({ type: 'tps', tps: null })).toBe('tps max');
+    expect(controlLine({ type: 'stop' })).toBeNull();
+  });
+});
