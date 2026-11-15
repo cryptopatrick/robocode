@@ -35,3 +35,9 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_only)', 'cfg(verus_k
 
 [workspace]
 members = [".", "exercises", "solutions", "wasm", "cli", "mutants", "robocheck"]
+
+# Like the default `test` profile, but without debug assertions, so tests also
+# run the code paths a release build uses (see docs/improvements-from-jiff.md).
+[profile.testrelease]
+inherits = "test"
+debug-assertions = false

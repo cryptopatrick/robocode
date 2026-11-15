@@ -23,6 +23,9 @@ jobs:
       - name: Tests
         # cargo-robocode embeds the built viewer, so it's tested in the `web` job.
         run: cargo test --workspace --exclude roboverus-exercises --exclude roboverus-solutions --exclude cargo-robocode
+      # The same tests with debug assertions off, as a release build runs them.
+      - name: Tests (release profile, no debug assertions)
+        run: cargo test --workspace --exclude roboverus-exercises --exclude roboverus-solutions --exclude cargo-robocode --profile testrelease
       - name: Clippy
         run: cargo clippy --workspace --exclude cargo-robocode --all-targets -- -D warnings
       # The workspace run turns on robocode's `verus` feature (the exercise
