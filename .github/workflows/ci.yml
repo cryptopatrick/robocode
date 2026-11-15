@@ -39,6 +39,15 @@ jobs:
       - name: Exercises build
         run: cargo build -p roboverus-exercises
 
+  test-macos:
+    name: Tests (macOS, no Verus)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Tests
+        run: cargo test --workspace --exclude roboverus-exercises --exclude roboverus-solutions --exclude cargo-robocode
+
   verus:
     name: Verus verification
     runs-on: ubuntu-latest
@@ -64,6 +73,37 @@ jobs:
       - name: RoboCheck end-to-end (candidates verified with Verus, then battled)
         continue-on-error: true
         run: ROBOCHECK_VERUS_DIR="$HOME/verus/verus-x86-linux" cargo test -p robocheck --test end_to_end -- --ignored --test-threads 1
+
+  rustfmt:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: "-D rustdoc::broken_intra_doc_links"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build docs (broken links fail)
+        run: cargo doc --workspace --no-deps --exclude roboverus-exercises --exclude roboverus-solutions --exclude cargo-robocode
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Package the published crate
+        run: cargo package -p robocode
 
   guide:
     name: Guide
