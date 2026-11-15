@@ -3,9 +3,9 @@ use std::rc::Rc;
 
 use robocode::api::{Commands, Robot, RoundEndedEvent, Status};
 use robocode::physics::BattleConfig;
+use robocode::robots::{SafeShooter, SittingDuck};
 use robocode::roster;
 use robocode::runner::{Battle, boxed};
-use robocode::robots::{SafeShooter, SittingDuck};
 
 type Log = Rc<RefCell<Vec<String>>>;
 
@@ -25,10 +25,20 @@ impl Robot for Logged {
         }
         self.inner.run(s, c);
     }
-    fn on_scanned_robot(&mut self, e: &robocode::api::ScannedRobotEvent, s: &Status, c: &mut Commands) {
+    fn on_scanned_robot(
+        &mut self,
+        e: &robocode::api::ScannedRobotEvent,
+        s: &Status,
+        c: &mut Commands,
+    ) {
         self.inner.on_scanned_robot(e, s, c);
     }
-    fn on_robot_death(&mut self, e: &robocode::api::RobotDeathEvent, s: &Status, c: &mut Commands) {
+    fn on_robot_death(
+        &mut self,
+        e: &robocode::api::RobotDeathEvent,
+        s: &Status,
+        c: &mut Commands,
+    ) {
         self.inner.on_robot_death(e, s, c);
     }
     fn on_death(&mut self, _s: &Status) {
@@ -38,7 +48,9 @@ impl Robot for Logged {
         self.log.borrow_mut().push("win".into());
     }
     fn on_round_ended(&mut self, e: &RoundEndedEvent) {
-        self.log.borrow_mut().push(format!("round-ended {} of {}", e.round, e.total_rounds));
+        self.log
+            .borrow_mut()
+            .push(format!("round-ended {} of {}", e.round, e.total_rounds));
     }
 }
 
@@ -47,7 +59,11 @@ fn duel(a_log: &Log, b_log: &Log) -> Battle {
         Box::new(Logged { inner: boxed(SafeShooter), log: a_log.clone() }),
         Box::new(Logged { inner: boxed(SittingDuck), log: b_log.clone() }),
     ];
-    Battle::new(BattleConfig::default(), &roster::spawns(2, 800.0, 600.0), robots)
+    Battle::new(
+        BattleConfig::default(),
+        &roster::spawns(2, 800.0, 600.0),
+        robots,
+    )
 }
 
 #[test]
@@ -65,7 +81,12 @@ fn three_rounds_three_outcomes() {
 fn spawns_rotate_each_round() {
     let (a, b): (Log, Log) = (Rc::default(), Rc::default());
     duel(&a, &b).run_rounds(3, 5000);
-    let starts: Vec<String> = a.borrow().iter().filter(|l| l.starts_with("start")).cloned().collect();
+    let starts: Vec<String> = a
+        .borrow()
+        .iter()
+        .filter(|l| l.starts_with("start"))
+        .cloned()
+        .collect();
     assert_eq!(starts, ["start 100,100", "start 700,500", "start 100,100"]);
 }
 
@@ -73,9 +94,21 @@ fn spawns_rotate_each_round() {
 fn round_callbacks_once_per_round() {
     let (a, b): (Log, Log) = (Rc::default(), Rc::default());
     duel(&a, &b).run_rounds(2, 5000);
-    let events = |log: &Log| -> Vec<String> { log.borrow().iter().filter(|l| !l.starts_with("start")).cloned().collect() };
-    assert_eq!(events(&a), ["win", "round-ended 0 of 2", "win", "round-ended 1 of 2"]);
-    assert_eq!(events(&b), ["death", "round-ended 0 of 2", "death", "round-ended 1 of 2"]);
+    let events = |log: &Log| -> Vec<String> {
+        log.borrow()
+            .iter()
+            .filter(|l| !l.starts_with("start"))
+            .cloned()
+            .collect()
+    };
+    assert_eq!(
+        events(&a),
+        ["win", "round-ended 0 of 2", "win", "round-ended 1 of 2"]
+    );
+    assert_eq!(
+        events(&b),
+        ["death", "round-ended 0 of 2", "death", "round-ended 1 of 2"]
+    );
 }
 
 #[test]

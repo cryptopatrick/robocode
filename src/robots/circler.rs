@@ -5,7 +5,8 @@
 //! side-on to incoming fire. Copy it as a starting point for your own robot.
 
 use crate::api::{
-    Commands, HitByBulletEvent, HitWallEvent, Robot, ScannedRobotEvent, Status, relative_bearing,
+    Commands, HitByBulletEvent, HitWallEvent, Robot, ScannedRobotEvent,
+    Status, relative_bearing,
 };
 
 /// Degrees within which the gun counts as lined up.
@@ -40,13 +41,20 @@ impl Robot for Circler {
         self.locked = false;
     }
 
-    fn on_scanned_robot(&mut self, e: &ScannedRobotEvent, s: &Status, cmd: &mut Commands) {
+    fn on_scanned_robot(
+        &mut self,
+        e: &ScannedRobotEvent,
+        s: &Status,
+        cmd: &mut Commands,
+    ) {
         if self.locked {
             return; // already locked onto the nearest robot this turn
         }
         self.locked = true;
         // Sweep the radar past the target by as much again, so it stays in view.
-        cmd.set_turn_radar_right(2.0 * relative_bearing(e.absolute_bearing, s.radar_heading));
+        cmd.set_turn_radar_right(
+            2.0 * relative_bearing(e.absolute_bearing, s.radar_heading),
+        );
         let gun_error = relative_bearing(e.absolute_bearing, s.gun_heading);
         cmd.set_turn_gun_right(gun_error);
         if gun_error.abs() <= AIM_TOLERANCE {
@@ -54,11 +62,21 @@ impl Robot for Circler {
         }
     }
 
-    fn on_hit_wall(&mut self, _e: &HitWallEvent, _s: &Status, _cmd: &mut Commands) {
+    fn on_hit_wall(
+        &mut self,
+        _e: &HitWallEvent,
+        _s: &Status,
+        _cmd: &mut Commands,
+    ) {
         self.direction = -self.direction;
     }
 
-    fn on_hit_by_bullet(&mut self, e: &HitByBulletEvent, _s: &Status, _cmd: &mut Commands) {
+    fn on_hit_by_bullet(
+        &mut self,
+        e: &HitByBulletEvent,
+        _s: &Status,
+        _cmd: &mut Commands,
+    ) {
         // Turn side-on to the shooter.
         self.turn = Some(relative_bearing(e.bearing + 90.0, 0.0));
     }

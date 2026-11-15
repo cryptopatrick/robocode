@@ -15,10 +15,18 @@ fn exe() -> &'static str {
 }
 
 fn temp_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("cargo-robocode-live-{name}-{}", std::process::id()));
+    let dir = std::env::temp_dir()
+        .join(format!("cargo-robocode-live-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    assert!(Command::new(exe()).args(["new", "bot"]).current_dir(&dir).status().unwrap().success());
+    assert!(
+        Command::new(exe())
+            .args(["new", "bot"])
+            .current_dir(&dir)
+            .status()
+            .unwrap()
+            .success()
+    );
     dir
 }
 
@@ -33,13 +41,30 @@ fn start(dir: &PathBuf, tps: &str) -> (Child, u16) {
         .spawn()
         .unwrap();
     let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
-    let line = lines.by_ref().map(|l| l.unwrap()).find(|l| l.contains("http://127.0.0.1:")).expect("address");
+    let line = lines
+        .by_ref()
+        .map(|l| l.unwrap())
+        .find(|l| l.contains("http://127.0.0.1:"))
+        .expect("address");
     assert!(line.contains("/?live=/live"), "{line}");
-    let port = line.split("http://127.0.0.1:").nth(1).unwrap().split('/').next().unwrap().parse().unwrap();
+    let port = line
+        .split("http://127.0.0.1:")
+        .nth(1)
+        .unwrap()
+        .split('/')
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap();
     (child, port)
 }
 
-fn request(port: u16, method: &str, path: &str, body: &str) -> (String, String) {
+fn request(
+    port: u16,
+    method: &str,
+    path: &str,
+    body: &str,
+) -> (String, String) {
     let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
     write!(s, "{method} {path} HTTP/1.0\r\nHost: x\r\nContent-Length: {}\r\n\r\n{body}", body.len()).unwrap();
     let mut raw = String::new();
@@ -53,7 +78,11 @@ fn request(port: u16, method: &str, path: &str, body: &str) -> (String, String) 
 fn subscribe(port: u16) -> std::sync::mpsc::Receiver<(Instant, String)> {
     let (tx, rx) = std::sync::mpsc::channel();
     let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
-    write!(s, "GET /live HTTP/1.1\r\nHost: x\r\nAccept: text/event-stream\r\n\r\n").unwrap();
+    write!(
+        s,
+        "GET /live HTTP/1.1\r\nHost: x\r\nAccept: text/event-stream\r\n\r\n"
+    )
+    .unwrap();
     std::thread::spawn(move || {
         for line in BufReader::new(s).lines() {
             let Ok(line) = line else { break };
@@ -68,7 +97,9 @@ fn subscribe(port: u16) -> std::sync::mpsc::Receiver<(Instant, String)> {
 }
 
 fn turn_of(frame: &str) -> u64 {
-    let i = frame.find(r#""turn":{"battle_id":"viewer","turn":"#).expect("a frame");
+    let i = frame
+        .find(r#""turn":{"battle_id":"viewer","turn":"#)
+        .expect("a frame");
     let rest = &frame[i + r#""turn":{"battle_id":"viewer","turn":"#.len()..];
     rest[..rest.find(',').unwrap()].parse().unwrap()
 }
@@ -79,7 +110,10 @@ fn frames_arrive_while_the_battle_runs_and_pause_stops_them() {
     let (mut child, port) = start(&dir, "30");
     let rx = subscribe(port);
     let (_, header) = rx.recv_timeout(Duration::from_secs(60)).unwrap();
-    assert!(header.starts_with(r#"{"format":"roboverus-recording","version":1"#), "{header}");
+    assert!(
+        header.starts_with(r#"{"format":"roboverus-recording","version":1"#),
+        "{header}"
+    );
 
     // Not precomputed: frames arrive while the recording doesn't exist yet.
     let (_, first) = rx.recv_timeout(Duration::from_secs(10)).unwrap();
@@ -124,13 +158,19 @@ fn finished_live_battle_records_the_same_battle() {
         .env("ROBOCODE_BUILD_DIR", build_dir())
         .output()
         .unwrap();
-    assert!(plain.status.success(), "{}", String::from_utf8_lossy(&plain.stderr));
+    assert!(
+        plain.status.success(),
+        "{}",
+        String::from_utf8_lossy(&plain.stderr)
+    );
 
     let (mut child, port) = start(&dir, "max");
     let rx = subscribe(port);
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
-        let (_, line) = rx.recv_timeout(deadline - Instant::now()).expect("the stream ends with a done line");
+        let (_, line) = rx
+            .recv_timeout(deadline - Instant::now())
+            .expect("the stream ends with a done line");
         if line.contains(r#""done":true"#) {
             break;
         }
@@ -152,7 +192,12 @@ fn live_with_several_rounds_is_a_usage_error() {
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(2));
-    assert!(String::from_utf8_lossy(&out.stderr).contains("--live plays one round"), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        String::from_utf8_lossy(&out.stderr)
+            .contains("--live plays one round"),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }
 
 /// Ctrl+C stops the server even while a viewer's event stream is open.
@@ -164,7 +209,13 @@ fn ctrl_c_stops_the_server_with_a_viewer_connected() {
     let rx = subscribe(port);
     rx.recv_timeout(Duration::from_secs(60)).expect("the stream is open");
 
-    assert!(Command::new("kill").args(["-INT", &child.id().to_string()]).status().unwrap().success());
+    assert!(
+        Command::new("kill")
+            .args(["-INT", &child.id().to_string()])
+            .status()
+            .unwrap()
+            .success()
+    );
     let deadline = Instant::now() + Duration::from_secs(10);
     while child.try_wait().unwrap().is_none() {
         if Instant::now() > deadline {

@@ -102,10 +102,7 @@ pub struct Rect {
 
 impl Rect {
     pub const fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
-        Self {
-            min: Point::new(x, y),
-            max: Point::new(x + width, y + height),
-        }
+        Self { min: Point::new(x, y), max: Point::new(x + width, y + height) }
     }
 
     /// The rectangle grown by `margin` on every side. A circle of that radius
@@ -126,7 +123,10 @@ impl Rect {
         let length = (dx * dx + dy * dy).sqrt();
         let mut enter = 0.0_f64;
         let mut exit = 1.0_f64;
-        for (start, delta, lo, hi) in [(from.x, dx, self.min.x, self.max.x), (from.y, dy, self.min.y, self.max.y)] {
+        for (start, delta, lo, hi) in [
+            (from.x, dx, self.min.x, self.max.x),
+            (from.y, dy, self.min.y, self.max.y),
+        ] {
             if delta.abs() < EPSILON {
                 if start < lo || start > hi {
                     return None;

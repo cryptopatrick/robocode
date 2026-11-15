@@ -38,11 +38,17 @@ fn fixed_rules_agree_with_f64_rules() {
     for p in (100..=3000).step_by(5) {
         let f = p as f64 / 1000.0;
         assert!(
-            (bullet_damage(Power(p)).0 as f64 / 1000.0 - robocode::rules::bullet_damage(f)).abs() < 1e-9,
+            (bullet_damage(Power(p)).0 as f64 / 1000.0
+                - robocode::rules::bullet_damage(f))
+            .abs()
+                < 1e-9,
             "damage mismatch at {p}"
         );
         assert!(
-            (gun_heat_for_power(Power(p)).0 as f64 / 1000.0 - robocode::rules::gun_heat_for_power(f)).abs() < 1e-9,
+            (gun_heat_for_power(Power(p)).0 as f64 / 1000.0
+                - robocode::rules::gun_heat_for_power(f))
+            .abs()
+                < 1e-9,
             "heat mismatch at {p}"
         );
     }

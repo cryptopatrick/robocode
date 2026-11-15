@@ -2,11 +2,16 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
 fn has_cargo_verus() -> bool {
-    Command::new("cargo").args(["verus", "--help"]).output().map(|o| o.status.success()).unwrap_or(false)
+    Command::new("cargo")
+        .args(["verus", "--help"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 fn temp_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("cargo-robocode-verify-{name}-{}", std::process::id()));
+    let dir = std::env::temp_dir()
+        .join(format!("cargo-robocode-verify-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     dir
@@ -16,7 +21,10 @@ fn tool(args: &[&str], dir: &Path) -> Output {
     Command::new(env!("CARGO_BIN_EXE_cargo-robocode"))
         .args(args)
         .current_dir(dir)
-        .env("ROBOCODE_BUILD_DIR", std::env::temp_dir().join("cargo-robocode-test-build"))
+        .env(
+            "ROBOCODE_BUILD_DIR",
+            std::env::temp_dir().join("cargo-robocode-test-build"),
+        )
         .output()
         .unwrap()
 }
@@ -62,7 +70,11 @@ fn verify_counts_zero_specs() {
     let dir = temp_dir("zero");
     assert!(tool(&["new", "bot"], &dir).status.success());
     let out = tool(&["verify", "bot.rs"], &dir);
-    let all = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    let all = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert!(out.status.success(), "{all}");
     assert!(all.contains("0 specs checked in your robot"), "{all}");
 }
@@ -71,23 +83,40 @@ fn verify_counts_zero_specs() {
 fn verify_proved_strategy() {
     needs_verus!();
     let dir = temp_dir("proved");
-    std::fs::write(dir.join("proved.rs"), PROVED.replace("LIMIT", "3000")).unwrap();
+    std::fs::write(dir.join("proved.rs"), PROVED.replace("LIMIT", "3000"))
+        .unwrap();
     let out = tool(&["verify", "proved.rs"], &dir);
-    let all = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    let all = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert!(out.status.success(), "{all}");
     assert!(all.contains("Verified: 1 specs checked in your robot"), "{all}");
     // The same file still battles without Verus.
-    let battle = tool(&["battle", "proved.rs", "--output", "b.json", "--no-open"], &dir);
-    assert!(battle.status.success(), "{}", String::from_utf8_lossy(&battle.stderr));
+    let battle = tool(
+        &["battle", "proved.rs", "--output", "b.json", "--no-open"],
+        &dir,
+    );
+    assert!(
+        battle.status.success(),
+        "{}",
+        String::from_utf8_lossy(&battle.stderr)
+    );
 }
 
 #[test]
 fn verify_failing_spec_exits_1() {
     needs_verus!();
     let dir = temp_dir("failing");
-    std::fs::write(dir.join("proved.rs"), PROVED.replace("LIMIT", "500")).unwrap();
+    std::fs::write(dir.join("proved.rs"), PROVED.replace("LIMIT", "500"))
+        .unwrap();
     let out = tool(&["verify", "proved.rs"], &dir);
-    let all = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    let all = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(out.status.code(), Some(1), "{all}");
     assert!(all.contains("postcondition not satisfied"), "{all}");
 }

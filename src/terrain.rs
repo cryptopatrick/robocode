@@ -43,10 +43,16 @@ impl Terrain {
         let buildings = buildings
             .into_iter()
             .filter(|b| {
-                let fits = b.min.x >= 0.0 && b.min.y >= 0.0 && b.max.x <= width && b.max.y <= height;
+                let fits = b.min.x >= 0.0
+                    && b.min.y >= 0.0
+                    && b.max.x <= width
+                    && b.max.y <= height;
                 let clear = spawns.iter().all(|s| {
                     let g = b.grow(crate::rules::ROBOT_RADIUS);
-                    !(s.position.x >= g.min.x && s.position.x <= g.max.x && s.position.y >= g.min.y && s.position.y <= g.max.y)
+                    !(s.position.x >= g.min.x
+                        && s.position.x <= g.max.x
+                        && s.position.y >= g.min.y
+                        && s.position.y <= g.max.y)
                 });
                 fits && clear
             })

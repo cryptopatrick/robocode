@@ -3,7 +3,7 @@
 //! It spins its radar, swings its gun toward the target it last saw, strafes
 //! around it while keeping away from walls, and fires **only when it is safe**:
 //!
-//! > it fires exactly when it is [`ready`](ready), and if `decide(obs).fire == Some(p)` then the energy is strictly more than `p`
+//! > it fires exactly when it is `ready`, and if `decide(obs).fire == Some(p)` then the energy is strictly more than `p`
 //! > (firing everything would leave the robot at 0, which the engine kills), the gun is
 //! > cool, a target was scanned this turn, and the gun is aimed at it.
 //!
@@ -141,14 +141,24 @@ pub fn decide(obs: &Observation) -> Action {
                 } else {
                     Power(1000)
                 };
-                if obs.gun_heat.0 == 0 && t.age == 0 && is_aimed(obs) && obs.energy.0 > p.0 {
+                if obs.gun_heat.0 == 0
+                    && t.age == 0
+                    && is_aimed(obs)
+                    && obs.energy.0 > p.0
+                {
                     fire = Some(p);
                 }
             }
         }
         None => {}
     }
-    Action { fire, ahead: Some(ahead), turn_body, turn_gun, turn_radar: Some(radar_turn(obs)) }
+    Action {
+        fire,
+        ahead: Some(ahead),
+        turn_body,
+        turn_gun,
+        turn_radar: Some(radar_turn(obs)),
+    }
 }
 
 /// Radar lock: with a target scanned this turn, turn past it by as much again
@@ -229,7 +239,13 @@ fn strafe_turn(obs: &Observation) -> Option<i32> {
             let b = t.bearing.0;
             let perp = if b >= 2700 { b - 2700 } else { b + 900 };
             let d = angle_diff(crate::units::Angle(perp), obs.heading);
-            Some(if d > 900 { d - 1800 } else if d < -900 { d + 1800 } else { d })
+            Some(if d > 900 {
+                d - 1800
+            } else if d < -900 {
+                d + 1800
+            } else {
+                d
+            })
         }
         None => None,
     }

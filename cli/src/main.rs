@@ -12,7 +12,11 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "cargo robocode", version, about = "Write, battle and verify robocode robots locally")]
+#[command(
+    name = "cargo robocode",
+    version,
+    about = "Write, battle and verify robocode robots locally"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -92,12 +96,27 @@ fn new_robot(name: &str) -> Result<(), Failure> {
     let stem = name.strip_suffix(".rs").unwrap_or(name);
     let path = PathBuf::from(format!("{stem}.rs"));
     if path.exists() {
-        return Err(Failure::usage(format!("{} already exists", path.display())));
+        return Err(Failure::usage(format!(
+            "{} already exists",
+            path.display()
+        )));
     }
-    let file_stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
-    std::fs::write(&path, template::robot_file(&template::type_name(&file_stem)))
-        .map_err(|e| Failure::usage(format!("could not write {}: {e}", path.display())))?;
-    println!("Created {}. Battle it with: cargo robocode battle {}", path.display(), path.display());
+    let file_stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    std::fs::write(
+        &path,
+        template::robot_file(&template::type_name(&file_stem)),
+    )
+    .map_err(|e| {
+        Failure::usage(format!("could not write {}: {e}", path.display()))
+    })?;
+    println!(
+        "Created {}. Battle it with: cargo robocode battle {}",
+        path.display(),
+        path.display()
+    );
     Ok(())
 }
 
@@ -116,27 +135,73 @@ fn main() -> ExitCode {
             Ok(())
         }
         Command::New { name } => new_robot(&name),
-        Command::Battle { robot, vs, arena, turns, rounds, output, no_open, verbose, live, urban, tps, robocode_path } => {
+        Command::Battle {
+            robot,
+            vs,
+            arena,
+            turns,
+            rounds,
+            output,
+            no_open,
+            verbose,
+            live,
+            urban,
+            tps,
+            robocode_path,
+        } => {
             let tps = match tps.as_str() {
                 "max" => Ok(None),
-                t => t.parse::<u32>().ok().filter(|t| (1..=1000).contains(t)).map(Some).ok_or_else(|| {
-                    Failure::usage(format!("--tps must be 1..=1000 or max, got {t}"))
-                }),
+                t => t
+                    .parse::<u32>()
+                    .ok()
+                    .filter(|t| (1..=1000).contains(t))
+                    .map(Some)
+                    .ok_or_else(|| {
+                        Failure::usage(format!(
+                            "--tps must be 1..=1000 or max, got {t}"
+                        ))
+                    }),
             };
             match tps {
                 Err(f) => Err(f),
                 Ok(tps) => {
                     let save_only = no_open && output.is_some() && !live;
-                    let args = battle::BattleArgs { robot, vs, arena, turns, rounds, live, urban, output, verbose, robocode_path };
+                    let args = battle::BattleArgs {
+                        robot,
+                        vs,
+                        arena,
+                        turns,
+                        rounds,
+                        live,
+                        urban,
+                        output,
+                        verbose,
+                        robocode_path,
+                    };
                     if live {
-                        battle::compile(&args).and_then(|c| serve::serve_live(&c, tps, args.output.clone(), no_open))
+                        battle::compile(&args).and_then(|c| {
+                            serve::serve_live(
+                                &c,
+                                tps,
+                                args.output.clone(),
+                                no_open,
+                            )
+                        })
                     } else {
-                        battle::run(&args).and_then(|json| if save_only { Ok(()) } else { serve::serve(json, no_open) })
+                        battle::run(&args).and_then(|json| {
+                            if save_only {
+                                Ok(())
+                            } else {
+                                serve::serve(json, no_open)
+                            }
+                        })
                     }
                 }
             }
         }
-        Command::Verify { robot, robocode_path } => verify::run(&robot, robocode_path.as_deref()),
+        Command::Verify { robot, robocode_path } => {
+            verify::run(&robot, robocode_path.as_deref())
+        }
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

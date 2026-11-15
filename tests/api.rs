@@ -17,13 +17,19 @@ fn left_is_negative_right() {
     c.set_turn_gun_left(30.0);
     c.set_turn_left(10.0);
     c.set_turn_radar_left(45.0);
-    assert_eq!((c.turn_gun(), c.turn_body(), c.turn_radar()), (Some(-30.0), Some(-10.0), Some(-45.0)));
+    assert_eq!(
+        (c.turn_gun(), c.turn_body(), c.turn_radar()),
+        (Some(-30.0), Some(-10.0), Some(-45.0))
+    );
 }
 
 #[test]
 fn unset_commands_are_none() {
     let c = Commands::default();
-    assert_eq!((c.ahead(), c.turn_body(), c.turn_gun(), c.turn_radar(), c.fire()), (None, None, None, None, None));
+    assert_eq!(
+        (c.ahead(), c.turn_body(), c.turn_gun(), c.turn_radar(), c.fire()),
+        (None, None, None, None, None)
+    );
 }
 
 #[test]
@@ -40,8 +46,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use robocode::api::{
-    BulletHitEvent, BulletMissedEvent, HitByBulletEvent, HitWallEvent, Robot, RobotDeathEvent,
-    ScannedRobotEvent, Status,
+    BulletHitEvent, BulletMissedEvent, HitByBulletEvent, HitWallEvent, Robot,
+    RobotDeathEvent, ScannedRobotEvent, Status,
 };
 use robocode::physics::{BattleConfig, SpawnSpec};
 use robocode::runner::Battle;
@@ -61,7 +67,13 @@ struct Recorder {
 impl Recorder {
     fn new(name: &str, script: Script) -> (Self, Log) {
         let log: Log = Rc::default();
-        let r = Recorder { name: name.into(), log: log.clone(), scans: Rc::default(), statuses: Rc::default(), script };
+        let r = Recorder {
+            name: name.into(),
+            log: log.clone(),
+            scans: Rc::default(),
+            statuses: Rc::default(),
+            script,
+        };
         (r, log)
     }
     fn idle(name: &str) -> (Self, Log) {
@@ -78,23 +90,55 @@ impl Robot for Recorder {
         self.statuses.borrow_mut().push(status.clone());
         (self.script)(status, cmd);
     }
-    fn on_scanned_robot(&mut self, e: &ScannedRobotEvent, _s: &Status, _c: &mut Commands) {
+    fn on_scanned_robot(
+        &mut self,
+        e: &ScannedRobotEvent,
+        _s: &Status,
+        _c: &mut Commands,
+    ) {
         self.log.borrow_mut().push(format!("scan {}", e.name));
         self.scans.borrow_mut().push(e.clone());
     }
-    fn on_hit_by_bullet(&mut self, e: &HitByBulletEvent, _s: &Status, _c: &mut Commands) {
-        self.log.borrow_mut().push(format!("hit-by {} {:.0}", e.name, e.bearing));
+    fn on_hit_by_bullet(
+        &mut self,
+        e: &HitByBulletEvent,
+        _s: &Status,
+        _c: &mut Commands,
+    ) {
+        self.log
+            .borrow_mut()
+            .push(format!("hit-by {} {:.0}", e.name, e.bearing));
     }
-    fn on_bullet_hit(&mut self, e: &BulletHitEvent, _s: &Status, _c: &mut Commands) {
+    fn on_bullet_hit(
+        &mut self,
+        e: &BulletHitEvent,
+        _s: &Status,
+        _c: &mut Commands,
+    ) {
         self.log.borrow_mut().push(format!("bullet-hit {}", e.name));
     }
-    fn on_bullet_missed(&mut self, _e: &BulletMissedEvent, _s: &Status, _c: &mut Commands) {
+    fn on_bullet_missed(
+        &mut self,
+        _e: &BulletMissedEvent,
+        _s: &Status,
+        _c: &mut Commands,
+    ) {
         self.log.borrow_mut().push("missed".into());
     }
-    fn on_hit_wall(&mut self, e: &HitWallEvent, _s: &Status, _c: &mut Commands) {
+    fn on_hit_wall(
+        &mut self,
+        e: &HitWallEvent,
+        _s: &Status,
+        _c: &mut Commands,
+    ) {
         self.log.borrow_mut().push(format!("wall {:.0}", e.bearing));
     }
-    fn on_robot_death(&mut self, e: &RobotDeathEvent, _s: &Status, _c: &mut Commands) {
+    fn on_robot_death(
+        &mut self,
+        e: &RobotDeathEvent,
+        _s: &Status,
+        _c: &mut Commands,
+    ) {
         self.log.borrow_mut().push(format!("death {}", e.name));
     }
 }
@@ -103,8 +147,16 @@ impl Robot for Recorder {
 type Entry = (Box<dyn Robot>, (f64, f64, f64));
 
 fn battle(robots: Vec<Entry>) -> Battle {
-    let spawns: Vec<SpawnSpec> = robots.iter().enumerate().map(|(i, (_, (x, y, h)))| SpawnSpec::new(i, *x, *y, *h)).collect();
-    Battle::new(BattleConfig::default(), &spawns, robots.into_iter().map(|(r, _)| r).collect())
+    let spawns: Vec<SpawnSpec> = robots
+        .iter()
+        .enumerate()
+        .map(|(i, (_, (x, y, h)))| SpawnSpec::new(i, *x, *y, *h))
+        .collect();
+    Battle::new(
+        BattleConfig::default(),
+        &spawns,
+        robots.into_iter().map(|(r, _)| r).collect(),
+    )
 }
 
 fn sweep(deg: f64) -> Script {
@@ -115,7 +167,10 @@ fn sweep(deg: f64) -> Script {
 fn run_is_called_every_turn_after_handlers() {
     let (a, log) = Recorder::new("A", sweep(45.0));
     let (b, _) = Recorder::idle("B");
-    let mut bt = battle(vec![(Box::new(a), (400.0, 500.0, 0.0)), (Box::new(b), (400.0, 200.0, 0.0))]);
+    let mut bt = battle(vec![
+        (Box::new(a), (400.0, 500.0, 0.0)),
+        (Box::new(b), (400.0, 200.0, 0.0)),
+    ]);
     bt.step();
     bt.step();
     assert_eq!(log.borrow()[..3], ["run", "scan B", "run"]);
@@ -126,11 +181,17 @@ fn scan_event_fields() {
     let (a, _) = Recorder::new("A", sweep(45.0));
     let scans = a.scans.clone();
     let (b, _) = Recorder::idle("B");
-    let mut bt = battle(vec![(Box::new(a), (400.0, 500.0, 0.0)), (Box::new(b), (400.0, 200.0, 0.0))]);
+    let mut bt = battle(vec![
+        (Box::new(a), (400.0, 500.0, 0.0)),
+        (Box::new(b), (400.0, 200.0, 0.0)),
+    ]);
     bt.step();
     bt.step();
     let s = scans.borrow()[0].clone();
-    assert_eq!((s.name.as_str(), s.bearing, s.absolute_bearing), ("B", 0.0, 0.0));
+    assert_eq!(
+        (s.name.as_str(), s.bearing, s.absolute_bearing),
+        ("B", 0.0, 0.0)
+    );
     assert!((s.distance - 300.0).abs() < 1e-9);
     assert_eq!(s.energy, 100.0);
 
@@ -138,7 +199,10 @@ fn scan_event_fields() {
     let (a, _) = Recorder::new("A", sweep(20.0));
     let scans = a.scans.clone();
     let (b, _) = Recorder::idle("B");
-    let mut bt = battle(vec![(Box::new(a), (400.0, 100.0, 0.0)), (Box::new(b), (400.0, 400.0, 0.0))]);
+    let mut bt = battle(vec![
+        (Box::new(a), (400.0, 100.0, 0.0)),
+        (Box::new(b), (400.0, 400.0, 0.0)),
+    ]);
     bt.state_mut().robots[0].radar_heading = 170.0;
     bt.step();
     bt.step();
@@ -154,7 +218,10 @@ fn two_fire_calls_one_bullet() {
     });
     let (a, _) = Recorder::new("A", fire_twice);
     let (b, _) = Recorder::idle("B");
-    let mut bt = battle(vec![(Box::new(a), (100.0, 300.0, 0.0)), (Box::new(b), (700.0, 300.0, 0.0))]);
+    let mut bt = battle(vec![
+        (Box::new(a), (100.0, 300.0, 0.0)),
+        (Box::new(b), (700.0, 300.0, 0.0)),
+    ]);
     let fired = bt.step().bullet_fired;
     assert_eq!(fired.len(), 1);
     assert_eq!(fired[0].power, 3.0);
@@ -172,7 +239,10 @@ fn duplicate_names_are_numbered() {
         (Box::new(c), (700.0, 100.0, 0.0)),
     ]);
     bt.step();
-    assert_eq!((bt.name(0), bt.name(1), bt.name(2)), ("SittingDuck", "SittingDuck (2)", "SittingDuck (3)"));
+    assert_eq!(
+        (bt.name(0), bt.name(1), bt.name(2)),
+        ("SittingDuck", "SittingDuck (2)", "SittingDuck (3)")
+    );
     assert_eq!(statuses.borrow()[0].name, "SittingDuck (2)");
     assert_eq!(statuses.borrow()[0].others, 2);
 }
@@ -193,9 +263,15 @@ fn death_is_reported_once_and_dead_get_no_calls() {
         bt.step();
     }
     assert!(!bt.state().robots[1].alive);
-    let calls_after_death = b_log.borrow().iter().skip_while(|l| !l.starts_with("hit-by")).count();
+    let calls_after_death =
+        b_log.borrow().iter().skip_while(|l| !l.starts_with("hit-by")).count();
     assert_eq!(calls_after_death, 0, "B log: {:?}", b_log.borrow());
-    let deaths: Vec<_> = c_log.borrow().iter().filter(|l| l.starts_with("death")).cloned().collect();
+    let deaths: Vec<_> = c_log
+        .borrow()
+        .iter()
+        .filter(|l| l.starts_with("death"))
+        .cloned()
+        .collect();
     assert_eq!(deaths, ["death B"]);
 }
 
@@ -208,12 +284,23 @@ fn hit_by_bullet_and_bullet_hit_events() {
     });
     let (a, a_log) = Recorder::new("A", shoot_once);
     let (b, b_log) = Recorder::idle("B");
-    let mut bt = battle(vec![(Box::new(a), (400.0, 500.0, 0.0)), (Box::new(b), (400.0, 200.0, 0.0))]);
+    let mut bt = battle(vec![
+        (Box::new(a), (400.0, 500.0, 0.0)),
+        (Box::new(b), (400.0, 200.0, 0.0)),
+    ]);
     for _ in 0..30 {
         bt.step();
     }
-    assert!(a_log.borrow().contains(&"bullet-hit B".to_string()), "{:?}", a_log.borrow());
-    assert!(b_log.borrow().contains(&"hit-by A 180".to_string()), "{:?}", b_log.borrow());
+    assert!(
+        a_log.borrow().contains(&"bullet-hit B".to_string()),
+        "{:?}",
+        a_log.borrow()
+    );
+    assert!(
+        b_log.borrow().contains(&"hit-by A 180".to_string()),
+        "{:?}",
+        b_log.borrow()
+    );
     assert!(!a_log.borrow().contains(&"missed".to_string()));
 }
 
@@ -226,7 +313,10 @@ fn bullet_missed_event() {
     });
     let (a, a_log) = Recorder::new("A", shoot_once);
     let (b, _) = Recorder::idle("B");
-    let mut bt = battle(vec![(Box::new(a), (400.0, 300.0, 0.0)), (Box::new(b), (100.0, 500.0, 0.0))]);
+    let mut bt = battle(vec![
+        (Box::new(a), (400.0, 300.0, 0.0)),
+        (Box::new(b), (100.0, 500.0, 0.0)),
+    ]);
     for _ in 0..40 {
         bt.step();
     }
@@ -239,21 +329,35 @@ fn hit_wall_event() {
     let forward: Script = Box::new(|_, c: &mut Commands| c.set_ahead(100.0));
     let (a, a_log) = Recorder::new("A", forward);
     let (b, _) = Recorder::idle("B");
-    let mut bt = battle(vec![(Box::new(a), (19.0, 300.0, 270.0)), (Box::new(b), (700.0, 300.0, 0.0))]);
+    let mut bt = battle(vec![
+        (Box::new(a), (19.0, 300.0, 270.0)),
+        (Box::new(b), (700.0, 300.0, 0.0)),
+    ]);
     for _ in 0..5 {
         bt.step();
     }
-    assert!(a_log.borrow().contains(&"wall 0".to_string()), "{:?}", a_log.borrow());
+    assert!(
+        a_log.borrow().contains(&"wall 0".to_string()),
+        "{:?}",
+        a_log.borrow()
+    );
 
     // Reversing into it while facing right: the wall is behind (180).
     let backward: Script = Box::new(|_, c: &mut Commands| c.set_back(100.0));
     let (a, a_log) = Recorder::new("A", backward);
     let (b, _) = Recorder::idle("B");
-    let mut bt = battle(vec![(Box::new(a), (19.0, 300.0, 90.0)), (Box::new(b), (700.0, 300.0, 0.0))]);
+    let mut bt = battle(vec![
+        (Box::new(a), (19.0, 300.0, 90.0)),
+        (Box::new(b), (700.0, 300.0, 0.0)),
+    ]);
     for _ in 0..5 {
         bt.step();
     }
-    assert!(a_log.borrow().contains(&"wall 180".to_string()), "{:?}", a_log.borrow());
+    assert!(
+        a_log.borrow().contains(&"wall 180".to_string()),
+        "{:?}",
+        a_log.borrow()
+    );
 }
 
 #[test]
@@ -266,11 +370,18 @@ fn status_reports_remaining_motion() {
     let (a, _) = Recorder::new("A", go);
     let statuses = a.statuses.clone();
     let (b, _) = Recorder::idle("B");
-    let mut bt = battle(vec![(Box::new(a), (400.0, 500.0, 0.0)), (Box::new(b), (100.0, 100.0, 0.0))]);
+    let mut bt = battle(vec![
+        (Box::new(a), (400.0, 500.0, 0.0)),
+        (Box::new(b), (100.0, 100.0, 0.0)),
+    ]);
     bt.step();
     bt.step();
     let s = &statuses.borrow()[1];
-    assert!(s.distance_remaining > 0.0 && s.distance_remaining < 100.0, "{}", s.distance_remaining);
+    assert!(
+        s.distance_remaining > 0.0 && s.distance_remaining < 100.0,
+        "{}",
+        s.distance_remaining
+    );
     assert_eq!(s.time, 1);
     assert_eq!((s.battlefield_width, s.battlefield_height), (800.0, 600.0));
 }
@@ -279,18 +390,40 @@ fn status_reports_remaining_motion() {
 fn hit_robot_event_for_both() {
     struct Rammer(Log);
     impl Robot for Rammer {
-        fn name(&self) -> &str { "Rammer" }
-        fn run(&mut self, _s: &Status, c: &mut Commands) { c.set_ahead(100.0); }
-        fn on_hit_robot(&mut self, e: &robocode::api::HitRobotEvent, _s: &Status, _c: &mut Commands) {
-            self.0.borrow_mut().push(format!("hit-robot {} {:.0} {}", e.name, e.bearing, e.at_fault));
+        fn name(&self) -> &str {
+            "Rammer"
+        }
+        fn run(&mut self, _s: &Status, c: &mut Commands) {
+            c.set_ahead(100.0);
+        }
+        fn on_hit_robot(
+            &mut self,
+            e: &robocode::api::HitRobotEvent,
+            _s: &Status,
+            _c: &mut Commands,
+        ) {
+            self.0.borrow_mut().push(format!(
+                "hit-robot {} {:.0} {}",
+                e.name, e.bearing, e.at_fault
+            ));
         }
     }
     struct Victim(Log);
     impl Robot for Victim {
-        fn name(&self) -> &str { "Victim" }
+        fn name(&self) -> &str {
+            "Victim"
+        }
         fn run(&mut self, _s: &Status, _c: &mut Commands) {}
-        fn on_hit_robot(&mut self, e: &robocode::api::HitRobotEvent, _s: &Status, _c: &mut Commands) {
-            self.0.borrow_mut().push(format!("hit-robot {} {:.0} {} {:.1}", e.name, e.bearing, e.at_fault, e.energy));
+        fn on_hit_robot(
+            &mut self,
+            e: &robocode::api::HitRobotEvent,
+            _s: &Status,
+            _c: &mut Commands,
+        ) {
+            self.0.borrow_mut().push(format!(
+                "hit-robot {} {:.0} {} {:.1}",
+                e.name, e.bearing, e.at_fault, e.energy
+            ));
         }
     }
     let (rl, vl): (Log, Log) = (Rc::default(), Rc::default());
@@ -301,20 +434,40 @@ fn hit_robot_event_for_both() {
     for _ in 0..10 {
         bt.step();
     }
-    assert!(rl.borrow().contains(&"hit-robot Victim 0 true".to_string()), "{:?}", rl.borrow());
-    assert!(vl.borrow().contains(&"hit-robot Rammer -90 false 99.4".to_string()), "{:?}", vl.borrow());
+    assert!(
+        rl.borrow().contains(&"hit-robot Victim 0 true".to_string()),
+        "{:?}",
+        rl.borrow()
+    );
+    assert!(
+        vl.borrow().contains(&"hit-robot Rammer -90 false 99.4".to_string()),
+        "{:?}",
+        vl.borrow()
+    );
 }
 
 #[test]
 fn bullet_hit_bullet_event_for_both_owners() {
     struct Shooter(&'static str, f64, Log);
     impl Robot for Shooter {
-        fn name(&self) -> &str { self.0 }
-        fn run(&mut self, s: &Status, c: &mut Commands) {
-            if s.time == 0 { c.set_fire(self.1); }
+        fn name(&self) -> &str {
+            self.0
         }
-        fn on_bullet_hit_bullet(&mut self, e: &robocode::api::BulletHitBulletEvent, _s: &Status, _c: &mut Commands) {
-            self.2.borrow_mut().push(format!("bullet-hit-bullet {} {} {}", e.name, e.power, e.other_power));
+        fn run(&mut self, s: &Status, c: &mut Commands) {
+            if s.time == 0 {
+                c.set_fire(self.1);
+            }
+        }
+        fn on_bullet_hit_bullet(
+            &mut self,
+            e: &robocode::api::BulletHitBulletEvent,
+            _s: &Status,
+            _c: &mut Commands,
+        ) {
+            self.2.borrow_mut().push(format!(
+                "bullet-hit-bullet {} {} {}",
+                e.name, e.power, e.other_power
+            ));
         }
     }
     let (al, bl): (Log, Log) = (Rc::default(), Rc::default());

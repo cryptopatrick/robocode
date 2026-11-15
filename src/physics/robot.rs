@@ -91,14 +91,16 @@ impl RobotState {
     /// Caps the speed like Java `setMaxVelocity`: `min(|v|, 8)`; NaN is ignored.
     pub fn set_max_velocity(&mut self, velocity: f64) {
         if !velocity.is_nan() {
-            self.control.max_velocity = velocity.abs().min(crate::rules::MAX_VELOCITY);
+            self.control.max_velocity =
+                velocity.abs().min(crate::rules::MAX_VELOCITY);
         }
     }
 
     /// Caps the body turn rate like Java `setMaxTurnRate`: `min(|d|, 10)`; NaN is ignored.
     pub fn set_max_turn_rate(&mut self, degrees: f64) {
         if !degrees.is_nan() {
-            self.control.max_turn_rate = degrees.abs().min(crate::rules::MAX_TURN_RATE);
+            self.control.max_turn_rate =
+                degrees.abs().min(crate::rules::MAX_TURN_RATE);
         }
     }
 

@@ -40,7 +40,11 @@ pub enum BattleError {
 impl std::fmt::Display for BattleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BattleError::TimedOut(d) => write!(f, "the battle exceeded its time limit of {} s", d.as_secs()),
+            BattleError::TimedOut(d) => write!(
+                f,
+                "the battle exceeded its time limit of {} s",
+                d.as_secs()
+            ),
             BattleError::Failed(e) => f.write_str(e),
         }
     }
@@ -57,7 +61,8 @@ pub fn run_battle(
     timeout: Duration,
 ) -> Result<BattleResult, BattleError> {
     let fail = |e: String| BattleError::Failed(e);
-    let strategy = std::fs::read_to_string(dir.join("src/strategy.rs")).map_err(|e| fail(e.to_string()))?;
+    let strategy = std::fs::read_to_string(dir.join("src/strategy.rs"))
+        .map_err(|e| fail(e.to_string()))?;
     // Named after this exact strategy.rs: if the file was changed after
     // materialize, the binary is not found rather than silently rebuilt.
     let (_, bin) = crate_and_bin(&strategy);
@@ -67,12 +72,19 @@ pub fn run_battle(
     let exe = target_dir.join("release").join(&bin);
     let stdout_path = recording_out.with_extension("stdout");
     let stderr_path = recording_out.with_extension("stderr");
-    let file = |p: &Path| std::fs::File::create(p).map_err(|e| fail(e.to_string()));
+    let file =
+        |p: &Path| std::fs::File::create(p).map_err(|e| fail(e.to_string()));
     let mut cmd = Command::new(&exe);
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
     let mut child = cmd
-        .args(["--opponent", opponent, "--turns", &max_turns.to_string(), "--out"])
+        .args([
+            "--opponent",
+            opponent,
+            "--turns",
+            &max_turns.to_string(),
+            "--out",
+        ])
         .arg(recording_out)
         .stdout(file(&stdout_path)?)
         .stderr(file(&stderr_path)?)
@@ -93,11 +105,15 @@ pub fn run_battle(
     };
     let read = |p: &Path| std::fs::read(p).unwrap_or_default();
     let (stdout, stderr) = (read(&stdout_path), read(&stderr_path));
-    let _ = (std::fs::remove_file(&stdout_path), std::fs::remove_file(&stderr_path));
+    let _ = (
+        std::fs::remove_file(&stdout_path),
+        std::fs::remove_file(&stderr_path),
+    );
     if !status.success() {
         return Err(fail(String::from_utf8_lossy(&stderr).trim().to_string()));
     }
-    let line: Line = serde_json::from_slice(&stdout).map_err(|e| fail(format!("unexpected battle output: {e}")))?;
+    let line: Line = serde_json::from_slice(&stdout)
+        .map_err(|e| fail(format!("unexpected battle output: {e}")))?;
     let rec = std::fs::read(recording_out).map_err(|e| fail(e.to_string()))?;
     Ok(BattleResult {
         artifact_hash: line.artifact_hash,
@@ -108,11 +124,16 @@ pub fn run_battle(
 }
 
 /// The battle must have run the implementation that was verified.
-pub fn check_same_artifact(verified: &str, battled: &str) -> Result<(), String> {
+pub fn check_same_artifact(
+    verified: &str,
+    battled: &str,
+) -> Result<(), String> {
     if verified == battled {
         Ok(())
     } else {
-        Err(format!("verified implementation {verified} differs from the battled one {battled}"))
+        Err(format!(
+            "verified implementation {verified} differs from the battled one {battled}"
+        ))
     }
 }
 
@@ -121,7 +142,10 @@ mod tests {
     use super::*;
     use crate::candidate::parse;
     use crate::template::{assemble, sha256_hex};
-    use crate::workspace::{materialize, plain_target_dir, repo_root, tests::{shared_target, temp_dir}};
+    use crate::workspace::{
+        materialize, plain_target_dir, repo_root,
+        tests::{shared_target, temp_dir},
+    };
 
     const LIMIT: std::time::Duration = std::time::Duration::from_secs(120);
 
@@ -129,8 +153,14 @@ mod tests {
         ready_fixture(name, "safe_shooter")
     }
 
-    fn ready_fixture(name: &str, fixture: &str) -> (std::path::PathBuf, String) {
-        let src = std::fs::read_to_string(repo_root().join(format!("robocheck/fixtures/{fixture}.rs"))).unwrap();
+    fn ready_fixture(
+        name: &str,
+        fixture: &str,
+    ) -> (std::path::PathBuf, String) {
+        let src = std::fs::read_to_string(
+            repo_root().join(format!("robocheck/fixtures/{fixture}.rs")),
+        )
+        .unwrap();
         let a = assemble(&parse(&src).unwrap());
         let dir = temp_dir(name);
         materialize(&dir, &a.strategy_rs, &repo_root()).unwrap();
@@ -141,7 +171,15 @@ mod tests {
     fn battle_reports_the_hash_of_strategy_rs() {
         let _guard = shared_target();
         let (dir, strategy) = ready("battle-hash");
-        let r = run_battle(&dir, &plain_target_dir(), "SittingDuck", 2000, &dir.join("recording.json"), LIMIT).unwrap();
+        let r = run_battle(
+            &dir,
+            &plain_target_dir(),
+            "SittingDuck",
+            2000,
+            &dir.join("recording.json"),
+            LIMIT,
+        )
+        .unwrap();
         assert_eq!(r.artifact_hash, sha256_hex(strategy.as_bytes()));
         assert!(r.turns > 0);
         let rec = std::fs::read_to_string(dir.join("recording.json")).unwrap();
@@ -154,8 +192,24 @@ mod tests {
         let _guard = shared_target();
         let (dir, _) = ready("battle-det");
         let t = plain_target_dir();
-        let a = run_battle(&dir, &t, "SittingDuck", 500, &dir.join("a.json"), LIMIT).unwrap();
-        let b = run_battle(&dir, &t, "SittingDuck", 500, &dir.join("b.json"), LIMIT).unwrap();
+        let a = run_battle(
+            &dir,
+            &t,
+            "SittingDuck",
+            500,
+            &dir.join("a.json"),
+            LIMIT,
+        )
+        .unwrap();
+        let b = run_battle(
+            &dir,
+            &t,
+            "SittingDuck",
+            500,
+            &dir.join("b.json"),
+            LIMIT,
+        )
+        .unwrap();
         assert_eq!(a.recording_hash, b.recording_hash);
     }
 
@@ -163,7 +217,15 @@ mod tests {
     fn unknown_opponent_is_an_error() {
         let _guard = shared_target();
         let (dir, _) = ready("battle-unknown");
-        let e = run_battle(&dir, &plain_target_dir(), "Nobody", 100, &dir.join("r.json"), LIMIT).unwrap_err();
+        let e = run_battle(
+            &dir,
+            &plain_target_dir(),
+            "Nobody",
+            100,
+            &dir.join("r.json"),
+            LIMIT,
+        )
+        .unwrap_err();
         assert!(e.to_string().contains("SittingDuck"), "{e}");
     }
 
@@ -173,8 +235,15 @@ mod tests {
         let _guard = shared_target();
         let (dir, _) = ready_fixture("battle-hang", "hangs");
         let t0 = std::time::Instant::now();
-        let e = run_battle(&dir, &plain_target_dir(), "SittingDuck", 100, &dir.join("r.json"), std::time::Duration::from_secs(3))
-            .unwrap_err();
+        let e = run_battle(
+            &dir,
+            &plain_target_dir(),
+            "SittingDuck",
+            100,
+            &dir.join("r.json"),
+            std::time::Duration::from_secs(3),
+        )
+        .unwrap_err();
         assert!(matches!(e, BattleError::TimedOut(_)), "{e}");
         assert!(t0.elapsed() < std::time::Duration::from_secs(60));
     }
@@ -183,11 +252,28 @@ mod tests {
     #[test]
     fn changed_strategy_is_not_battled() {
         let (dir, strategy) = ready("battle-changed");
-        std::fs::write(dir.join("src/strategy.rs"), strategy.replace("Power(1000)", "Power(2000)")).unwrap();
+        std::fs::write(
+            dir.join("src/strategy.rs"),
+            strategy.replace("Power(1000)", "Power(2000)"),
+        )
+        .unwrap();
         // Its own target dir: this test deliberately builds a modified file
         // under the original crate name.
-        let target = std::env::temp_dir().join(format!("robocheck-test-changed-target-{}", std::process::id()));
-        assert!(run_battle(&dir, &target, "SittingDuck", 100, &dir.join("r.json"), LIMIT).is_err());
+        let target = std::env::temp_dir().join(format!(
+            "robocheck-test-changed-target-{}",
+            std::process::id()
+        ));
+        assert!(
+            run_battle(
+                &dir,
+                &target,
+                "SittingDuck",
+                100,
+                &dir.join("r.json"),
+                LIMIT
+            )
+            .is_err()
+        );
     }
 
     #[test]

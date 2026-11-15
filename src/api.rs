@@ -326,18 +326,72 @@ pub trait Robot {
     /// Called every turn, after the event handlers.
     fn run(&mut self, status: &Status, cmd: &mut Commands);
 
-    fn on_scanned_robot(&mut self, _event: &ScannedRobotEvent, _status: &Status, _cmd: &mut Commands) {}
-    fn on_hit_by_bullet(&mut self, _event: &HitByBulletEvent, _status: &Status, _cmd: &mut Commands) {}
-    fn on_bullet_hit(&mut self, _event: &BulletHitEvent, _status: &Status, _cmd: &mut Commands) {}
-    fn on_bullet_hit_bullet(&mut self, _event: &BulletHitBulletEvent, _status: &Status, _cmd: &mut Commands) {}
-    fn on_bullet_missed(&mut self, _event: &BulletMissedEvent, _status: &Status, _cmd: &mut Commands) {}
-    fn on_hit_wall(&mut self, _event: &HitWallEvent, _status: &Status, _cmd: &mut Commands) {}
-    fn on_hit_robot(&mut self, _event: &HitRobotEvent, _status: &Status, _cmd: &mut Commands) {}
-    fn on_robot_death(&mut self, _event: &RobotDeathEvent, _status: &Status, _cmd: &mut Commands) {}
+    fn on_scanned_robot(
+        &mut self,
+        _event: &ScannedRobotEvent,
+        _status: &Status,
+        _cmd: &mut Commands,
+    ) {
+    }
+    fn on_hit_by_bullet(
+        &mut self,
+        _event: &HitByBulletEvent,
+        _status: &Status,
+        _cmd: &mut Commands,
+    ) {
+    }
+    fn on_bullet_hit(
+        &mut self,
+        _event: &BulletHitEvent,
+        _status: &Status,
+        _cmd: &mut Commands,
+    ) {
+    }
+    fn on_bullet_hit_bullet(
+        &mut self,
+        _event: &BulletHitBulletEvent,
+        _status: &Status,
+        _cmd: &mut Commands,
+    ) {
+    }
+    fn on_bullet_missed(
+        &mut self,
+        _event: &BulletMissedEvent,
+        _status: &Status,
+        _cmd: &mut Commands,
+    ) {
+    }
+    fn on_hit_wall(
+        &mut self,
+        _event: &HitWallEvent,
+        _status: &Status,
+        _cmd: &mut Commands,
+    ) {
+    }
+    fn on_hit_robot(
+        &mut self,
+        _event: &HitRobotEvent,
+        _status: &Status,
+        _cmd: &mut Commands,
+    ) {
+    }
+    fn on_robot_death(
+        &mut self,
+        _event: &RobotDeathEvent,
+        _status: &Status,
+        _cmd: &mut Commands,
+    ) {
+    }
 
     /// You missed turns because you exceeded the battle's time budget
     /// (called first, on your next turn).
-    fn on_skipped_turn(&mut self, _event: &SkippedTurnEvent, _status: &Status, _cmd: &mut Commands) {}
+    fn on_skipped_turn(
+        &mut self,
+        _event: &SkippedTurnEvent,
+        _status: &Status,
+        _cmd: &mut Commands,
+    ) {
+    }
 
     /// You died (called right away, with your final status).
     fn on_death(&mut self, _status: &Status) {}

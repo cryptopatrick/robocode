@@ -2,11 +2,18 @@ use robocode::physics::{BattleConfig, BattleState, RobotState};
 use robocode::{Battlefield, Point};
 
 fn big_field() -> BattleConfig {
-    BattleConfig { battlefield: Battlefield::new(2000.0, 2000.0), ..BattleConfig::default() }
+    BattleConfig {
+        battlefield: Battlefield::new(2000.0, 2000.0),
+        ..BattleConfig::default()
+    }
 }
 
 /// Robot 0 at `a` with its radar sweeping from 0° by `sweep` degrees; robot 1 at `b`.
-fn scan_once(a: Point, sweep: f64, b: Point) -> Vec<robocode::physics::ScannedRobot> {
+fn scan_once(
+    a: Point,
+    sweep: f64,
+    b: Point,
+) -> Vec<robocode::physics::ScannedRobot> {
     let mut scanner = RobotState::new(0, a);
     scanner.set_turn_radar_right(sweep);
     let target = RobotState::new(1, b);
@@ -73,7 +80,8 @@ fn dead_robots_neither_scan_nor_are_scanned() {
     scanner.set_turn_radar_right(45.0);
     let mut target = RobotState::new(1, a.translate(20.0, 200.0));
     target.kill();
-    let mut battle = BattleState::new(big_field(), vec![scanner.clone(), target]);
+    let mut battle =
+        BattleState::new(big_field(), vec![scanner.clone(), target]);
     assert!(battle.step().scans.is_empty());
 
     scanner.kill();

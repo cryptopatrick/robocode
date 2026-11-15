@@ -27,29 +27,42 @@ fn content_type(path: &str) -> &'static str {
 
 fn asset(path: &str) -> Response {
     match assets::VIEWER_ASSETS.iter().find(|(p, _)| *p == path) {
-        Some((p, bytes)) => ([(header::CONTENT_TYPE, content_type(p))], *bytes).into_response(),
+        Some((p, bytes)) => {
+            ([(header::CONTENT_TYPE, content_type(p))], *bytes).into_response()
+        }
         None => StatusCode::NOT_FOUND.into_response(),
     }
 }
 
 /// Serves until Ctrl+C. Opens the browser unless `no_open`.
 pub fn serve(recording: String, no_open: bool) -> Result<(), Failure> {
-    let runtime = tokio::runtime::Runtime::new().map_err(|e| Failure::usage(format!("could not start the server: {e}")))?;
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| {
+        Failure::usage(format!("could not start the server: {e}"))
+    })?;
     runtime.block_on(async move {
-        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
-            .await
-            .map_err(|e| Failure::usage(format!("could not start the server: {e}")))?;
-        let port = listener.local_addr().map_err(|e| Failure::usage(e.to_string()))?.port();
+        let listener =
+            tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.map_err(
+                |e| Failure::usage(format!("could not start the server: {e}")),
+            )?;
+        let port = listener
+            .local_addr()
+            .map_err(|e| Failure::usage(e.to_string()))?
+            .port();
         let app = Router::new()
             .route("/", get(|| async { asset("index.html") }))
             .route(
                 "/battle.json",
                 get(move || {
                     let body = recording.clone();
-                    async move { ([(header::CONTENT_TYPE, "application/json")], body) }
+                    async move {
+                        ([(header::CONTENT_TYPE, "application/json")], body)
+                    }
                 }),
             )
-            .route("/{*path}", get(|Path(path): Path<String>| async move { asset(&path) }));
+            .route(
+                "/{*path}",
+                get(|Path(path): Path<String>| async move { asset(&path) }),
+            );
 
         let url = format!("http://127.0.0.1:{port}/?recording=/battle.json");
         println!("Watch the battle: {url}   (Ctrl+C to stop)");
@@ -89,7 +102,9 @@ pub fn serve_live(
 
     let mut child = crate::battle::spawn_live(compiled, tps)?;
     let stdout = child.stdout.take().expect("piped stdout");
-    let stdin: Shared<std::process::ChildStdin> = std::sync::Arc::new(std::sync::Mutex::new(child.stdin.take().expect("piped stdin")));
+    let stdin: Shared<std::process::ChildStdin> = std::sync::Arc::new(
+        std::sync::Mutex::new(child.stdin.take().expect("piped stdin")),
+    );
     let state: Shared<LiveState> = std::sync::Arc::default();
 
     // Battle program → all viewers.
@@ -105,8 +120,13 @@ pub fn serve_live(
             {
                 if let Some(out) = &output {
                     match std::fs::write(out, &json) {
-                        Ok(()) => eprintln!("Saved the recording to {}", out.display()),
-                        Err(e) => eprintln!("could not write {}: {e}", out.display()),
+                        Ok(()) => eprintln!(
+                            "Saved the recording to {}",
+                            out.display()
+                        ),
+                        Err(e) => {
+                            eprintln!("could not write {}: {e}", out.display())
+                        }
                     }
                 }
                 s.recording = Some(json);
@@ -116,7 +136,9 @@ pub fn serve_live(
         }
     });
 
-    let runtime = tokio::runtime::Runtime::new().map_err(|e| Failure::usage(format!("could not start the server: {e}")))?;
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| {
+        Failure::usage(format!("could not start the server: {e}"))
+    })?;
     let result = runtime.block_on(async move {
         use axum::response::sse::{Event, KeepAlive, Sse};
         use tokio_stream::StreamExt;

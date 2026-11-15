@@ -4,8 +4,15 @@ use robocode::roster;
 use robocode::runner::Battle;
 
 fn duel() -> Battle {
-    let robots = vec![roster::built_in("SafeShooter").unwrap(), roster::built_in("Spinner").unwrap()];
-    Battle::new(BattleConfig::default(), &roster::spawns(2, 800.0, 600.0), robots)
+    let robots = vec![
+        roster::built_in("SafeShooter").unwrap(),
+        roster::built_in("Spinner").unwrap(),
+    ];
+    Battle::new(
+        BattleConfig::default(),
+        &roster::spawns(2, 800.0, 600.0),
+        robots,
+    )
 }
 
 #[test]
@@ -16,7 +23,9 @@ fn frames_rebuild_the_same_recording() {
     let mut builder = RecordingBuilder::new(&battle);
     builder.push(&recording::initial_frame(&battle));
     let mut turns = 0;
-    while battle.state().robots.iter().filter(|r| r.alive).count() > 1 && turns < 5000 {
+    while battle.state().robots.iter().filter(|r| r.alive).count() > 1
+        && turns < 5000
+    {
         let events = battle.step();
         builder.push(&recording::frame(&battle, &events));
         turns += 1;
@@ -39,6 +48,14 @@ fn frame_json_holds_turn_and_decisions() {
     let mut battle = duel();
     let events = battle.step();
     let f = recording::frame(&battle, &events).to_json();
-    assert!(f.starts_with(r#"{"turn":{"battle_id":"viewer","turn":1,"#), "{}", &f[..80]);
-    assert!(f.contains(r#""decisions":[{"energy":100000"#), "{}", &f[f.len() - 300..]);
+    assert!(
+        f.starts_with(r#"{"turn":{"battle_id":"viewer","turn":1,"#),
+        "{}",
+        &f[..80]
+    );
+    assert!(
+        f.contains(r#""decisions":[{"energy":100000"#),
+        "{}",
+        &f[f.len() - 300..]
+    );
 }

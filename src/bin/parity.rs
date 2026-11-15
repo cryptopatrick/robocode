@@ -436,12 +436,11 @@ impl ManifestEntryBuilder {
         if !self.seen_any {
             return Ok(None);
         }
-        let battle_id = self.battle_id.take().ok_or(
-            ManifestParseError::MissingField {
+        let battle_id =
+            self.battle_id.take().ok_or(ManifestParseError::MissingField {
                 line: self.last_line,
                 field: "battle_id",
-            },
-        )?;
+            })?;
         let turns = self.turns.unwrap_or(32);
         let entry = ManifestEntry {
             battle_id,

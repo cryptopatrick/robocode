@@ -5,13 +5,22 @@ use robocode::roster;
 use robocode::runner::Battle;
 
 fn duel(a: &str, b: &str) -> Battle {
-    let robots = vec![roster::built_in(a).unwrap(), roster::built_in(b).unwrap()];
-    Battle::new(BattleConfig::default(), &roster::spawns(2, 800.0, 600.0), robots)
+    let robots =
+        vec![roster::built_in(a).unwrap(), roster::built_in(b).unwrap()];
+    Battle::new(
+        BattleConfig::default(),
+        &roster::spawns(2, 800.0, 600.0),
+        robots,
+    )
 }
 
 #[test]
 fn live_frames_equal_precomputed_frames() {
-    for (a, b) in [("SafeShooter", "Spinner"), ("Circler", "SittingDuck"), ("SafeShooter", "Circler")] {
+    for (a, b) in [
+        ("SafeShooter", "Spinner"),
+        ("Circler", "SittingDuck"),
+        ("SafeShooter", "Circler"),
+    ] {
         let expected = recording::record(duel(a, b), 5000);
         let mut live = LiveSession::new(duel(a, b), 5000);
         let mut frames = 0;
@@ -27,7 +36,10 @@ fn live_frames_equal_precomputed_frames() {
 #[test]
 fn header_and_first_frame_come_before_any_step() {
     let live = LiveSession::new(duel("SafeShooter", "Spinner"), 5000);
-    assert_eq!(live.header(), recording::header_json(&duel("SafeShooter", "Spinner")));
+    assert_eq!(
+        live.header(),
+        recording::header_json(&duel("SafeShooter", "Spinner"))
+    );
     assert!(live.initial_frame().to_json().contains(r#""turn":0,"#));
     assert!(!live.finished());
     assert_eq!(live.turns_played(), 0);
@@ -40,7 +52,11 @@ fn recording_so_far_is_a_valid_partial_recording() {
         live.step();
     }
     let partial = live.recording();
-    assert!(partial.contains(r#""outcome":{"winner":null,"turns":10,"#), "{}", &partial[partial.len() - 120..]);
+    assert!(
+        partial.contains(r#""outcome":{"winner":null,"turns":10,"#),
+        "{}",
+        &partial[partial.len() - 120..]
+    );
 }
 
 #[test]

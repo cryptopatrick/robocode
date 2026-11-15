@@ -2,11 +2,16 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 
 fn tool(args: &[&str], dir: &std::path::Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_cargo-robocode")).args(args).current_dir(dir).output().unwrap()
+    Command::new(env!("CARGO_BIN_EXE_cargo-robocode"))
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .unwrap()
 }
 
 fn temp_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("cargo-robocode-test-{name}-{}", std::process::id()));
+    let dir = std::env::temp_dir()
+        .join(format!("cargo-robocode-test-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     dir
@@ -46,8 +51,14 @@ fn new_refuses_overwrite() {
     std::fs::write(dir.join("hunter.rs"), "// mine").unwrap();
     let out = tool(&["new", "hunter"], &dir);
     assert_eq!(out.status.code(), Some(2));
-    assert!(String::from_utf8_lossy(&out.stderr).contains("hunter.rs already exists"));
-    assert_eq!(std::fs::read_to_string(dir.join("hunter.rs")).unwrap(), "// mine");
+    assert!(
+        String::from_utf8_lossy(&out.stderr)
+            .contains("hunter.rs already exists")
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("hunter.rs")).unwrap(),
+        "// mine"
+    );
 }
 
 #[test]

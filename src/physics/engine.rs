@@ -1,16 +1,15 @@
+use crate::geometry::Rect;
 use crate::geometry::{
     Battlefield, Point, angle_to_point, distance_squared,
     normalize_relative_angle,
 };
 use crate::physics::bullet::BulletState;
 use crate::physics::events::{
-    BulletFired, BulletHitBullet, BulletHitObstacle, BulletImpact, BulletMissed, RobotCollision,
-    ScannedRobot,
-    TurnEvents, WallCollision,
+    BulletFired, BulletHitBullet, BulletHitObstacle, BulletImpact,
+    BulletMissed, RobotCollision, ScannedRobot, TurnEvents, WallCollision,
 };
 use crate::physics::robot::{RobotId, RobotState, TurretMode};
 use crate::physics::snapshot::TurnSnapshot;
-use crate::geometry::Rect;
 use crate::rules::{self, EPSILON};
 use crate::terrain::Terrain;
 
@@ -134,7 +133,8 @@ impl BattleState {
         for idx in 0..self.robots.len() {
             let fire_request = {
                 let robot = &mut self.robots[idx];
-                if !robot.alive || robot.gun_heat > 0.0 || robot.energy <= 0.0 {
+                if !robot.alive || robot.gun_heat > 0.0 || robot.energy <= 0.0
+                {
                     robot.control.fire_power = None;
                     None
                 } else if let Some(raw_power) = robot.control.fire_power.take()
@@ -181,7 +181,8 @@ impl BattleState {
         // Buildings absorb bullets on the path they cross this turn.
         for bullet in self.bullets.iter_mut().filter(|b| b.alive) {
             let absorbed = self.terrain.buildings.iter().any(|b| {
-                b.first_contact(bullet.previous_position, bullet.position).is_some()
+                b.first_contact(bullet.previous_position, bullet.position)
+                    .is_some()
             });
             if absorbed {
                 events.bullet_hit_obstacles.push(BulletHitObstacle {
@@ -199,7 +200,15 @@ impl BattleState {
         for i in 0..self.bullets.len() {
             for j in (i + 1)..self.bullets.len() {
                 let (a, b) = (&self.bullets[i], &self.bullets[j]);
-                if a.alive && b.alive && segments_intersect(a.previous_position, a.position, b.previous_position, b.position) {
+                if a.alive
+                    && b.alive
+                    && segments_intersect(
+                        a.previous_position,
+                        a.position,
+                        b.previous_position,
+                        b.position,
+                    )
+                {
                     events.bullet_hit_bullets.push(BulletHitBullet {
                         bullet_id: a.id,
                         owner: a.owner_id,
@@ -285,22 +294,35 @@ impl BattleState {
                 if !overlap {
                     continue;
                 }
-                let bearing = normalize_relative_angle(angle_to_point(a.position, b.position) - a.heading);
-                let toward = (a.velocity > 0.0 && bearing > -90.0 && bearing < 90.0)
-                    || (a.velocity < 0.0 && (bearing < -90.0 || bearing > 90.0));
+                let bearing = normalize_relative_angle(
+                    angle_to_point(a.position, b.position) - a.heading,
+                );
+                let toward =
+                    (a.velocity > 0.0 && bearing > -90.0 && bearing < 90.0)
+                        || (a.velocity < 0.0
+                            && (bearing < -90.0 || bearing > 90.0));
                 if !toward {
                     continue;
                 }
                 let (id_a, id_b) = (a.id, b.id);
                 let robot = &mut self.robots[i];
-                robot.position = robot.position.translate(robot.heading, -robot.velocity);
+                robot.position =
+                    robot.position.translate(robot.heading, -robot.velocity);
                 robot.velocity = 0.0;
                 robot.control.distance_remaining = 0.0;
                 robot.in_collision = true;
                 robot.energy -= rules::ROBOT_HIT_DAMAGE;
                 self.robots[j].energy -= rules::ROBOT_HIT_DAMAGE;
-                events.robot_collisions.push(RobotCollision { robot_id: id_a, other_robot_id: id_b, at_fault: true });
-                events.robot_collisions.push(RobotCollision { robot_id: id_b, other_robot_id: id_a, at_fault: false });
+                events.robot_collisions.push(RobotCollision {
+                    robot_id: id_a,
+                    other_robot_id: id_b,
+                    at_fault: true,
+                });
+                events.robot_collisions.push(RobotCollision {
+                    robot_id: id_b,
+                    other_robot_id: id_a,
+                    at_fault: false,
+                });
             }
         }
     }
@@ -314,7 +336,9 @@ impl BattleState {
             if !a.alive {
                 continue;
             }
-            let sweep = normalize_relative_angle(a.radar_heading - a.last_radar_heading);
+            let sweep = normalize_relative_angle(
+                a.radar_heading - a.last_radar_heading,
+            );
             for b in &self.robots {
                 if b.id == a.id || !b.alive {
                     continue;
@@ -329,7 +353,8 @@ impl BattleState {
                 } else {
                     (b.radius / distance).min(1.0).asin().to_degrees()
                 };
-                let rel = normalize_relative_angle(bearing - a.last_radar_heading);
+                let rel =
+                    normalize_relative_angle(bearing - a.last_radar_heading);
                 if arc_overlaps(sweep, rel, half_width) {
                     events.scans.push(ScannedRobot {
                         scanner: a.id,
@@ -374,10 +399,12 @@ fn apply_turns(robot: &mut RobotState) {
 
     // Body. Like Java, a robot that collided last turn doesn't turn.
     if !robot.in_collision {
-        let body_limit = rules::body_turn_rate_for_velocity(robot.velocity).min(robot.control.max_turn_rate);
+        let body_limit = rules::body_turn_rate_for_velocity(robot.velocity)
+            .min(robot.control.max_turn_rate);
         let applied = clamp_turn(robot.control.turn_remaining, body_limit);
         robot.apply_absolute_heading(applied);
-        robot.control.turn_remaining = settle(robot.control.turn_remaining - applied);
+        robot.control.turn_remaining =
+            settle(robot.control.turn_remaining - applied);
         if java {
             robot.apply_gun_heading(applied);
             robot.apply_radar_heading(applied);
@@ -391,9 +418,11 @@ fn apply_turns(robot: &mut RobotState) {
     }
 
     // Gun.
-    let gun_applied = clamp_turn(robot.control.gun_turn_remaining, rules::MAX_GUN_TURN_RATE);
+    let gun_applied =
+        clamp_turn(robot.control.gun_turn_remaining, rules::MAX_GUN_TURN_RATE);
     robot.apply_gun_heading(gun_applied);
-    robot.control.gun_turn_remaining = settle(robot.control.gun_turn_remaining - gun_applied);
+    robot.control.gun_turn_remaining =
+        settle(robot.control.gun_turn_remaining - gun_applied);
     if java {
         robot.apply_radar_heading(gun_applied);
         if robot.turret.adjust_radar_for_gun {
@@ -402,9 +431,13 @@ fn apply_turns(robot: &mut RobotState) {
     }
 
     // Radar.
-    let radar_applied = clamp_turn(robot.control.radar_turn_remaining, rules::MAX_RADAR_TURN_RATE);
+    let radar_applied = clamp_turn(
+        robot.control.radar_turn_remaining,
+        rules::MAX_RADAR_TURN_RATE,
+    );
     robot.apply_radar_heading(radar_applied);
-    robot.control.radar_turn_remaining = settle(robot.control.radar_turn_remaining - radar_applied);
+    robot.control.radar_turn_remaining =
+        settle(robot.control.radar_turn_remaining - radar_applied);
 }
 
 /// Snaps float residue in a remaining turn to exactly 0.
@@ -416,14 +449,19 @@ fn clamp_turn(requested: f64, limit: f64) -> f64 {
     requested.clamp(-limit, limit)
 }
 
-fn apply_movement(robot: &mut RobotState, battlefield: Battlefield, buildings: &[Rect]) -> bool {
+fn apply_movement(
+    robot: &mut RobotState,
+    battlefield: Battlefield,
+    buildings: &[Rect],
+) -> bool {
     if !robot.alive {
         robot.velocity = 0.0;
         robot.control.distance_remaining = 0.0;
         return false;
     }
     let cap = robot.control.max_velocity;
-    let desired_velocity = desired_velocity(robot.control.distance_remaining).clamp(-cap, cap);
+    let desired_velocity =
+        desired_velocity(robot.control.distance_remaining).clamp(-cap, cap);
     robot.velocity = adjust_velocity(robot.velocity, desired_velocity);
     let previous_distance = robot.control.distance_remaining;
     let travel = robot.velocity;
@@ -439,10 +477,15 @@ fn apply_movement(robot: &mut RobotState, battlefield: Battlefield, buildings: &
     // A building stops the robot at its face. No damage: only walls hurt.
     let blocked = buildings
         .iter()
-        .filter_map(|b| b.grow(robot.radius).first_contact(from, robot.position))
+        .filter_map(|b| {
+            b.grow(robot.radius).first_contact(from, robot.position)
+        })
         .fold(None, |best: Option<f64>, t| Some(best.map_or(t, |b| b.min(t))));
     if let Some(t) = blocked {
-        robot.position = Point::new(from.x + (robot.position.x - from.x) * t, from.y + (robot.position.y - from.y) * t);
+        robot.position = Point::new(
+            from.x + (robot.position.x - from.x) * t,
+            from.y + (robot.position.y - from.y) * t,
+        );
         robot.velocity = 0.0;
         robot.control.distance_remaining = 0.0;
         return false;
@@ -527,13 +570,18 @@ fn segments_intersect(p1: Point, p2: Point, q1: Point, q2: Point) -> bool {
         (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
     }
     fn on_segment(a: Point, b: Point, p: Point) -> bool {
-        p.x >= a.x.min(b.x) && p.x <= a.x.max(b.x) && p.y >= a.y.min(b.y) && p.y <= a.y.max(b.y)
+        p.x >= a.x.min(b.x)
+            && p.x <= a.x.max(b.x)
+            && p.y >= a.y.min(b.y)
+            && p.y <= a.y.max(b.y)
     }
     let d1 = cross(q1, q2, p1);
     let d2 = cross(q1, q2, p2);
     let d3 = cross(p1, p2, q1);
     let d4 = cross(p1, p2, q2);
-    if ((d1 > 0.0 && d2 < 0.0) || (d1 < 0.0 && d2 > 0.0)) && ((d3 > 0.0 && d4 < 0.0) || (d3 < 0.0 && d4 > 0.0)) {
+    if ((d1 > 0.0 && d2 < 0.0) || (d1 < 0.0 && d2 > 0.0))
+        && ((d3 > 0.0 && d4 < 0.0) || (d3 < 0.0 && d4 > 0.0))
+    {
         return true;
     }
     (d1 == 0.0 && on_segment(q1, q2, p1))

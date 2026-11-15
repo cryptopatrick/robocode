@@ -28,15 +28,32 @@ pub fn parse_manifest(text: &str) -> Result<Vec<Mutant>, String> {
     let mut mutants = Vec::new();
     for (n, block) in text.split("\n\n").enumerate() {
         let mut fields = std::collections::HashMap::new();
-        for line in block.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {
-            let (k, v) = line.split_once(" = ").ok_or_else(|| format!("block {}: bad line `{line}`", n + 1))?;
+        for line in block
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        {
+            let (k, v) = line.split_once(" = ").ok_or_else(|| {
+                format!("block {}: bad line `{line}`", n + 1)
+            })?;
             fields.insert(k.trim().to_string(), v.replace("\\n", "\n"));
         }
         if fields.is_empty() {
             continue;
         }
-        let get = |k: &str| fields.get(k).cloned().ok_or_else(|| format!("block {}: missing `{k}`", n + 1));
-        mutants.push(Mutant { id: get("id")?, file: get("file")?, find: get("find")?, replace: get("replace")?, expect: get("expect")? });
+        let get = |k: &str| {
+            fields
+                .get(k)
+                .cloned()
+                .ok_or_else(|| format!("block {}: missing `{k}`", n + 1))
+        };
+        mutants.push(Mutant {
+            id: get("id")?,
+            file: get("file")?,
+            find: get("find")?,
+            replace: get("replace")?,
+            expect: get("expect")?,
+        });
     }
     Ok(mutants)
 }
@@ -46,7 +63,10 @@ pub fn apply(source: &str, m: &Mutant) -> Result<String, String> {
     match source.matches(&m.find).count() {
         1 => Ok(source.replacen(&m.find, &m.replace, 1)),
         0 => Err(format!("{}: `find` text not found in {}", m.id, m.file)),
-        k => Err(format!("{}: `find` text occurs {k} times in {}", m.id, m.file)),
+        k => Err(format!(
+            "{}: `find` text occurs {k} times in {}",
+            m.id, m.file
+        )),
     }
 }
 
@@ -88,13 +108,25 @@ fn verify(dir: &Path) -> (bool, String) {
         .env("CARGO_TARGET_DIR", dir.join("target"))
         .output()
         .expect("run cargo verus");
-    (out.status.success(), format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)))
+    (
+        out.status.success(),
+        format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        ),
+    )
 }
 
 fn main() -> ExitCode {
-    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf();
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
     let filter = std::env::args().nth(1);
-    let manifest = std::fs::read_to_string(repo.join("mutants").join("mutants.txt")).expect("read mutants/mutants.txt");
+    let manifest =
+        std::fs::read_to_string(repo.join("mutants").join("mutants.txt"))
+            .expect("read mutants/mutants.txt");
     let mutants = match parse_manifest(&manifest) {
         Ok(m) => m,
         Err(e) => {
@@ -116,7 +148,10 @@ fn main() -> ExitCode {
     println!("{:<34} {:<9} targeted clause", "mutant", "result");
     let mut survivors = 0;
     let mut broken = 0;
-    for m in mutants.iter().filter(|m| filter.as_deref().is_none_or(|f| m.id.contains(f))) {
+    for m in mutants
+        .iter()
+        .filter(|m| filter.as_deref().is_none_or(|f| m.id.contains(f)))
+    {
         let path = work.join(&m.file);
         let original = std::fs::read_to_string(&path).unwrap_or_default();
         let mutated = match apply(&original, m) {
@@ -132,18 +167,29 @@ fn main() -> ExitCode {
         std::fs::write(&path, original).unwrap();
         let (result, note) = if ok {
             survivors += 1;
-            ("SURVIVED", format!("{}  <- the clause constrains nothing here", m.expect))
+            (
+                "SURVIVED",
+                format!("{}  <- the clause constrains nothing here", m.expect),
+            )
         } else if log.contains(&m.expect) {
             ("killed", m.expect.clone())
         } else {
             survivors += 1;
-            ("MISSED", format!("{}  <- Verus failed, but not on this clause", m.expect))
+            (
+                "MISSED",
+                format!(
+                    "{}  <- Verus failed, but not on this clause",
+                    m.expect
+                ),
+            )
         };
         println!("{:<34} {:<9} {note}", m.id, result);
     }
     println!();
     if survivors + broken > 0 {
-        println!("{survivors} mutant(s) survived, {broken} could not be applied");
+        println!(
+            "{survivors} mutant(s) survived, {broken} could not be applied"
+        );
         ExitCode::FAILURE
     } else {
         println!("every mutant was killed by its clause");
@@ -165,12 +211,22 @@ mod tests {
 
     #[test]
     fn missing_field_is_an_error() {
-        assert!(parse_manifest("id = a\nfile = f\n").unwrap_err().contains("missing `find`"));
+        assert!(
+            parse_manifest("id = a\nfile = f\n")
+                .unwrap_err()
+                .contains("missing `find`")
+        );
     }
 
     #[test]
     fn apply_requires_exactly_one_match() {
-        let m = Mutant { id: "m".into(), file: "f".into(), find: "ab".into(), replace: "X".into(), expect: "e".into() };
+        let m = Mutant {
+            id: "m".into(),
+            file: "f".into(),
+            find: "ab".into(),
+            replace: "X".into(),
+            expect: "e".into(),
+        };
         assert_eq!(apply("--ab--", &m).unwrap(), "--X--");
         assert!(apply("none", &m).unwrap_err().contains("not found"));
         assert!(apply("ab ab", &m).unwrap_err().contains("2 times"));

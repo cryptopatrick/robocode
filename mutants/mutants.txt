@@ -45,8 +45,8 @@ expect = r == aimed(*obs)
 
 id = fires-with-hot-gun
 file = src/robots/safe_shooter.rs
-find = if obs.gun_heat.0 == 0 && t.age == 0
-replace = if t.age == 0
+find = if obs.gun_heat.0 == 0
+replace = if true
 expect = safe_to_fire(*obs, p)
 
 id = never-fires

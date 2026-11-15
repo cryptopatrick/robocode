@@ -23,11 +23,17 @@ pub fn parse(src: &str) -> Result<Candidate, Vec<String>> {
     let h = find(HELPERS);
     let start = match h {
         Some(h) if h < b => h + 1,
-        Some(_) => return Err(vec![format!("`{HELPERS}` must come before `{BODY}`")]),
+        Some(_) => {
+            return Err(vec![format!(
+                "`{HELPERS}` must come before `{BODY}`"
+            )]);
+        }
         None => 0,
     };
     if let Some(h) = h
-        && lines[..h].iter().any(|l| !(l.trim().is_empty() || l.trim_start().starts_with("//")))
+        && lines[..h].iter().any(|l| {
+            !(l.trim().is_empty() || l.trim_start().starts_with("//"))
+        })
     {
         return Err(vec![format!("code before the `{HELPERS}` marker")]);
     }
@@ -35,7 +41,11 @@ pub fn parse(src: &str) -> Result<Candidate, Vec<String>> {
     if body.trim().is_empty() {
         return Err(vec!["the body of `decide` is empty".into()]);
     }
-    Ok(Candidate { helpers: lines[start..b].join("\n"), body, source: src.to_string() })
+    Ok(Candidate {
+        helpers: lines[start..b].join("\n"),
+        body,
+        source: src.to_string(),
+    })
 }
 
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
@@ -45,10 +55,39 @@ use proc_macro2::{Delimiter, TokenStream, TokenTree};
 /// the verified and the battled builds differ (`cfg`), or to reach outside the
 /// strategy.
 const FORBIDDEN_IDENTS: [&str; 33] = [
-    "cfg", "cfg_attr", "verifier", "assume", "admit", "assume_specification", "external", "external_body",
-    "exec_allows_no_decreases_clause", "broadcast", "uninterp", "proof", "unsafe", "extern", "include",
-    "include_str", "include_bytes", "env", "option_env", "asm", "global_asm", "macro_rules", "std", "core",
-    "alloc", "crate", "mod", "use", "impl", "trait", "static", "union", "debug_assertions",
+    "cfg",
+    "cfg_attr",
+    "verifier",
+    "assume",
+    "admit",
+    "assume_specification",
+    "external",
+    "external_body",
+    "exec_allows_no_decreases_clause",
+    "broadcast",
+    "uninterp",
+    "proof",
+    "unsafe",
+    "extern",
+    "include",
+    "include_str",
+    "include_bytes",
+    "env",
+    "option_env",
+    "asm",
+    "global_asm",
+    "macro_rules",
+    "std",
+    "core",
+    "alloc",
+    "crate",
+    "mod",
+    "use",
+    "impl",
+    "trait",
+    "static",
+    "union",
+    "debug_assertions",
 ];
 
 /// Keywords that may be followed by `!(…)` without being a macro call.
@@ -66,7 +105,10 @@ fn check_attribute(body: &TokenStream) -> Result<Option<TokenStream>, String> {
     let shown = body.to_string();
     let bad = || format!("attribute not allowed: #[{shown}]");
     let tokens: Vec<TokenTree> = body.clone().into_iter().collect();
-    let [TokenTree::Ident(head), TokenTree::Group(args)] = tokens.as_slice() else { return Err(bad()) };
+    let [TokenTree::Ident(head), TokenTree::Group(args)] = tokens.as_slice()
+    else {
+        return Err(bad());
+    };
     if head != "cfg_attr" || args.delimiter() != Delimiter::Parenthesis {
         return Err(bad());
     }
@@ -77,7 +119,10 @@ fn check_attribute(body: &TokenStream) -> Result<Option<TokenStream>, String> {
     }
     match &inner[4..] {
         [TokenTree::Ident(i)] if i == "verus_verify" => Ok(None),
-        [TokenTree::Ident(i), TokenTree::Group(g)] if i == "verus_spec" && g.delimiter() == Delimiter::Parenthesis => {
+        [TokenTree::Ident(i), TokenTree::Group(g)]
+            if i == "verus_spec"
+                && g.delimiter() == Delimiter::Parenthesis =>
+        {
             Ok(Some(g.stream()))
         }
         _ => Err(bad()),
@@ -133,7 +178,8 @@ pub fn validate(c: &Candidate) -> Result<(), Vec<String>> {
     match syn::parse_str::<syn::File>(&c.helpers) {
         Ok(file) => {
             if !file.attrs.is_empty() {
-                problems.push("inner attributes (`#![…]`) are not allowed".into());
+                problems
+                    .push("inner attributes (`#![…]`) are not allowed".into());
             }
             for item in &file.items {
                 if !matches!(item, syn::Item::Fn(_)) {
@@ -141,7 +187,9 @@ pub fn validate(c: &Candidate) -> Result<(), Vec<String>> {
                 }
             }
         }
-        Err(e) => problems.push(format!("helpers are not valid Rust items: {e}")),
+        Err(e) => {
+            problems.push(format!("helpers are not valid Rust items: {e}"))
+        }
     }
     let body = format!("{{\n{}\n}}", c.body);
     if let Err(e) = syn::parse_str::<syn::Block>(&body) {
@@ -167,14 +215,19 @@ mod tests {
 
     #[test]
     fn splits_helpers_and_body() {
-        let c = parse("// @@helpers\nfn h() {}\n// @@body\nAction::default()").unwrap();
+        let c = parse("// @@helpers\nfn h() {}\n// @@body\nAction::default()")
+            .unwrap();
         assert!(c.helpers.contains("fn h"));
         assert_eq!(c.body.trim(), "Action::default()");
     }
 
     #[test]
     fn code_before_helpers_is_an_error() {
-        assert!(parse("fn x() {}\n// @@helpers\n// @@body\nAction::default()").unwrap_err()[0].contains("before"));
+        assert!(
+            parse("fn x() {}\n// @@helpers\n// @@body\nAction::default()")
+                .unwrap_err()[0]
+                .contains("before")
+        );
         assert!(parse("// a header comment\n// @@helpers\n// @@body\nAction::default()").is_ok());
     }
 
@@ -249,20 +302,37 @@ mod tests {
 
     #[test]
     fn comments_are_ignored() {
-        let c = parse(&wrap("// assume(false) is not allowed\n/* unsafe */ fn h() {}")).unwrap();
+        let c = parse(&wrap(
+            "// assume(false) is not allowed\n/* unsafe */ fn h() {}",
+        ))
+        .unwrap();
         assert_eq!(validate(&c), Ok(()));
     }
 
     #[test]
     fn fixtures_validate_as_expected() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures");
+        let dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures");
         for name in [
-            "safe_shooter", "energy_positive", "never_fires", "wall_blind", "type_error", "hangs",
-            "cheat_assume", "cheat_cfg", "cheat_nodecreases",
+            "safe_shooter",
+            "energy_positive",
+            "never_fires",
+            "wall_blind",
+            "type_error",
+            "hangs",
+            "cheat_assume",
+            "cheat_cfg",
+            "cheat_nodecreases",
         ] {
-            let src = std::fs::read_to_string(dir.join(format!("{name}.rs"))).unwrap();
+            let src = std::fs::read_to_string(dir.join(format!("{name}.rs")))
+                .unwrap();
             let c = parse(&src).unwrap_or_else(|e| panic!("{name}: {e:?}"));
-            assert_eq!(validate(&c).is_ok(), !name.starts_with("cheat_"), "{name}: {:?}", validate(&c));
+            assert_eq!(
+                validate(&c).is_ok(),
+                !name.starts_with("cheat_"),
+                "{name}: {:?}",
+                validate(&c)
+            );
         }
     }
 }

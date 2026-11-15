@@ -50,10 +50,15 @@ pub fn parse_failures(log: &str) -> Vec<Failure> {
     let mut out = Vec::new();
     for (i, l) in lines.iter().enumerate() {
         let Some(msg) = l.strip_prefix("error: ") else { continue };
-        if msg.starts_with("could not compile") || msg.starts_with("aborting due to") {
+        if msg.starts_with("could not compile")
+            || msg.starts_with("aborting due to")
+        {
             continue;
         }
-        let location = lines[i + 1..].iter().take(3).find_map(|n| n.trim_start().strip_prefix("--> "));
+        let location = lines[i + 1..]
+            .iter()
+            .take(3)
+            .find_map(|n| n.trim_start().strip_prefix("--> "));
         let line = location
             .and_then(|loc| loc.split_once("src/strategy.rs:"))
             .and_then(|(_, rest)| rest.split(':').next()?.parse::<u32>().ok());
@@ -75,7 +80,10 @@ pub fn verified_something(log: &str) -> bool {
         .filter_map(|l| l.trim().strip_prefix("verification results:: "))
         .filter_map(|r| {
             let (v, e) = r.split_once(" verified, ")?;
-            Some((v.trim().parse().ok()?, e.trim().strip_suffix(" errors")?.parse().ok()?))
+            Some((
+                v.trim().parse().ok()?,
+                e.trim().strip_suffix(" errors")?.parse().ok()?,
+            ))
         })
         .collect();
     counts.iter().any(|(v, _)| *v > 0) && counts.iter().all(|(_, e)| *e == 0)
@@ -94,7 +102,11 @@ pub struct PropertyResult {
 /// from a run with zero errors. Each round, clauses Verus rejected are
 /// replaced by `true` and the rest re-verified. Returns the results in
 /// [`PROPERTIES`] order and the log of every round.
-pub fn verify_properties(a: &Assembled, v: &mut dyn Verifier, max_rounds: usize) -> (Vec<PropertyResult>, Vec<String>) {
+pub fn verify_properties(
+    a: &Assembled,
+    v: &mut dyn Verifier,
+    max_rounds: usize,
+) -> (Vec<PropertyResult>, Vec<String>) {
     let mut rejected: Vec<(&'static str, u32)> = Vec::new();
     let mut logs = Vec::new();
     let mut rest: Option<(PropertyStatus, String)> = None;
@@ -109,7 +121,10 @@ pub fn verify_properties(a: &Assembled, v: &mut dyn Verifier, max_rounds: usize)
         };
         logs.push(run.log.clone());
         if run.timed_out {
-            rest = Some((PropertyStatus::TimedOut, "Verus exceeded its time limit".into()));
+            rest = Some((
+                PropertyStatus::TimedOut,
+                "Verus exceeded its time limit".into(),
+            ));
             break;
         }
         if run.success {
@@ -130,20 +145,28 @@ pub fn verify_properties(a: &Assembled, v: &mut dyn Verifier, max_rounds: usize)
             }
         }
         if failures.is_empty() {
-            others.push("Verus failed without a recognised verification error".into());
+            others.push(
+                "Verus failed without a recognised verification error".into(),
+            );
         }
         if !others.is_empty() {
             rest = Some((PropertyStatus::Unknown, others.join("; ")));
             break;
         }
         if new.is_empty() {
-            rest = Some((PropertyStatus::Unknown, "Verus kept rejecting clauses that were already set aside".into()));
+            rest = Some((
+                PropertyStatus::Unknown,
+                "Verus kept rejecting clauses that were already set aside"
+                    .into(),
+            ));
             break;
         }
         rejected.extend(new);
     }
-    let (rest_status, rest_note) =
-        rest.unwrap_or((PropertyStatus::Unknown, format!("not settled within {max_rounds} Verus runs")));
+    let (rest_status, rest_note) = rest.unwrap_or((
+        PropertyStatus::Unknown,
+        format!("not settled within {max_rounds} Verus runs"),
+    ));
     let results = PROPERTIES
         .iter()
         .map(|p| {
@@ -185,24 +208,34 @@ pub struct CargoVerus {
 impl CargoVerus {
     /// `ROBOCHECK_VERUS_DIR`, or `~/.verus/verus-arm64-macos`.
     pub fn default_verus_dir() -> PathBuf {
-        std::env::var_os("ROBOCHECK_VERUS_DIR").map(PathBuf::from).unwrap_or_else(|| {
-            PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".verus/verus-arm64-macos")
-        })
+        std::env::var_os("ROBOCHECK_VERUS_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
+                    .join(".verus/verus-arm64-macos")
+            })
     }
 }
 
 impl Verifier for CargoVerus {
     fn run(&mut self, strategy_rs: &str) -> Result<VerusRun, String> {
         if !self.verus_dir.join("cargo-verus").exists() {
-            return Err(format!("cargo-verus not found in {} (set ROBOCHECK_VERUS_DIR)", self.verus_dir.display()));
+            return Err(format!(
+                "cargo-verus not found in {} (set ROBOCHECK_VERUS_DIR)",
+                self.verus_dir.display()
+            ));
         }
-        std::fs::write(self.dir.join("src/strategy.rs"), strategy_rs).map_err(|e| e.to_string())?;
+        std::fs::write(self.dir.join("src/strategy.rs"), strategy_rs)
+            .map_err(|e| e.to_string())?;
         // Every run verifies for real: without this, cargo can treat a candidate
         // crate it has verified before as fresh and print "0 verified".
-        let manifest = std::fs::read_to_string(self.dir.join("Cargo.toml")).map_err(|e| e.to_string())?;
+        let manifest = std::fs::read_to_string(self.dir.join("Cargo.toml"))
+            .map_err(|e| e.to_string())?;
         let name = manifest
             .lines()
-            .find_map(|l| l.strip_prefix("name = \"").and_then(|n| n.strip_suffix('"')))
+            .find_map(|l| {
+                l.strip_prefix("name = \"").and_then(|n| n.strip_suffix('"'))
+            })
             .ok_or("no package name in the candidate's Cargo.toml")?;
         let _ = Command::new("cargo")
             .args(["clean", "-q", "-p", name])
@@ -210,18 +243,33 @@ impl Verifier for CargoVerus {
             .env("CARGO_TARGET_DIR", &self.target_dir)
             .status();
         let log_path = self.dir.join("verus-run.log");
-        let log_file = std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
-        let path = format!("{}:{}", self.verus_dir.display(), std::env::var("PATH").unwrap_or_default());
+        let log_file =
+            std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
+        let path = format!(
+            "{}:{}",
+            self.verus_dir.display(),
+            std::env::var("PATH").unwrap_or_default()
+        );
         let mut cmd = Command::new("cargo");
         // Its own process group, so a timeout kills rust_verify and z3 too.
         #[cfg(unix)]
         std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
         let mut child = cmd
-            .args(["verus", "verify", "--features", "verus", "--", "--multiple-errors", "20"])
+            .args([
+                "verus",
+                "verify",
+                "--features",
+                "verus",
+                "--",
+                "--multiple-errors",
+                "20",
+            ])
             .current_dir(&self.dir)
             .env("PATH", path)
             .env("CARGO_TARGET_DIR", &self.target_dir)
-            .stdout(Stdio::from(log_file.try_clone().map_err(|e| e.to_string())?))
+            .stdout(Stdio::from(
+                log_file.try_clone().map_err(|e| e.to_string())?,
+            ))
             .stderr(Stdio::from(log_file))
             .spawn()
             .map_err(|e| format!("could not run cargo verus: {e}"))?;
@@ -240,7 +288,11 @@ impl Verifier for CargoVerus {
         };
         let log = std::fs::read_to_string(&log_path).unwrap_or_default();
         Ok(match status {
-            Some(s) => VerusRun { success: s.success() && verified_something(&log), timed_out: false, log },
+            Some(s) => VerusRun {
+                success: s.success() && verified_something(&log),
+                timed_out: false,
+                log,
+            },
             None => VerusRun { success: false, timed_out: true, log },
         })
     }
@@ -254,11 +306,19 @@ mod tests {
     use std::collections::VecDeque;
 
     fn log(name: &str) -> String {
-        std::fs::read_to_string(format!("{}/tests/data/{name}.log", env!("CARGO_MANIFEST_DIR"))).unwrap()
+        std::fs::read_to_string(format!(
+            "{}/tests/data/{name}.log",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap()
     }
 
     fn assembled() -> Assembled {
-        let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/safe_shooter.rs")).unwrap();
+        let src = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/fixtures/safe_shooter.rs"
+        ))
+        .unwrap();
         assemble(&parse(&src).unwrap())
     }
 
@@ -294,7 +354,11 @@ mod tests {
     }
 
     fn ok() -> Result<VerusRun, String> {
-        Ok(VerusRun { success: true, timed_out: false, log: "verification results:: 6 verified, 0 errors".into() })
+        Ok(VerusRun {
+            success: true,
+            timed_out: false,
+            log: "verification results:: 6 verified, 0 errors".into(),
+        })
     }
 
     fn failed(log: String) -> Result<VerusRun, String> {
@@ -309,7 +373,13 @@ mod tests {
     fn parser_finds_clause_lines() {
         let a = assembled();
         let f = parse_failures(&log("energy_positive"));
-        assert_eq!(f, vec![Failure::Clause { line: line_of(&a, "SAFE-002") }, Failure::Clause { line: line_of(&a, "SAFE-007") }]);
+        assert_eq!(
+            f,
+            vec![
+                Failure::Clause { line: line_of(&a, "SAFE-002") },
+                Failure::Clause { line: line_of(&a, "SAFE-007") }
+            ]
+        );
     }
 
     #[test]
@@ -322,9 +392,16 @@ mod tests {
     /// Review finding 5: a zero exit code alone is not a verification.
     #[test]
     fn success_needs_a_verified_candidate_line() {
-        assert!(verified_something("verification results:: 6 verified, 0 errors\nverification results:: 0 verified, 0 errors"));
-        assert!(!verified_something(&log("safe_shooter")), "a cached run that verified nothing");
-        assert!(!verified_something("verification results:: 6 verified, 1 errors"));
+        assert!(verified_something(
+            "verification results:: 6 verified, 0 errors\nverification results:: 0 verified, 0 errors"
+        ));
+        assert!(
+            !verified_something(&log("safe_shooter")),
+            "a cached run that verified nothing"
+        );
+        assert!(!verified_something(
+            "verification results:: 6 verified, 1 errors"
+        ));
         assert!(!verified_something(""));
     }
 
@@ -332,14 +409,30 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn timeout_kills_the_whole_process_tree() {
-        let fake = std::env::temp_dir().join(format!("robocheck-fake-verus-{}", std::process::id()));
+        let fake = std::env::temp_dir()
+            .join(format!("robocheck-fake-verus-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&fake);
         std::fs::create_dir_all(fake.join("crate/src")).unwrap();
-        std::fs::write(fake.join("crate/Cargo.toml"), "[package]\nname = \"fake-candidate\"\nversion = \"0.1.0\"\n").unwrap();
+        std::fs::write(
+            fake.join("crate/Cargo.toml"),
+            "[package]\nname = \"fake-candidate\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
         let pidfile = fake.join("grandchild.pid");
         let script = fake.join("cargo-verus");
-        std::fs::write(&script, format!("#!/bin/sh\nsleep 60 &\necho $! > {}\nsleep 60\n", pidfile.display())).unwrap();
-        std::process::Command::new("chmod").args(["+x"]).arg(&script).status().unwrap();
+        std::fs::write(
+            &script,
+            format!(
+                "#!/bin/sh\nsleep 60 &\necho $! > {}\nsleep 60\n",
+                pidfile.display()
+            ),
+        )
+        .unwrap();
+        std::process::Command::new("chmod")
+            .args(["+x"])
+            .arg(&script)
+            .status()
+            .unwrap();
         let mut v = CargoVerus {
             dir: fake.join("crate"),
             target_dir: fake.join("target"),
@@ -350,8 +443,16 @@ mod tests {
         assert!(run.timed_out);
         std::thread::sleep(std::time::Duration::from_millis(500));
         let pid = std::fs::read_to_string(&pidfile).unwrap();
-        let alive = std::process::Command::new("kill").args(["-0", pid.trim()]).status().unwrap().success();
-        assert!(!alive, "Verus's grandchild process {} is still running", pid.trim());
+        let alive = std::process::Command::new("kill")
+            .args(["-0", pid.trim()])
+            .status()
+            .unwrap()
+            .success();
+        assert!(
+            !alive,
+            "Verus's grandchild process {} is still running",
+            pid.trim()
+        );
     }
 
     #[test]
@@ -370,10 +471,21 @@ mod tests {
     #[test]
     fn rejected_clause_then_rest_proved() {
         let a = assembled();
-        let mut v = Fake::new(vec![failed(clause_failure_log(&[line_of(&a, "SAFE-002")])), ok()]);
+        let mut v = Fake::new(vec![
+            failed(clause_failure_log(&[line_of(&a, "SAFE-002")])),
+            ok(),
+        ]);
         let (r, _) = verify_properties(&a, &mut v, 8);
         for (id, s) in statuses(&r) {
-            assert_eq!(s, if id == "SAFE-002" { PropertyStatus::Rejected } else { PropertyStatus::Proved }, "{id}");
+            assert_eq!(
+                s,
+                if id == "SAFE-002" {
+                    PropertyStatus::Rejected
+                } else {
+                    PropertyStatus::Proved
+                },
+                "{id}"
+            );
         }
         assert!(v.inputs[1].contains("true, // SAFE-002"));
         assert!(!v.inputs[0].contains("true, // SAFE-002"));
@@ -383,7 +495,11 @@ mod tests {
     fn unattributed_errors_make_unknown() {
         let mut v = Fake::new(vec![failed(log("overflow"))]);
         let (r, _) = verify_properties(&assembled(), &mut v, 8);
-        assert!(r.iter().all(|p| p.status == PropertyStatus::Unknown), "{:?}", statuses(&r));
+        assert!(
+            r.iter().all(|p| p.status == PropertyStatus::Unknown),
+            "{:?}",
+            statuses(&r)
+        );
         assert!(r[0].note.contains("overflow"));
     }
 
@@ -392,26 +508,48 @@ mod tests {
         // e.g. a helper's own ensures: a postcondition on a line that is not a reference clause
         let mut v = Fake::new(vec![failed(clause_failure_log(&[120]))]);
         let (r, _) = verify_properties(&assembled(), &mut v, 8);
-        assert!(r.iter().all(|p| p.status == PropertyStatus::Unknown), "{:?}", statuses(&r));
+        assert!(
+            r.iter().all(|p| p.status == PropertyStatus::Unknown),
+            "{:?}",
+            statuses(&r)
+        );
     }
 
     #[test]
     fn missing_verus_is_not_checked() {
         let mut v = Fake::new(vec![Err("cargo verus not found".into())]);
         let (r, _) = verify_properties(&assembled(), &mut v, 8);
-        assert!(r.iter().all(|p| p.status == PropertyStatus::NotChecked && p.note.contains("cargo verus not found")));
+        assert!(r.iter().all(|p| p.status == PropertyStatus::NotChecked
+            && p.note.contains("cargo verus not found")));
     }
 
     #[test]
     fn timeout_is_not_a_verdict() {
         let a = assembled();
-        let timeout = || Ok(VerusRun { success: false, timed_out: true, log: String::new() });
+        let timeout = || {
+            Ok(VerusRun {
+                success: false,
+                timed_out: true,
+                log: String::new(),
+            })
+        };
         let (r, _) = verify_properties(&a, &mut Fake::new(vec![timeout()]), 8);
         assert!(r.iter().all(|p| p.status == PropertyStatus::TimedOut));
-        let mut v = Fake::new(vec![failed(clause_failure_log(&[line_of(&a, "SAFE-007")])), timeout()]);
+        let mut v = Fake::new(vec![
+            failed(clause_failure_log(&[line_of(&a, "SAFE-007")])),
+            timeout(),
+        ]);
         let (r, _) = verify_properties(&a, &mut v, 8);
         for (id, s) in statuses(&r) {
-            assert_eq!(s, if id == "SAFE-007" { PropertyStatus::Rejected } else { PropertyStatus::TimedOut }, "{id}");
+            assert_eq!(
+                s,
+                if id == "SAFE-007" {
+                    PropertyStatus::Rejected
+                } else {
+                    PropertyStatus::TimedOut
+                },
+                "{id}"
+            );
         }
     }
 
@@ -419,7 +557,8 @@ mod tests {
     fn rounds_are_bounded() {
         let a = assembled();
         let fail = || failed(clause_failure_log(&[line_of(&a, "SAFE-001")]));
-        let (r, logs) = verify_properties(&a, &mut Fake::new(vec![fail(), fail()]), 2);
+        let (r, logs) =
+            verify_properties(&a, &mut Fake::new(vec![fail(), fail()]), 2);
         assert_eq!(logs.len(), 2);
         assert!(r.iter().any(|p| p.status == PropertyStatus::Unknown));
     }

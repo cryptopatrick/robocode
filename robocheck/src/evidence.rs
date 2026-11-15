@@ -76,7 +76,12 @@ fn first_line(cmd: &mut Command) -> String {
     cmd.output()
         .ok()
         .filter(|o| o.status.success())
-        .and_then(|o| String::from_utf8_lossy(&o.stdout).lines().find(|l| !l.trim().is_empty()).map(str::to_string))
+        .and_then(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .find(|l| !l.trim().is_empty())
+                .map(str::to_string)
+        })
         .unwrap_or_else(|| "unavailable".into())
 }
 
@@ -90,10 +95,13 @@ pub fn verus_version(output: &str) -> String {
 
 /// Versions of the tools a verdict depends on.
 pub fn toolchain(repo_root: &Path, verus_dir: &Path) -> Toolchain {
-    let manifest = std::fs::read_to_string(repo_root.join("Cargo.toml")).unwrap_or_default();
+    let manifest = std::fs::read_to_string(repo_root.join("Cargo.toml"))
+        .unwrap_or_default();
     let robocode = manifest
         .lines()
-        .find_map(|l| l.strip_prefix("version = \"").and_then(|v| v.strip_suffix('"')))
+        .find_map(|l| {
+            l.strip_prefix("version = \"").and_then(|v| v.strip_suffix('"'))
+        })
         .unwrap_or("unknown")
         .to_string();
     Toolchain {
@@ -101,8 +109,13 @@ pub fn toolchain(repo_root: &Path, verus_dir: &Path) -> Toolchain {
         verus: Command::new(verus_dir.join("verus"))
             .arg("--version")
             .output()
-            .map_or_else(|_| "unavailable".to_string(), |o| verus_version(&String::from_utf8_lossy(&o.stdout))),
-        rustc: first_line(Command::new("rustc").args(["+1.99.1", "--version"])),
+            .map_or_else(
+                |_| "unavailable".to_string(),
+                |o| verus_version(&String::from_utf8_lossy(&o.stdout)),
+            ),
+        rustc: first_line(
+            Command::new("rustc").args(["+1.99.1", "--version"]),
+        ),
         z3: first_line(Command::new(verus_dir.join("z3")).arg("--version")),
     }
 }
@@ -121,7 +134,12 @@ pub fn rfc3339(secs: u64) -> String {
     let d = doy - (153 * mp + 2) / 5 + 1;
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = yoe + era * 400 + i64::from(m <= 2);
-    format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z", rem / 3600, rem % 3600 / 60, rem % 60)
+    format!(
+        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
+        rem / 3600,
+        rem % 3600 / 60,
+        rem % 60
+    )
 }
 
 #[cfg(test)]
@@ -130,7 +148,8 @@ mod tests {
 
     #[test]
     fn verus_version_is_read_from_its_version_line() {
-        let out = "Verus\n  Version: 0.2026.11.02.8bf68ee\n  Profile: release\n";
+        let out =
+            "Verus\n  Version: 0.2026.11.02.8bf68ee\n  Profile: release\n";
         assert_eq!(verus_version(out), "0.2026.11.02.8bf68ee");
         assert_eq!(verus_version("garbage"), "unavailable");
     }

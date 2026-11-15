@@ -53,8 +53,15 @@ pub fn type_name(file_stem: &str) -> String {
         .filter(|w| !w.is_empty())
         .map(|w| {
             let mut chars = w.chars();
-            chars.next().map(|c| c.to_ascii_uppercase().to_string() + chars.as_str()).unwrap_or_default()
+            chars
+                .next()
+                .map(|c| c.to_ascii_uppercase().to_string() + chars.as_str())
+                .unwrap_or_default()
         })
         .collect();
-    if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) { format!("Robot{name}") } else { name }
+    if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) {
+        format!("Robot{name}")
+    } else {
+        name
+    }
 }

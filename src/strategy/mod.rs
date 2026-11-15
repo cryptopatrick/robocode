@@ -73,18 +73,23 @@ pub open spec fn well_formed(obs: Observation) -> bool {
 }
 }
 
-/// Executable check of [`well_formed`]: the runner asserts it on every
+/// Executable check of `well_formed`: the runner asserts it on every
 /// observation it builds.
 #[cfg_attr(feature = "verus", verus_verify)]
 #[cfg_attr(feature = "verus", verus_spec(r =>
     ensures r == well_formed(*obs),
 ))]
 pub fn is_well_formed(obs: &Observation) -> bool {
-    let angles_ok = 0 <= obs.heading.0 && obs.heading.0 < 3600
-        && 0 <= obs.gun_heading.0 && obs.gun_heading.0 < 3600
-        && 0 <= obs.radar_heading.0 && obs.radar_heading.0 < 3600;
-    let field_ok = 0 <= obs.field_width && obs.field_width <= 100_000
-        && 0 <= obs.field_height && obs.field_height <= 100_000;
+    let angles_ok = 0 <= obs.heading.0
+        && obs.heading.0 < 3600
+        && 0 <= obs.gun_heading.0
+        && obs.gun_heading.0 < 3600
+        && 0 <= obs.radar_heading.0
+        && obs.radar_heading.0 < 3600;
+    let field_ok = 0 <= obs.field_width
+        && obs.field_width <= 100_000
+        && 0 <= obs.field_height
+        && obs.field_height <= 100_000;
     let target_ok = match obs.target {
         Some(t) => 0 <= t.bearing.0 && t.bearing.0 < 3600,
         None => true,

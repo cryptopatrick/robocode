@@ -17,21 +17,40 @@ struct Slow {
 }
 
 impl Robot for Slow {
-    fn name(&self) -> &str { "Slow" }
+    fn name(&self) -> &str {
+        "Slow"
+    }
     fn run(&mut self, _s: &Status, _c: &mut Commands) {
         self.runs.set(self.runs.get() + 1);
         std::thread::sleep(Duration::from_millis(self.ms));
     }
-    fn on_skipped_turn(&mut self, _e: &SkippedTurnEvent, _s: &Status, _c: &mut Commands) {
+    fn on_skipped_turn(
+        &mut self,
+        _e: &SkippedTurnEvent,
+        _s: &Status,
+        _c: &mut Commands,
+    ) {
         self.skipped_notices.set(self.skipped_notices.get() + 1);
     }
 }
 
 fn battle(ms: u64) -> (Battle, Rc<Cell<u32>>, Rc<Cell<u32>>) {
     let (runs, notices) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(0)));
-    let slow = Slow { ms, runs: runs.clone(), skipped_notices: notices.clone() };
-    let spawns = [SpawnSpec::new(0, 100.0, 100.0, 0.0), SpawnSpec::new(1, 700.0, 500.0, 0.0)];
-    (Battle::new(BattleConfig::default(), &spawns, vec![Box::new(slow), boxed(SittingDuck)]), runs, notices)
+    let slow =
+        Slow { ms, runs: runs.clone(), skipped_notices: notices.clone() };
+    let spawns = [
+        SpawnSpec::new(0, 100.0, 100.0, 0.0),
+        SpawnSpec::new(1, 700.0, 500.0, 0.0),
+    ];
+    (
+        Battle::new(
+            BattleConfig::default(),
+            &spawns,
+            vec![Box::new(slow), boxed(SittingDuck)],
+        ),
+        runs,
+        notices,
+    )
 }
 
 #[test]
@@ -54,9 +73,20 @@ fn a_slow_robot_skips_one_turn_per_budget_used() {
         b.step();
     }
     let skipped = b.skipped_turns()[0];
-    assert!(runs.get() + skipped == 30, "runs {} + skipped {skipped}", runs.get());
-    assert!(skipped >= 2 * (runs.get() - 1), "runs {} skipped {skipped}", runs.get());
-    assert!(notices.get() >= runs.get() - 1, "every run after a skip hears about it");
+    assert!(
+        runs.get() + skipped == 30,
+        "runs {} + skipped {skipped}",
+        runs.get()
+    );
+    assert!(
+        skipped >= 2 * (runs.get() - 1),
+        "runs {} skipped {skipped}",
+        runs.get()
+    );
+    assert!(
+        notices.get() >= runs.get() - 1,
+        "every run after a skip hears about it"
+    );
     assert_eq!(b.skipped_turns()[1], 0);
 }
 
@@ -68,5 +98,8 @@ fn thirty_consecutive_skips_disable_the_robot() {
     for _ in 0..35 {
         b.step();
     }
-    assert!(!b.state().robots[0].alive, "disabled after 30 consecutive skipped turns");
+    assert!(
+        !b.state().robots[0].alive,
+        "disabled after 30 consecutive skipped turns"
+    );
 }

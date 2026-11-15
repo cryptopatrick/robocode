@@ -140,7 +140,15 @@ impl LiveSession {
         let initial = recording::initial_frame(&battle);
         builder.push(&initial);
         let header = recording::header_json(&battle);
-        let mut session = LiveSession { battle, builder, header, initial, max_turns, played: 0, outcome: None };
+        let mut session = LiveSession {
+            battle,
+            builder,
+            header,
+            initial,
+            max_turns,
+            played: 0,
+            outcome: None,
+        };
         session.check_finished();
         session
     }
@@ -169,8 +177,11 @@ impl LiveSession {
     }
 
     fn check_finished(&mut self) {
-        let alive = self.battle.state().robots.iter().filter(|r| r.alive).count();
-        if self.outcome.is_none() && (alive <= 1 || self.played >= self.max_turns) {
+        let alive =
+            self.battle.state().robots.iter().filter(|r| r.alive).count();
+        if self.outcome.is_none()
+            && (alive <= 1 || self.played >= self.max_turns)
+        {
             // Ends the round (on_win / on_round_ended), like `record`.
             let mut outcome = self.battle.run(0);
             outcome.turns = self.played;

@@ -10,7 +10,10 @@ const BATTLE_RS: &str = include_str!("../template/battle.rs");
 
 /// The robocode repository this tool belongs to.
 pub fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("robocheck lives inside the robocode repo").to_path_buf()
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("robocheck lives inside the robocode repo")
+        .to_path_buf()
 }
 
 /// Target dir for plain builds of candidate crates, shared across runs.
@@ -35,17 +38,30 @@ pub fn crate_and_bin(strategy_rs: &str) -> (String, String) {
 
 /// Writes a standalone candidate crate (its own `[workspace]`) into `dir`.
 /// Returns the name of its battle binary.
-pub fn materialize(dir: &Path, strategy_rs: &str, repo_root: &Path) -> std::io::Result<String> {
+pub fn materialize(
+    dir: &Path,
+    strategy_rs: &str,
+    repo_root: &Path,
+) -> std::io::Result<String> {
     std::fs::create_dir_all(dir.join("src/bin"))?;
     let (krate, bin) = crate_and_bin(strategy_rs);
     let path = repo_root.display().to_string();
-    let manifest = MANIFEST_IN.replace("{{ROBOCODE_PATH}}", &path).replace("{{CRATE}}", &krate).replace("{{BIN}}", &bin);
+    let manifest = MANIFEST_IN
+        .replace("{{ROBOCODE_PATH}}", &path)
+        .replace("{{CRATE}}", &krate)
+        .replace("{{BIN}}", &bin);
     std::fs::write(dir.join("Cargo.toml"), manifest)?;
-    let lock = LOCKFILE.replace("name = \"robocheck-candidate\"", &format!("name = \"{krate}\""));
+    let lock = LOCKFILE.replace(
+        "name = \"robocheck-candidate\"",
+        &format!("name = \"{krate}\""),
+    );
     std::fs::write(dir.join("Cargo.lock"), lock)?;
     std::fs::write(dir.join("src/lib.rs"), LIB_RS)?;
     std::fs::write(dir.join("src/strategy.rs"), strategy_rs)?;
-    std::fs::write(dir.join("src/bin/battle.rs"), BATTLE_RS.replace("{{LIB}}", &krate.replace('-', "_")))?;
+    std::fs::write(
+        dir.join("src/bin/battle.rs"),
+        BATTLE_RS.replace("{{LIB}}", &krate.replace('-', "_")),
+    )?;
     Ok(bin)
 }
 
@@ -56,7 +72,8 @@ pub(crate) mod tests {
     /// Held by every test that builds into the shared plain target dir: two
     /// builds of the same candidate re-link its battle binary, and a test can
     /// otherwise try to run it in the moment it is being replaced.
-    pub(crate) static SHARED_TARGET: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    pub(crate) static SHARED_TARGET: std::sync::Mutex<()> =
+        std::sync::Mutex::new(());
 
     pub(crate) fn shared_target() -> std::sync::MutexGuard<'static, ()> {
         SHARED_TARGET.lock().unwrap_or_else(|e| e.into_inner())
@@ -64,7 +81,8 @@ pub(crate) mod tests {
 
     /// A fresh, empty work directory for a test.
     pub(crate) fn temp_dir(name: &str) -> std::path::PathBuf {
-        let d = std::env::temp_dir().join(format!("robocheck-test-{name}-{}", std::process::id()));
+        let d = std::env::temp_dir()
+            .join(format!("robocheck-test-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         d
     }
@@ -76,9 +94,17 @@ pub(crate) mod tests {
         let m = std::fs::read_to_string(dir.join("Cargo.toml")).unwrap();
         assert!(m.contains(&format!("path = \"{}\"", repo_root().display())));
         assert!(m.contains("[workspace]"));
-        for f in ["Cargo.lock", "src/lib.rs", "src/strategy.rs", "src/bin/battle.rs"] {
+        for f in [
+            "Cargo.lock",
+            "src/lib.rs",
+            "src/strategy.rs",
+            "src/bin/battle.rs",
+        ] {
             assert!(dir.join(f).exists(), "{f}");
         }
-        assert_eq!(std::fs::read_to_string(dir.join("src/strategy.rs")).unwrap(), "// strategy");
+        assert_eq!(
+            std::fs::read_to_string(dir.join("src/strategy.rs")).unwrap(),
+            "// strategy"
+        );
     }
 }

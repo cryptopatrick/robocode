@@ -23,17 +23,17 @@
 // feature is enabled only then (`verus_keep_ghost` is set by Verus itself).
 #![cfg_attr(verus_keep_ghost, feature(proc_macro_hygiene))]
 
-mod geometry;
 pub mod api;
+mod geometry;
 pub mod live;
+pub mod physics;
 pub mod recording;
 pub mod robots;
 pub mod roster;
-pub mod physics;
 pub mod rules;
 pub mod runner;
-pub mod terrain;
 pub mod strategy;
+pub mod terrain;
 pub mod units;
 
 pub use geometry::{Battlefield, Point, Rect};
@@ -49,12 +49,14 @@ pub use geometry::{Battlefield, Point, Rect};
 #[macro_export]
 macro_rules! robot {
     (strategy $t:ty) => {
-        pub fn __robocode_robot() -> ::std::boxed::Box<dyn $crate::api::Robot> {
+        pub fn __robocode_robot() -> ::std::boxed::Box<dyn $crate::api::Robot>
+        {
             $crate::runner::boxed(<$t as ::std::default::Default>::default())
         }
     };
     ($t:ty) => {
-        pub fn __robocode_robot() -> ::std::boxed::Box<dyn $crate::api::Robot> {
+        pub fn __robocode_robot() -> ::std::boxed::Box<dyn $crate::api::Robot>
+        {
             ::std::boxed::Box::new(<$t as ::std::default::Default>::default())
         }
     };

@@ -447,12 +447,20 @@ fn append_events_object(out: &mut String, events: &EventSnapshot) {
     append_robot_deaths_array(out, &mut first, &events.robot_deaths);
     // Only battles with buildings have this key, so other recordings are unchanged.
     if !events.bullet_hit_obstacles.is_empty() {
-        append_bullet_hit_obstacles_array(out, &mut first, &events.bullet_hit_obstacles);
+        append_bullet_hit_obstacles_array(
+            out,
+            &mut first,
+            &events.bullet_hit_obstacles,
+        );
     }
     out.push('}');
 }
 
-fn append_bullet_hit_obstacles_array(out: &mut String, first: &mut bool, events: &[BulletHitObstacle]) {
+fn append_bullet_hit_obstacles_array(
+    out: &mut String,
+    first: &mut bool,
+    events: &[BulletHitObstacle],
+) {
     append_field_sep(out, first);
     push_string(out, "bullet_hit_obstacles");
     out.push(':');

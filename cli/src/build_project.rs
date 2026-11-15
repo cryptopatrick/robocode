@@ -17,7 +17,10 @@ pub fn build_root() -> PathBuf {
     if let Some(dir) = std::env::var_os("ROBOCODE_BUILD_DIR") {
         return PathBuf::from(dir);
     }
-    dirs::cache_dir().unwrap_or_else(std::env::temp_dir).join("robocode").join("build")
+    dirs::cache_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join("robocode")
+        .join("build")
 }
 
 /// The robocode source to compile against: `--robocode-path`, then
@@ -27,7 +30,9 @@ pub fn robocode_source(flag: Option<&Path>) -> Result<PathBuf, Failure> {
         .map(Path::to_path_buf)
         .or_else(|| std::env::var_os("ROBOCODE_PATH").map(PathBuf::from))
         .unwrap_or_else(|| PathBuf::from(env!("ROBOCODE_SOURCE")));
-    if path.join("Cargo.toml").is_file() && path.join("src").join("lib.rs").is_file() {
+    if path.join("Cargo.toml").is_file()
+        && path.join("src").join("lib.rs").is_file()
+    {
         Ok(path)
     } else {
         Err(Failure::usage(format!(
@@ -54,11 +59,17 @@ pub fn write_project(
     robocode: &Path,
 ) -> Result<Project, Failure> {
     let mut hasher = DefaultHasher::new();
-    (kind, files, robocode_features, extra_dependencies, robocode).hash(&mut hasher);
+    (kind, files, robocode_features, extra_dependencies, robocode)
+        .hash(&mut hasher);
     let package = format!("{kind}_{:016x}", hasher.finish());
     let root = build_root();
     let dir = root.join("projects").join(&package);
-    let io = |e: std::io::Error| Failure::usage(format!("could not write the build project in {}: {e}", dir.display()));
+    let io = |e: std::io::Error| {
+        Failure::usage(format!(
+            "could not write the build project in {}: {e}",
+            dir.display()
+        ))
+    };
     std::fs::create_dir_all(dir.join("src")).map_err(io)?;
     let features = if robocode_features.is_empty() {
         String::new()
@@ -90,7 +101,9 @@ fn write_if_changed(path: &Path, content: &str) -> std::io::Result<()> {
 
 /// A `cargo` command in the project, sharing the target folder.
 pub fn cargo(project: &Project, args: &[&str]) -> Command {
-    let mut cmd = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()));
+    let mut cmd = Command::new(
+        std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()),
+    );
     cmd.args(args)
         .arg("--manifest-path")
         .arg(project.dir.join("Cargo.toml"))

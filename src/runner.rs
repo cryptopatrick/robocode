@@ -6,18 +6,27 @@
 //! take part through [`StrategyRobot`], which builds their [`Observation`].
 
 use crate::api::{
-    BulletHitBulletEvent, BulletHitEvent, BulletMissedEvent, Commands, RoundEndedEvent, SkippedTurnEvent, Event, HitByBulletEvent, HitRobotEvent, HitWallEvent, Robot,
-    RobotDeathEvent, ScannedRobotEvent, Status, relative_bearing,
+    BulletHitBulletEvent, BulletHitEvent, BulletMissedEvent, Commands, Event,
+    HitByBulletEvent, HitRobotEvent, HitWallEvent, Robot, RobotDeathEvent,
+    RoundEndedEvent, ScannedRobotEvent, SkippedTurnEvent, Status,
+    relative_bearing,
 };
 use crate::geometry::angle_to_point;
 use crate::physics::{
-    BattleConfig, BattleState, RobotId, RobotState, ScannedRobot, SpawnSpec, TurnEvents,
+    BattleConfig, BattleState, RobotId, RobotState, ScannedRobot, SpawnSpec,
+    TurnEvents,
 };
 use crate::strategy::{Action, Observation, Strategy, TargetInfo};
 use crate::units::{Angle, Energy, GunHeat};
 
 /// The [`Status`] of `robot` as its strategy or handlers see it.
-fn status_of(robot: &RobotState, config: &BattleConfig, turn: u64, name: &str, others: usize) -> Status {
+fn status_of(
+    robot: &RobotState,
+    config: &BattleConfig,
+    turn: u64,
+    name: &str,
+    others: usize,
+) -> Status {
     Status {
         time: turn,
         name: name.to_string(),
@@ -40,7 +49,11 @@ fn status_of(robot: &RobotState, config: &BattleConfig, turn: u64, name: &str, o
     }
 }
 
-fn scan_event(scan: &ScannedRobot, name: &str, heading: f64) -> ScannedRobotEvent {
+fn scan_event(
+    scan: &ScannedRobot,
+    name: &str,
+    heading: f64,
+) -> ScannedRobotEvent {
     ScannedRobotEvent {
         name: name.to_string(),
         bearing: relative_bearing(scan.bearing, heading),
@@ -58,8 +71,12 @@ fn scan_event(scan: &ScannedRobot, name: &str, heading: f64) -> ScannedRobotEven
 /// Gun heat is reported **after** this turn's cooling, because the engine
 /// cools the gun before it checks whether a shot can be fired. So
 /// `gun_heat == GunHeat(0)` exactly when the engine would accept a shot.
-pub fn observe_status(status: &Status, target: Option<(&ScannedRobotEvent, u32)>) -> Observation {
-    let heat_when_firing = (status.gun_heat - status.gun_cooling_rate).max(0.0);
+pub fn observe_status(
+    status: &Status,
+    target: Option<(&ScannedRobotEvent, u32)>,
+) -> Observation {
+    let heat_when_firing =
+        (status.gun_heat - status.gun_cooling_rate).max(0.0);
     Observation {
         turn: status.time.min(u32::MAX as u64) as u32,
         energy: Energy::from_f64(status.energy),
@@ -91,7 +108,8 @@ pub fn observe(
     last_scan: Option<(&ScannedRobot, u32)>,
 ) -> Observation {
     let status = status_of(robot, config, turn, "", 0);
-    let event = last_scan.map(|(scan, age)| (scan_event(scan, "", robot.heading), age));
+    let event = last_scan
+        .map(|(scan, age)| (scan_event(scan, "", robot.heading), age));
     observe_status(&status, event.as_ref().map(|(e, age)| (e, *age)))
 }
 
@@ -136,7 +154,13 @@ pub struct StrategyRobot<S: Strategy> {
 impl<S: Strategy> StrategyRobot<S> {
     pub fn new(strategy: S) -> Self {
         let name = strategy.name().to_string();
-        StrategyRobot { strategy, name, target: None, scanned_this_turn: false, decision: None }
+        StrategyRobot {
+            strategy,
+            name,
+            target: None,
+            scanned_this_turn: false,
+            decision: None,
+        }
     }
 }
 
@@ -145,7 +169,12 @@ impl<S: Strategy> Robot for StrategyRobot<S> {
         &self.name
     }
 
-    fn on_scanned_robot(&mut self, event: &ScannedRobotEvent, status: &Status, _cmd: &mut Commands) {
+    fn on_scanned_robot(
+        &mut self,
+        event: &ScannedRobotEvent,
+        status: &Status,
+        _cmd: &mut Commands,
+    ) {
         // Scans arrive nearest first; keep the nearest of this turn.
         if !self.scanned_this_turn {
             self.target = Some((event.clone(), status.time));
@@ -153,19 +182,26 @@ impl<S: Strategy> Robot for StrategyRobot<S> {
         }
     }
 
-    fn on_robot_death(&mut self, event: &RobotDeathEvent, _status: &Status, _cmd: &mut Commands) {
+    fn on_robot_death(
+        &mut self,
+        event: &RobotDeathEvent,
+        _status: &Status,
+        _cmd: &mut Commands,
+    ) {
         if self.target.as_ref().is_some_and(|(t, _)| t.name == event.name) {
             self.target = None;
         }
     }
 
     fn run(&mut self, status: &Status, cmd: &mut Commands) {
-        let target = self
-            .target
-            .as_ref()
-            .map(|(t, seen)| (t, status.time.saturating_sub(*seen).min(u32::MAX as u64) as u32));
+        let target = self.target.as_ref().map(|(t, seen)| {
+            (t, status.time.saturating_sub(*seen).min(u32::MAX as u64) as u32)
+        });
         let obs = observe_status(status, target);
-        debug_assert!(crate::strategy::is_well_formed(&obs), "ill-formed observation: {obs:?}");
+        debug_assert!(
+            crate::strategy::is_well_formed(&obs),
+            "ill-formed observation: {obs:?}"
+        );
         let action = self.strategy.decide(&obs);
         *cmd = commands_for(&action);
         self.decision = Some((obs, action));
@@ -242,7 +278,12 @@ pub struct Score {
 
 impl Score {
     pub fn total(&self) -> f64 {
-        self.survival + self.last_survivor_bonus + self.bullet_damage + self.bullet_kill_bonus + self.ram_damage + self.ram_kill_bonus
+        self.survival
+            + self.last_survivor_bonus
+            + self.bullet_damage
+            + self.bullet_kill_bonus
+            + self.ram_damage
+            + self.ram_kill_bonus
     }
 
     fn add(&mut self, other: &Score) {
@@ -279,8 +320,13 @@ fn unique_names(robots: &[Box<dyn Robot>]) -> Vec<String> {
         .enumerate()
         .map(|(i, r)| {
             let name = r.name();
-            let earlier = robots[..i].iter().filter(|o| o.name() == name).count();
-            if earlier == 0 { name.to_string() } else { format!("{name} ({})", earlier + 1) }
+            let earlier =
+                robots[..i].iter().filter(|o| o.name() == name).count();
+            if earlier == 0 {
+                name.to_string()
+            } else {
+                format!("{name} ({})", earlier + 1)
+            }
         })
         .collect()
 }
@@ -309,11 +355,20 @@ impl Battle {
 
     /// Panics if `spawns` and `robots` differ in length, or if the
     /// battlefield is not between 1 and [`Self::MAX_FIELD_SIDE`] px per side.
-    pub fn new(config: BattleConfig, spawns: &[SpawnSpec], robots: Vec<Box<dyn Robot>>) -> Battle {
-        assert_eq!(spawns.len(), robots.len(), "one robot per spawn is required");
+    pub fn new(
+        config: BattleConfig,
+        spawns: &[SpawnSpec],
+        robots: Vec<Box<dyn Robot>>,
+    ) -> Battle {
+        assert_eq!(
+            spawns.len(),
+            robots.len(),
+            "one robot per spawn is required"
+        );
         let side_ok = |s: f64| (1.0..=Self::MAX_FIELD_SIDE).contains(&s);
         assert!(
-            side_ok(config.battlefield.width) && side_ok(config.battlefield.height),
+            side_ok(config.battlefield.width)
+                && side_ok(config.battlefield.height),
             "battlefield must be at most 100000 px per side (and at least 1)"
         );
         let n = spawns.len();
@@ -373,23 +428,47 @@ impl Battle {
             }
             self.skip_streak[i] = 0;
             let started = self.start_timer();
-            let status = status_of(&self.state.robots[i], &config, turn, &self.names[i], alive - 1);
+            let status = status_of(
+                &self.state.robots[i],
+                &config,
+                turn,
+                &self.names[i],
+                alive - 1,
+            );
             let mut cmd = Commands::default();
             let robot = &mut self.robots[i];
             if self.skip_unreported[i] > 0 {
-                let event = SkippedTurnEvent { turns: std::mem::take(&mut self.skip_unreported[i]) };
+                let event = SkippedTurnEvent {
+                    turns: std::mem::take(&mut self.skip_unreported[i]),
+                };
                 robot.on_skipped_turn(&event, &status, &mut cmd);
             }
             for event in &events {
                 match event {
-                    Event::ScannedRobot(e) => robot.on_scanned_robot(e, &status, &mut cmd),
-                    Event::HitByBullet(e) => robot.on_hit_by_bullet(e, &status, &mut cmd),
-                    Event::BulletHit(e) => robot.on_bullet_hit(e, &status, &mut cmd),
-                    Event::BulletHitBullet(e) => robot.on_bullet_hit_bullet(e, &status, &mut cmd),
-                    Event::BulletMissed(e) => robot.on_bullet_missed(e, &status, &mut cmd),
-                    Event::HitWall(e) => robot.on_hit_wall(e, &status, &mut cmd),
-                    Event::HitRobot(e) => robot.on_hit_robot(e, &status, &mut cmd),
-                    Event::RobotDeath(e) => robot.on_robot_death(e, &status, &mut cmd),
+                    Event::ScannedRobot(e) => {
+                        robot.on_scanned_robot(e, &status, &mut cmd)
+                    }
+                    Event::HitByBullet(e) => {
+                        robot.on_hit_by_bullet(e, &status, &mut cmd)
+                    }
+                    Event::BulletHit(e) => {
+                        robot.on_bullet_hit(e, &status, &mut cmd)
+                    }
+                    Event::BulletHitBullet(e) => {
+                        robot.on_bullet_hit_bullet(e, &status, &mut cmd)
+                    }
+                    Event::BulletMissed(e) => {
+                        robot.on_bullet_missed(e, &status, &mut cmd)
+                    }
+                    Event::HitWall(e) => {
+                        robot.on_hit_wall(e, &status, &mut cmd)
+                    }
+                    Event::HitRobot(e) => {
+                        robot.on_hit_robot(e, &status, &mut cmd)
+                    }
+                    Event::RobotDeath(e) => {
+                        robot.on_robot_death(e, &status, &mut cmd)
+                    }
                 }
             }
             robot.run(&status, &mut cmd);
@@ -404,14 +483,25 @@ impl Battle {
         let turn = self.state.turn;
         let alive = self.alive_count();
         for hit in &events.bullet_hits {
-            if let Some(s) = self.state.robots.iter().position(|r| r.id == hit.shooter) {
-                self.bullet_damage[s] += crate::rules::bullet_damage(hit.power);
+            if let Some(s) =
+                self.state.robots.iter().position(|r| r.id == hit.shooter)
+            {
+                self.bullet_damage[s] +=
+                    crate::rules::bullet_damage(hit.power);
             }
         }
         self.score_turn(&events);
         for &dead in &events.robot_deaths {
-            if let Some(d) = self.state.robots.iter().position(|r| r.id == dead) {
-                let status = status_of(&self.state.robots[d], &config, turn, &self.names[d], alive);
+            if let Some(d) =
+                self.state.robots.iter().position(|r| r.id == dead)
+            {
+                let status = status_of(
+                    &self.state.robots[d],
+                    &config,
+                    turn,
+                    &self.names[d],
+                    alive,
+                );
                 self.robots[d].on_death(&status);
             }
         }
@@ -422,23 +512,36 @@ impl Battle {
     /// [`Event`] order.
     fn queue_events(&mut self, events: &TurnEvents) {
         let config = self.state.config;
-        let index = |id: RobotId| self.state.robots.iter().position(|r| r.id == id);
+        let index =
+            |id: RobotId| self.state.robots.iter().position(|r| r.id == id);
         let mut pending: Vec<Vec<Event>> = vec![Vec::new(); self.robots.len()];
 
         for (i, robot) in self.state.robots.iter().enumerate() {
-            let mut scans: Vec<&ScannedRobot> = events.scans.iter().filter(|s| s.scanner == robot.id).collect();
+            let mut scans: Vec<&ScannedRobot> = events
+                .scans
+                .iter()
+                .filter(|s| s.scanner == robot.id)
+                .collect();
             scans.sort_by(|a, b| a.distance.total_cmp(&b.distance));
             for scan in scans {
                 if let Some(t) = index(scan.target) {
-                    pending[i].push(Event::ScannedRobot(scan_event(scan, &self.names[t], robot.heading)));
+                    pending[i].push(Event::ScannedRobot(scan_event(
+                        scan,
+                        &self.names[t],
+                        robot.heading,
+                    )));
                 }
             }
         }
         for hit in &events.bullet_hits {
-            if let (Some(v), Some(s)) = (index(hit.victim), index(hit.shooter)) {
+            if let (Some(v), Some(s)) = (index(hit.victim), index(hit.shooter))
+            {
                 let victim = &self.state.robots[v];
                 let shooter = &self.state.robots[s];
-                let bearing = relative_bearing(angle_to_point(victim.position, shooter.position), victim.heading);
+                let bearing = relative_bearing(
+                    angle_to_point(victim.position, shooter.position),
+                    victim.heading,
+                );
                 pending[v].push(Event::HitByBullet(HitByBulletEvent {
                     name: self.names[s].clone(),
                     bearing,
@@ -447,7 +550,8 @@ impl Battle {
             }
         }
         for hit in &events.bullet_hits {
-            if let (Some(v), Some(s)) = (index(hit.victim), index(hit.shooter)) {
+            if let (Some(v), Some(s)) = (index(hit.victim), index(hit.shooter))
+            {
                 pending[s].push(Event::BulletHit(BulletHitEvent {
                     name: self.names[v].clone(),
                     energy: self.state.robots[v].energy,
@@ -456,35 +560,51 @@ impl Battle {
             }
         }
         for c in &events.bullet_hit_bullets {
-            if let (Some(a), Some(b)) = (index(c.owner), index(c.other_owner)) {
-                pending[a].push(Event::BulletHitBullet(BulletHitBulletEvent {
-                    name: self.names[b].clone(),
-                    power: c.power,
-                    other_power: c.other_power,
-                }));
-                pending[b].push(Event::BulletHitBullet(BulletHitBulletEvent {
-                    name: self.names[a].clone(),
-                    power: c.other_power,
-                    other_power: c.power,
-                }));
+            if let (Some(a), Some(b)) = (index(c.owner), index(c.other_owner))
+            {
+                pending[a].push(Event::BulletHitBullet(
+                    BulletHitBulletEvent {
+                        name: self.names[b].clone(),
+                        power: c.power,
+                        other_power: c.other_power,
+                    },
+                ));
+                pending[b].push(Event::BulletHitBullet(
+                    BulletHitBulletEvent {
+                        name: self.names[a].clone(),
+                        power: c.other_power,
+                        other_power: c.power,
+                    },
+                ));
             }
         }
         for miss in &events.bullet_misses {
             if let Some(s) = index(miss.shooter) {
-                pending[s].push(Event::BulletMissed(BulletMissedEvent { power: miss.power }));
+                pending[s].push(Event::BulletMissed(BulletMissedEvent {
+                    power: miss.power,
+                }));
             }
         }
         for wall in &events.wall_collisions {
             if let Some(i) = index(wall.robot_id) {
                 let robot = &self.state.robots[i];
-                let bearing = relative_bearing(wall_bearing(robot, &config), robot.heading);
+                let bearing = relative_bearing(
+                    wall_bearing(robot, &config),
+                    robot.heading,
+                );
                 pending[i].push(Event::HitWall(HitWallEvent { bearing }));
             }
         }
         for c in &events.robot_collisions {
-            if let (Some(i), Some(o)) = (index(c.robot_id), index(c.other_robot_id)) {
-                let (me, other) = (&self.state.robots[i], &self.state.robots[o]);
-                let bearing = relative_bearing(angle_to_point(me.position, other.position), me.heading);
+            if let (Some(i), Some(o)) =
+                (index(c.robot_id), index(c.other_robot_id))
+            {
+                let (me, other) =
+                    (&self.state.robots[i], &self.state.robots[o]);
+                let bearing = relative_bearing(
+                    angle_to_point(me.position, other.position),
+                    me.heading,
+                );
                 pending[i].push(Event::HitRobot(HitRobotEvent {
                     name: self.names[o].clone(),
                     bearing,
@@ -497,15 +617,20 @@ impl Battle {
             if let Some(d) = index(dead) {
                 for (i, list) in pending.iter_mut().enumerate() {
                     if i != d {
-                        list.push(Event::RobotDeath(RobotDeathEvent { name: self.names[d].clone() }));
+                        list.push(Event::RobotDeath(RobotDeathEvent {
+                            name: self.names[d].clone(),
+                        }));
                     }
                 }
             }
         }
 
         for (i, robot) in self.state.robots.iter().enumerate() {
-            self.wall_hits[i] +=
-                events.wall_collisions.iter().filter(|w| w.robot_id == robot.id).count() as u32;
+            self.wall_hits[i] += events
+                .wall_collisions
+                .iter()
+                .filter(|w| w.robot_id == robot.id)
+                .count() as u32;
         }
         for (queue, new) in self.pending.iter_mut().zip(pending) {
             queue.extend(new);
@@ -523,7 +648,11 @@ impl Battle {
     /// Each round starts fresh, with spawn points rotated by the round number
     /// so every robot gets every corner; robot instances keep their state.
     /// Call it on a fresh battle.
-    pub fn run_rounds(&mut self, rounds: u32, max_turns_per_round: u64) -> BattleResults {
+    pub fn run_rounds(
+        &mut self,
+        rounds: u32,
+        max_turns_per_round: u64,
+    ) -> BattleResults {
         let n = self.robots.len();
         self.bullet_damage = vec![0.0; n];
         self.scores = vec![Score::default(); n];
@@ -542,7 +671,9 @@ impl Battle {
             }
             let outcome = self.play(max_turns_per_round);
             self.finish_round(round, rounds, &outcome);
-            if let Some(w) = outcome.winner.and_then(|id| self.state.robots.iter().position(|r| r.id == id)) {
+            if let Some(w) = outcome.winner.and_then(|id| {
+                self.state.robots.iter().position(|r| r.id == id)
+            }) {
                 results.wins[w] += 1;
             }
             for (i, r) in self.state.robots.iter().enumerate() {
@@ -571,9 +702,19 @@ impl Battle {
     /// The outcome as things stand, without ending the round (no callbacks).
     /// `turns` is reported as given.
     pub fn current_outcome(&self, turns: u64) -> BattleOutcome {
-        let survivors: Vec<RobotId> = self.state.robots.iter().filter(|r| r.alive).map(|r| r.id).collect();
+        let survivors: Vec<RobotId> = self
+            .state
+            .robots
+            .iter()
+            .filter(|r| r.alive)
+            .map(|r| r.id)
+            .collect();
         BattleOutcome {
-            winner: if survivors.len() == 1 { Some(survivors[0]) } else { None },
+            winner: if survivors.len() == 1 {
+                Some(survivors[0])
+            } else {
+                None
+            },
             turns,
             energies: self.state.robots.iter().map(|r| r.energy).collect(),
             wall_hits: self.wall_hits.clone(),
@@ -582,9 +723,11 @@ impl Battle {
 
     /// Java's per-turn scoring: damage, ramming, kill bonuses, survival.
     fn score_turn(&mut self, events: &TurnEvents) {
-        let index = |id: RobotId| self.state.robots.iter().position(|r| r.id == id);
+        let index =
+            |id: RobotId| self.state.robots.iter().position(|r| r.id == id);
         for hit in &events.bullet_hits {
-            if let (Some(s), Some(v)) = (index(hit.shooter), index(hit.victim)) {
+            if let (Some(s), Some(v)) = (index(hit.shooter), index(hit.victim))
+            {
                 let damage = crate::rules::bullet_damage(hit.power);
                 // Java caps the score at the victim's energy before the hit.
                 let before = self.state.robots[v].energy + damage;
@@ -594,25 +737,35 @@ impl Battle {
             }
         }
         for c in events.robot_collisions.iter().filter(|c| c.at_fault) {
-            if let (Some(a), Some(o)) = (index(c.robot_id), index(c.other_robot_id)) {
-                self.round_scores[a].ram_damage += crate::rules::ROBOT_HIT_BONUS;
+            if let (Some(a), Some(o)) =
+                (index(c.robot_id), index(c.other_robot_id))
+            {
+                self.round_scores[a].ram_damage +=
+                    crate::rules::ROBOT_HIT_BONUS;
                 self.damage_to[a][o] += crate::rules::ROBOT_HIT_DAMAGE;
             }
         }
         for &dead in &events.robot_deaths {
             let Some(d) = index(dead) else { continue };
             // Kill bonus to whoever dealt the fatal blow this turn.
-            let fatal_hit = events.bullet_hits.iter().rev().find(|h| h.victim == dead);
-            let fatal_ram = events.robot_collisions.iter().rev().find(|c| c.at_fault && c.other_robot_id == dead);
+            let fatal_hit =
+                events.bullet_hits.iter().rev().find(|h| h.victim == dead);
+            let fatal_ram = events
+                .robot_collisions
+                .iter()
+                .rev()
+                .find(|c| c.at_fault && c.other_robot_id == dead);
             if let Some(hit) = fatal_hit
                 && let Some(s) = index(hit.shooter)
             {
-                self.round_scores[s].bullet_kill_bonus += 0.2 * self.damage_to[s][d];
+                self.round_scores[s].bullet_kill_bonus +=
+                    0.2 * self.damage_to[s][d];
             } else if fatal_hit.is_none()
                 && let Some(c) = fatal_ram
                 && let Some(a) = index(c.robot_id)
             {
-                self.round_scores[a].ram_kill_bonus += 0.3 * self.damage_to[a][d];
+                self.round_scores[a].ram_kill_bonus +=
+                    0.3 * self.damage_to[a][d];
             }
             for (i, r) in self.state.robots.iter().enumerate() {
                 if r.alive {
@@ -657,7 +810,9 @@ impl Battle {
     #[cfg(not(target_arch = "wasm32"))]
     fn turns_over_budget(&self, started: Option<std::time::Instant>) -> u32 {
         match (self.time_budget, started) {
-            (Some(budget), Some(t)) if !budget.is_zero() => (t.elapsed().as_nanos() / budget.as_nanos()) as u32,
+            (Some(budget), Some(t)) if !budget.is_zero() => {
+                (t.elapsed().as_nanos() / budget.as_nanos()) as u32
+            }
             _ => 0,
         }
     }
@@ -674,12 +829,27 @@ impl Battle {
 
     /// End-of-round callbacks: `on_win` for a sole survivor, then
     /// `on_round_ended` for everyone.
-    fn finish_round(&mut self, round: u32, total_rounds: u32, outcome: &BattleOutcome) {
+    fn finish_round(
+        &mut self,
+        round: u32,
+        total_rounds: u32,
+        outcome: &BattleOutcome,
+    ) {
         let config = self.state.config;
         let turn = self.state.turn;
-        if let Some(w) = outcome.winner.and_then(|id| self.state.robots.iter().position(|r| r.id == id)) {
-            self.round_scores[w].last_survivor_bonus += 10.0 * (self.robots.len() - 1) as f64;
-            let status = status_of(&self.state.robots[w], &config, turn, &self.names[w], 0);
+        if let Some(w) = outcome
+            .winner
+            .and_then(|id| self.state.robots.iter().position(|r| r.id == id))
+        {
+            self.round_scores[w].last_survivor_bonus +=
+                10.0 * (self.robots.len() - 1) as f64;
+            let status = status_of(
+                &self.state.robots[w],
+                &config,
+                turn,
+                &self.names[w],
+                0,
+            );
             self.robots[w].on_win(&status);
         }
         let n = self.robots.len();
@@ -688,7 +858,8 @@ impl Battle {
         }
         self.round_scores = vec![Score::default(); n];
         self.damage_to = vec![vec![0.0; n]; n];
-        let event = RoundEndedEvent { round, total_rounds, turns: outcome.turns };
+        let event =
+            RoundEndedEvent { round, total_rounds, turns: outcome.turns };
         for robot in &mut self.robots {
             robot.on_round_ended(&event);
         }

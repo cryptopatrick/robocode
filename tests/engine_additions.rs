@@ -81,7 +81,14 @@ fn independent_mode_is_the_default_and_unchanged() {
     r.set_turn_right(10.0);
     let mut b = solo(r);
     b.step();
-    assert_eq!((b.robots[0].heading, b.robots[0].gun_heading, b.robots[0].radar_heading), (10.0, 0.0, 0.0));
+    assert_eq!(
+        (
+            b.robots[0].heading,
+            b.robots[0].gun_heading,
+            b.robots[0].radar_heading
+        ),
+        (10.0, 0.0, 0.0)
+    );
 }
 
 #[test]
@@ -90,7 +97,14 @@ fn java_mode_body_turn_drags_gun_and_radar() {
     r.set_turn_right(10.0);
     let mut b = solo(r);
     b.step();
-    assert_eq!((b.robots[0].heading, b.robots[0].gun_heading, b.robots[0].radar_heading), (10.0, 10.0, 10.0));
+    assert_eq!(
+        (
+            b.robots[0].heading,
+            b.robots[0].gun_heading,
+            b.robots[0].radar_heading
+        ),
+        (10.0, 10.0, 10.0)
+    );
 }
 
 #[test]
@@ -112,14 +126,20 @@ fn java_mode_gun_turn_drags_radar_unless_adjusted() {
     r.set_turn_gun_right(15.0);
     let mut b = solo(r);
     b.step();
-    assert_eq!((b.robots[0].gun_heading, b.robots[0].radar_heading), (15.0, 15.0));
+    assert_eq!(
+        (b.robots[0].gun_heading, b.robots[0].radar_heading),
+        (15.0, 15.0)
+    );
 
     let mut r = java_robot();
     r.set_adjust_radar_for_gun_turn(true);
     r.set_turn_gun_right(15.0);
     let mut b = solo(r);
     b.step();
-    assert_eq!((b.robots[0].gun_heading, b.robots[0].radar_heading), (15.0, 0.0));
+    assert_eq!(
+        (b.robots[0].gun_heading, b.robots[0].radar_heading),
+        (15.0, 0.0)
+    );
 }
 
 #[test]
@@ -176,14 +196,22 @@ fn ramming_costs_both_and_stops_the_rammer() {
     assert_eq!(v.energy, 100.0 - 0.6);
     assert_eq!(a.velocity, 0.0);
     assert_eq!(a.control.distance_remaining, 0.0);
-    assert!(v.position.x - a.position.x >= 36.0, "rammer moved back out: {}", v.position.x - a.position.x);
+    assert!(
+        v.position.x - a.position.x >= 36.0,
+        "rammer moved back out: {}",
+        v.position.x - a.position.x
+    );
 }
 
 #[test]
 fn collision_events_mark_fault() {
     let mut b = ram();
     let e = step_until_collision(&mut b);
-    let pairs: Vec<(usize, usize, bool)> = e.robot_collisions.iter().map(|c: &RobotCollision| (c.robot_id, c.other_robot_id, c.at_fault)).collect();
+    let pairs: Vec<(usize, usize, bool)> = e
+        .robot_collisions
+        .iter()
+        .map(|c: &RobotCollision| (c.robot_id, c.other_robot_id, c.at_fault))
+        .collect();
     assert_eq!(pairs, [(0, 1, true), (1, 0, false)]);
 }
 
@@ -246,7 +274,10 @@ fn bullets_fired_at_each_other_collide() {
     owners.sort();
     assert_eq!(owners, [0, 1]);
     assert!(bs.bullets.is_empty());
-    assert_eq!((bs.robots[0].energy, bs.robots[1].energy), (100.0 - 1.0, 100.0 - 3.0));
+    assert_eq!(
+        (bs.robots[0].energy, bs.robots[1].energy),
+        (100.0 - 1.0, 100.0 - 3.0)
+    );
 }
 
 #[test]
@@ -270,5 +301,8 @@ fn commands_expose_every_flag_they_carry() {
     let mut c = Commands::default();
     c.set_adjust_radar_for_robot_turn(true);
     c.set_adjust_radar_for_gun_turn(false);
-    assert_eq!((c.adjust_radar_for_robot_turn(), c.adjust_radar_for_gun_turn()), (Some(true), Some(false)));
+    assert_eq!(
+        (c.adjust_radar_for_robot_turn(), c.adjust_radar_for_gun_turn()),
+        (Some(true), Some(false))
+    );
 }

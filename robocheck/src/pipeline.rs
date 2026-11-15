@@ -6,10 +6,17 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::battle::{BattleError, check_same_artifact, run_battle};
 use crate::candidate::{parse, validate};
 use crate::compile::{BuildOutcome, build};
-use crate::evidence::{BattleInfo, Build, CandidateInfo, Evidence, Validation, Verification, rfc3339, toolchain};
+use crate::evidence::{
+    BattleInfo, Build, CandidateInfo, Evidence, Validation, Verification,
+    rfc3339, toolchain,
+};
 use crate::template::{PROPERTIES, assemble, sha256_hex, spec_hash};
-use crate::verify::{CargoVerus, PropertyResult, PropertyStatus, verify_properties};
-use crate::workspace::{materialize, plain_target_dir, repo_root, verus_target_dir};
+use crate::verify::{
+    CargoVerus, PropertyResult, PropertyStatus, verify_properties,
+};
+use crate::workspace::{
+    materialize, plain_target_dir, repo_root, verus_target_dir,
+};
 
 /// Options for one run.
 #[derive(Debug, Clone)]
@@ -29,7 +36,12 @@ pub struct Options {
 fn all(status: PropertyStatus, note: &str) -> Vec<PropertyResult> {
     PROPERTIES
         .iter()
-        .map(|p| PropertyResult { id: p.id, name: p.name, status, note: note.to_string() })
+        .map(|p| PropertyResult {
+            id: p.id,
+            name: p.name,
+            status,
+            note: note.to_string(),
+        })
         .collect()
 }
 
@@ -48,39 +60,57 @@ fn skipped_battle(opponent: &str) -> BattleInfo {
 }
 
 fn write(path: &Path, text: &str) -> Result<(), String> {
-    std::fs::write(path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))
+    std::fs::write(path, text)
+        .map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
 
 /// Runs the pipeline and writes `evidence.json` (plus logs, `strategy.rs` and
 /// the recording) to the output folder. `Err` = the tool itself could not run.
 pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
-    let source = std::fs::read_to_string(&o.candidate)
-        .map_err(|e| format!("cannot read candidate {}: {e}", o.candidate.display()))?;
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let source = std::fs::read_to_string(&o.candidate).map_err(|e| {
+        format!("cannot read candidate {}: {e}", o.candidate.display())
+    })?;
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
     let parsed = parse(&source);
     let problems = match &parsed {
         Ok(c) => validate(c).err().unwrap_or_default(),
         Err(p) => p.clone(),
     };
-    let assembled = parsed.ok().filter(|_| problems.is_empty()).map(|c| assemble(&c));
-    let artifact_hash = assembled.as_ref().map(|a| sha256_hex(a.strategy_rs.as_bytes()));
-    let tag = artifact_hash.as_deref().map_or_else(|| sha256_hex(source.as_bytes()), str::to_string);
+    let assembled =
+        parsed.ok().filter(|_| problems.is_empty()).map(|c| assemble(&c));
+    let artifact_hash =
+        assembled.as_ref().map(|a| sha256_hex(a.strategy_rs.as_bytes()));
+    let tag = artifact_hash
+        .as_deref()
+        .map_or_else(|| sha256_hex(source.as_bytes()), str::to_string);
     let run_id = format!("{}-{now}", &tag[..12]);
-    let out = o.out.clone().unwrap_or_else(|| repo_root().join("target/robocheck/runs").join(&run_id));
-    std::fs::create_dir_all(&out).map_err(|e| format!("cannot create {}: {e}", out.display()))?;
+    let out = o.out.clone().unwrap_or_else(|| {
+        repo_root().join("target/robocheck/runs").join(&run_id)
+    });
+    std::fs::create_dir_all(&out)
+        .map_err(|e| format!("cannot create {}: {e}", out.display()))?;
 
     let mut ev = Evidence {
         format: "robocheck-evidence",
         version: 1,
         run_id: run_id.clone(),
         created_at: rfc3339(now),
-        candidate: CandidateInfo { path: o.candidate.display().to_string(), sha256: sha256_hex(source.as_bytes()) },
+        candidate: CandidateInfo {
+            path: o.candidate.display().to_string(),
+            sha256: sha256_hex(source.as_bytes()),
+        },
         artifact_hash: artifact_hash.clone(),
         spec_hash: spec_hash(),
         validation: Validation { ok: problems.is_empty(), problems },
         build: Build { status: "skipped", log_file: None },
         verification: Verification {
-            properties: all(PropertyStatus::NotChecked, "the candidate was refused before verification"),
+            properties: all(
+                PropertyStatus::NotChecked,
+                "the candidate was refused before verification",
+            ),
             log_files: Vec::new(),
         },
         battle: skipped_battle(&o.opponent),
@@ -92,19 +122,28 @@ pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
         // Separate crates for the battle and for verification: verification
         // rewrites strategy.rs (neutralized clauses), the battle must not see that.
         let work = repo_root().join("target/robocheck/work").join(&run_id);
-        let (build_dir, verify_dir) = (work.join("build"), work.join("verify"));
+        let (build_dir, verify_dir) =
+            (work.join("build"), work.join("verify"));
         for d in [&build_dir, &verify_dir] {
-            materialize(d, &a.strategy_rs, &repo_root()).map_err(|e| format!("cannot write {}: {e}", d.display()))?;
+            materialize(d, &a.strategy_rs, &repo_root())
+                .map_err(|e| format!("cannot write {}: {e}", d.display()))?;
         }
         match build(&build_dir, &plain_target_dir()) {
             BuildOutcome::Failed { log } => {
                 write(&out.join("build.log"), &log)?;
-                ev.build = Build { status: "failed", log_file: Some("build.log".into()) };
-                ev.verification.properties = all(PropertyStatus::BuildFailed, "the candidate does not compile");
+                ev.build = Build {
+                    status: "failed",
+                    log_file: Some("build.log".into()),
+                };
+                ev.verification.properties = all(
+                    PropertyStatus::BuildFailed,
+                    "the candidate does not compile",
+                );
             }
             BuildOutcome::Ok => {
                 write(&out.join("build.log"), "ok\n")?;
-                ev.build = Build { status: "ok", log_file: Some("build.log".into()) };
+                ev.build =
+                    Build { status: "ok", log_file: Some("build.log".into()) };
                 let mut verus = CargoVerus {
                     dir: verify_dir,
                     target_dir: verus_target_dir(),
@@ -119,20 +158,34 @@ pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
                     ev.verification.log_files.push(name);
                 }
                 let recording = out.join("recording.json");
-                ev.battle = match run_battle(&build_dir, &plain_target_dir(), &o.opponent, o.turns, &recording, o.battle_timeout) {
+                ev.battle = match run_battle(
+                    &build_dir,
+                    &plain_target_dir(),
+                    &o.opponent,
+                    o.turns,
+                    &recording,
+                    o.battle_timeout,
+                ) {
                     Ok(r) => BattleInfo {
                         status: "ok",
                         opponent: o.opponent.clone(),
                         turns: Some(r.turns),
                         winner: r.winner,
-                        same_artifact: Some(check_same_artifact(hash, &r.artifact_hash).is_ok()),
+                        same_artifact: Some(
+                            check_same_artifact(hash, &r.artifact_hash)
+                                .is_ok(),
+                        ),
                         artifact_hash: Some(r.artifact_hash),
                         recording_file: Some("recording.json".into()),
                         recording_sha256: Some(r.recording_hash),
                         error: None,
                     },
                     Err(e) => BattleInfo {
-                        status: if matches!(e, BattleError::TimedOut(_)) { "timed_out" } else { "failed" },
+                        status: if matches!(e, BattleError::TimedOut(_)) {
+                            "timed_out"
+                        } else {
+                            "failed"
+                        },
                         error: Some(e.to_string()),
                         ..skipped_battle(&o.opponent)
                     },

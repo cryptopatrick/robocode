@@ -21,9 +21,14 @@ pub fn count_specs(source: &str) -> usize {
 
 pub fn run(file: &str, robocode_path: Option<&Path>) -> Result<(), Failure> {
     let path = PathBuf::from(file);
-    let source_text =
-        std::fs::read_to_string(&path).map_err(|_| Failure::usage(format!("robot file not found: {file}")))?;
-    let has_verus = Command::new("cargo").args(["verus", "--help"]).output().map(|o| o.status.success()).unwrap_or(false);
+    let source_text = std::fs::read_to_string(&path).map_err(|_| {
+        Failure::usage(format!("robot file not found: {file}"))
+    })?;
+    let has_verus = Command::new("cargo")
+        .args(["verus", "--help"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
     if !has_verus {
         return Err(Failure::usage(
             "cargo verus is not installed or not on PATH; see docs/verus-integration.md for how to install Verus",
@@ -43,10 +48,14 @@ pub fn run(file: &str, robocode_path: Option<&Path>) -> Result<(), Failure> {
     )?;
 
     eprintln!("Verifying {}…", path.display());
-    let out = cargo(&project, &["verus", "verify"])
-        .output()
-        .map_err(|e| Failure::usage(format!("could not run cargo verus: {e}")))?;
-    let log = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    let out = cargo(&project, &["verus", "verify"]).output().map_err(|e| {
+        Failure::usage(format!("could not run cargo verus: {e}"))
+    })?;
+    let log = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
     if !out.status.success() {
         eprint!("{log}");
         if log.contains("could not compile `robocode`") {
@@ -54,11 +63,16 @@ pub fn run(file: &str, robocode_path: Option<&Path>) -> Result<(), Failure> {
                 "robocode's own proofs failed; check your robocode and Verus installation",
             ));
         }
-        return Err(Failure { code: 1, message: format!("{} did not verify (see above)", path.display()) });
+        return Err(Failure {
+            code: 1,
+            message: format!("{} did not verify (see above)", path.display()),
+        });
     }
     let specs = count_specs(&source_text);
     if specs == 0 {
-        println!("Verified: 0 specs checked in your robot (nothing to prove yet)");
+        println!(
+            "Verified: 0 specs checked in your robot (nothing to prove yet)"
+        );
     } else {
         println!("Verified: {specs} specs checked in your robot");
     }
@@ -69,13 +83,26 @@ pub fn run(file: &str, robocode_path: Option<&Path>) -> Result<(), Failure> {
 mod tests {
     #[test]
     fn vstd_pin_matches_robocode() {
-        let manifest = std::fs::read_to_string(concat!(env!("ROBOCODE_SOURCE"), "/Cargo.toml")).unwrap();
-        assert!(manifest.contains(&format!("vstd = {{ version = {:?}", super::VSTD)), "update VSTD in cli/src/verify.rs");
+        let manifest = std::fs::read_to_string(concat!(
+            env!("ROBOCODE_SOURCE"),
+            "/Cargo.toml"
+        ))
+        .unwrap();
+        assert!(
+            manifest
+                .contains(&format!("vstd = {{ version = {:?}", super::VSTD)),
+            "update VSTD in cli/src/verify.rs"
+        );
     }
 
     #[test]
     fn counts_attribute_specs() {
         assert_eq!(super::count_specs("fn a() {}"), 0);
-        assert_eq!(super::count_specs("#[cfg_attr(x, verus_spec(r => ensures true))]\nfn a() {}\n#[verus_spec(ensures true)] fn b() {}"), 2);
+        assert_eq!(
+            super::count_specs(
+                "#[cfg_attr(x, verus_spec(r => ensures true))]\nfn a() {}\n#[verus_spec(ensures true)] fn b() {}"
+            ),
+            2
+        );
     }
 }
