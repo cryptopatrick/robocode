@@ -22,6 +22,8 @@ const EXAMPLE: &str = include_str!("../fixtures/safe_shooter.rs");
 /// At most this many clauses per rule.
 pub const MAX_CLAUSES: usize = 4;
 const MAX_TOKENS: u32 = 16000;
+/// A robot is a few hundred lines at most; a reply this long has gone wrong.
+pub const GENERATE_MAX_TOKENS: u32 = 8000;
 
 /// What the AI steps cost so far.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -83,12 +85,18 @@ fn ask(
     schema: Value,
     cost: &mut AiCost,
 ) -> Result<Value, AiError> {
-    let req = LlmRequest {
-        system,
-        user,
-        schema: Some(schema),
-        max_tokens: MAX_TOKENS,
-    };
+    ask_capped(llm, system, user, schema, MAX_TOKENS, cost)
+}
+
+fn ask_capped(
+    llm: &mut dyn Llm,
+    system: String,
+    user: String,
+    schema: Value,
+    max_tokens: u32,
+    cost: &mut AiCost,
+) -> Result<Value, AiError> {
+    let req = LlmRequest { system, user, schema: Some(schema), max_tokens };
     let reply = llm.complete(&req);
     cost.calls += 1;
     if let Err(e) = &reply {
@@ -312,7 +320,38 @@ pub fn generate(
         "type": "object", "additionalProperties": false, "required": ["helpers", "body"],
         "properties": { "helpers": { "type": "string" }, "body": { "type": "string" } }
     });
-    let reply = ask(llm, system, user, schema, cost)?;
+    // One retry when the reply is unusable (cut off, not the JSON asked
+    // for, or an empty body): these are one-off slips, and a second try is
+    // cheap next to failing the run. Anything else is final.
+    let mut last = None;
+    for _ in 0..2 {
+        match generate_once(llm, &system, &user, &schema, cost) {
+            Ok(src) => return Ok(src),
+            Err(
+                e @ (AiError::BadJson(_)
+                | AiError::Llm(LlmError::Truncated { .. })),
+            ) => last = Some(e),
+            Err(e) => return Err(e),
+        }
+    }
+    Err(last.expect("two attempts"))
+}
+
+fn generate_once(
+    llm: &mut dyn Llm,
+    system: &str,
+    user: &str,
+    schema: &Value,
+    cost: &mut AiCost,
+) -> Result<String, AiError> {
+    let reply = ask_capped(
+        llm,
+        system.to_string(),
+        user.to_string(),
+        schema.clone(),
+        GENERATE_MAX_TOKENS,
+        cost,
+    )?;
     let field = |k: &str| {
         reply
             .get(k)
@@ -321,6 +360,9 @@ pub fn generate(
             .ok_or_else(|| AiError::BadJson(format!("no `{k}`")))
     };
     let (helpers, body) = (field("helpers")?, field("body")?);
+    if body.trim().is_empty() {
+        return Err(AiError::BadJson("the body of `decide` is empty".into()));
+    }
     Ok(format!(
         "// Written by {} for RoboCheck.\n// @@helpers\n{}\n// @@body\n{}\n",
         crate::llm::MODEL,
@@ -589,6 +631,58 @@ mod tests {
                 .is_empty()
         );
         assert!(idle.requests.is_empty());
+    }
+
+    fn good_robot() -> String {
+        json!({"helpers": "", "body": "Action { fire: None, ahead: None, turn_body: None, turn_gun: None, turn_radar: Some(450) }"}).to_string()
+    }
+
+    #[test]
+    fn generate_retries_once_on_an_empty_body() {
+        let empty =
+            json!({"helpers": "fn unused() -> i32 { 0 }", "body": "  "})
+                .to_string();
+        let mut llm = ScriptedLlm::new(vec![Ok(empty), Ok(good_robot())]);
+        let src =
+            generate(&mut llm, &spec_two_rules(), &mut AiCost::default())
+                .unwrap();
+        assert!(parse(&src).unwrap().body.contains("Action {"));
+        assert_eq!(llm.requests.len(), 2);
+    }
+
+    #[test]
+    fn generate_retries_once_when_cut_off_and_caps_its_tokens() {
+        let mut llm = ScriptedLlm::new(vec![
+            Err(LlmError::Truncated { cost_usd: 0.05 }),
+            Ok(good_robot()),
+        ]);
+        let mut cost = AiCost::default();
+        generate(&mut llm, &spec_two_rules(), &mut cost).unwrap();
+        assert_eq!(llm.requests.len(), 2);
+        assert_eq!(cost.calls, 2);
+        assert!(
+            (cost.usd - 0.05).abs() < 1e-9,
+            "the cut-off reply is still billed"
+        );
+        assert!(
+            llm.requests.iter().all(|r| r.max_tokens == GENERATE_MAX_TOKENS)
+        );
+        assert!(GENERATE_MAX_TOKENS <= 8000);
+    }
+
+    #[test]
+    fn generate_gives_up_after_the_second_failure() {
+        let empty = json!({"helpers": "", "body": ""}).to_string();
+        let mut llm = ScriptedLlm::new(vec![
+            Ok(empty.clone()),
+            Ok(empty),
+            Ok(good_robot()),
+        ]);
+        assert!(
+            generate(&mut llm, &spec_two_rules(), &mut AiCost::default())
+                .is_err()
+        );
+        assert_eq!(llm.requests.len(), 2);
     }
 
     #[test]

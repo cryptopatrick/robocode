@@ -26,7 +26,9 @@ pub fn parse(src: &str) -> Result<Candidate, Vec<String>> {
     let start = match h {
         Some(h) if h < b => h + 1,
         Some(_) => {
-            return Err(vec![format!("`{HELPERS}` must come before `{BODY}`")]);
+            return Err(vec![format!(
+                "`{HELPERS}` must come before `{BODY}`"
+            )]);
         }
         None => 0,
     };
