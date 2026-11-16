@@ -11,3 +11,4 @@ pub mod battle;
 pub mod evidence;
 pub mod pipeline;
 pub mod rulespec;
+pub mod violations;

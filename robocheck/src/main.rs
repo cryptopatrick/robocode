@@ -49,15 +49,18 @@ fn main() -> ExitCode {
             for p in &ev.verification.properties {
                 println!("{:<9} {:<13} {}", p.id, format!("{:?}", p.status).to_lowercase(), p.name);
             }
-            match ev.battle.status {
-                "ok" => println!(
-                    "battle vs {}: {} after {} turns; same implementation as verified: {}",
-                    ev.battle.opponent,
-                    ev.battle.winner.as_deref().map_or("no winner".to_string(), |w| format!("{w} wins")),
-                    ev.battle.turns.unwrap_or(0),
-                    ev.battle.same_artifact.unwrap_or(false)
-                ),
-                s => println!("battle: {s}"),
+            for b in &ev.battles {
+                match b.status {
+                    "ok" => println!(
+                        "battle ({}) vs {}: {} after {} turns; same implementation as verified: {}",
+                        b.arena,
+                        b.opponent,
+                        b.winner.as_deref().map_or("no winner".to_string(), |w| format!("{w} wins")),
+                        b.turns.unwrap_or(0),
+                        b.same_artifact.unwrap_or(false)
+                    ),
+                    s => println!("battle ({}): {s}", b.arena),
+                }
             }
             println!("evidence: {}", out.join("evidence.json").display());
             ExitCode::SUCCESS

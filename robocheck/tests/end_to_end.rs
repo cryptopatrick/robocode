@@ -79,9 +79,11 @@ fn cli_safe_shooter_proves_everything_and_battles_the_same_artifact() {
     for p in ev["verification"]["properties"].as_array().unwrap() {
         assert_eq!(p["status"], "proved", "{p}");
     }
-    assert_eq!(ev["battle"]["status"], "ok");
-    assert_eq!(ev["battle"]["same_artifact"], true);
-    assert_eq!(ev["battle"]["artifact_hash"], ev["artifact_hash"]);
+    for b in ev["battles"].as_array().unwrap() {
+        assert_eq!(b["status"], "ok", "{b}");
+        assert_eq!(b["same_artifact"], true, "{b}");
+        assert_eq!(b["artifact_hash"], ev["artifact_hash"], "{b}");
+    }
     assert!(ev["toolchain"]["verus"].as_str().unwrap().contains("0.2026"));
 }
 
@@ -97,8 +99,10 @@ fn cli_rejected_candidate_still_battles() {
         .map(|p| p["id"].as_str().unwrap())
         .collect();
     assert_eq!(rejected, vec!["SAFE-002", "SAFE-007"]);
-    assert_eq!(ev["battle"]["status"], "ok");
-    assert_eq!(ev["battle"]["same_artifact"], true);
+    for b in ev["battles"].as_array().unwrap() {
+        assert_eq!(b["status"], "ok", "{b}");
+        assert_eq!(b["same_artifact"], true, "{b}");
+    }
 }
 
 /// Review finding 3: a candidate that hangs is recorded as a timed-out
@@ -116,7 +120,7 @@ fn cli_hanging_candidate_times_out() {
         .unwrap();
     assert_eq!(status.code(), Some(0));
     let ev: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(out.join("evidence.json")).unwrap()).unwrap();
-    assert_eq!(ev["battle"]["status"], "timed_out");
+    assert!(ev["battles"].as_array().unwrap().iter().all(|b| b["status"] == "timed_out"));
     for p in ev["verification"]["properties"].as_array().unwrap() {
         assert_ne!(p["status"], "proved", "{p}");
     }

@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::battle::{BattleError, check_same_artifact, run_battle};
+use crate::battle::{Arena, BattleError, check_same_artifact, run_battle};
 use crate::candidate::{parse, validate};
 use crate::compile::{BuildOutcome, build};
 use crate::evidence::{BattleInfo, Build, CandidateInfo, Evidence, Validation, Verification, rfc3339, toolchain};
@@ -33,8 +33,12 @@ fn all(spec: &Spec, status: PropertyStatus, note: &str) -> Vec<PropertyResult> {
         .collect()
 }
 
-fn skipped_battle(opponent: &str) -> BattleInfo {
+/// The arenas every candidate fights in, in report order.
+pub const ARENAS: [Arena; 2] = [Arena::Open, Arena::Urban];
+
+fn skipped_battle(arena: Arena, opponent: &str) -> BattleInfo {
     BattleInfo {
+        arena: arena.name(),
         status: "skipped",
         opponent: opponent.to_string(),
         turns: None,
@@ -43,8 +47,53 @@ fn skipped_battle(opponent: &str) -> BattleInfo {
         same_artifact: None,
         recording_file: None,
         recording_sha256: None,
+        decisions_file: None,
         error: None,
     }
+}
+
+/// Battles in both arenas, skipped.
+pub fn skipped_battles(opponent: &str) -> Vec<BattleInfo> {
+    ARENAS.iter().map(|a| skipped_battle(*a, opponent)).collect()
+}
+
+/// Fights the built candidate crate in `build_dir` in both arenas, writing
+/// `recording-<arena>.json` and `decisions-<arena>.jsonl` into `out`.
+/// `verified_hash` is the hash of the `strategy.rs` that was verified.
+pub fn fight_both(
+    build_dir: &Path,
+    out: &Path,
+    verified_hash: &str,
+    opponent: &str,
+    turns: u64,
+    timeout: Duration,
+) -> Vec<BattleInfo> {
+    ARENAS
+        .iter()
+        .map(|&arena| {
+            let file = format!("recording-{}.json", arena.name());
+            match run_battle(build_dir, &plain_target_dir(), opponent, arena, turns, &out.join(&file), timeout) {
+                Ok(r) => BattleInfo {
+                    arena: arena.name(),
+                    status: "ok",
+                    opponent: opponent.to_string(),
+                    turns: Some(r.turns),
+                    winner: r.winner,
+                    same_artifact: Some(check_same_artifact(verified_hash, &r.artifact_hash).is_ok()),
+                    artifact_hash: Some(r.artifact_hash),
+                    recording_file: Some(file),
+                    recording_sha256: Some(r.recording_hash),
+                    decisions_file: r.decisions_file.file_name().map(|n| n.to_string_lossy().into_owned()),
+                    error: None,
+                },
+                Err(e) => BattleInfo {
+                    status: if matches!(e, BattleError::TimedOut(_)) { "timed_out" } else { "failed" },
+                    error: Some(e.to_string()),
+                    ..skipped_battle(arena, opponent)
+                },
+            }
+        })
+        .collect()
 }
 
 fn write(path: &Path, text: &str) -> Result<(), String> {
@@ -72,7 +121,7 @@ pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
 
     let mut ev = Evidence {
         format: "robocheck-evidence",
-        version: 1,
+        version: 2,
         run_id: run_id.clone(),
         created_at: rfc3339(now),
         candidate: CandidateInfo { path: o.candidate.display().to_string(), sha256: sha256_hex(source.as_bytes()) },
@@ -84,7 +133,7 @@ pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
             properties: all(&spec, PropertyStatus::NotChecked, "the candidate was refused before verification"),
             log_files: Vec::new(),
         },
-        battle: skipped_battle(&o.opponent),
+        battles: skipped_battles(&o.opponent),
         toolchain: toolchain(&repo_root(), &o.verus_dir),
     };
 
@@ -119,25 +168,7 @@ pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
                     write(&out.join(&name), log)?;
                     ev.verification.log_files.push(name);
                 }
-                let recording = out.join("recording.json");
-                ev.battle = match run_battle(&build_dir, &plain_target_dir(), &o.opponent, o.turns, &recording, o.battle_timeout) {
-                    Ok(r) => BattleInfo {
-                        status: "ok",
-                        opponent: o.opponent.clone(),
-                        turns: Some(r.turns),
-                        winner: r.winner,
-                        same_artifact: Some(check_same_artifact(hash, &r.artifact_hash).is_ok()),
-                        artifact_hash: Some(r.artifact_hash),
-                        recording_file: Some("recording.json".into()),
-                        recording_sha256: Some(r.recording_hash),
-                        error: None,
-                    },
-                    Err(e) => BattleInfo {
-                        status: if matches!(e, BattleError::TimedOut(_)) { "timed_out" } else { "failed" },
-                        error: Some(e.to_string()),
-                        ..skipped_battle(&o.opponent)
-                    },
-                };
+                ev.battles = fight_both(&build_dir, &out, hash, &o.opponent, o.turns, o.battle_timeout);
             }
         }
     }

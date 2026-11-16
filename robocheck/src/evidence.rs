@@ -21,7 +21,8 @@ pub struct Evidence {
     pub validation: Validation,
     pub build: Build,
     pub verification: Verification,
-    pub battle: BattleInfo,
+    /// One battle per arena: open, then urban.
+    pub battles: Vec<BattleInfo>,
     pub toolchain: Toolchain,
 }
 
@@ -52,6 +53,8 @@ pub struct Verification {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct BattleInfo {
+    /// `open` or `urban`.
+    pub arena: &'static str,
     /// `ok`, `failed`, `timed_out` or `skipped`.
     pub status: &'static str,
     pub opponent: String,
@@ -61,6 +64,8 @@ pub struct BattleInfo {
     pub same_artifact: Option<bool>,
     pub recording_file: Option<String>,
     pub recording_sha256: Option<String>,
+    /// The candidate's per-turn decisions (`decisions-<arena>.jsonl`).
+    pub decisions_file: Option<String>,
     pub error: Option<String>,
 }
 

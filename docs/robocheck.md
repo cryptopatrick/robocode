@@ -8,7 +8,7 @@
 2. **slots it into a trusted template** whose Verus spec on `decide` is human-written (the candidate cannot change it);
 3. **compiles** it;
 4. **verifies** it with Verus, one result per reference property;
-5. **battles** the *same* code against a built-in robot;
+5. **battles** the *same* code against a built-in robot, twice: in the open arena and in robocode's urban map (buildings);
 6. writes **one evidence file** in which the verification and the battle carry the same implementation hash.
 
 This is Phase 0: no AI is called. The candidates in `robocheck/fixtures/` stand in for AI output.
@@ -30,7 +30,8 @@ SAFE-004  proved        The target was scanned this turn
 SAFE-005  proved        The gun is aimed within 3.0 degrees
 SAFE-006  proved        Never drives toward a wall it is within 80 px of
 SAFE-007  rejected      Fires if and only if it is ready
-battle vs SittingDuck: Candidate wins after 364 turns; same implementation as verified: true
+battle (open) vs SittingDuck: Candidate wins after 364 turns; same implementation as verified: true
+battle (urban) vs SittingDuck: …; same implementation as verified: true
 evidence: target/robocheck/runs/<run id>/evidence.json
 ```
 
@@ -43,7 +44,8 @@ Options: `--opponent` (`SafeShooter`, `Circler`, `Spinner`, `SittingDuck`; defau
 // @@helpers
 // helper functions; they may carry verus_verify / verus_spec attributes
 // @@body
-// the statements of `decide`'s body; `obs: &Observation` is in scope; it must evaluate to an `Action`
+// the statements of `decide`'s body; `obs: &Observation` and `around: &Surroundings` are in scope;
+// it must evaluate to an `Action`
 ```
 
 The template supplies the imports (`Observation`, `Action`, `Power`, `Angle`, `angle_diff`, SafeShooter's constants and, for specs, its spec functions) and the spec'd signature of `decide`.
@@ -56,6 +58,10 @@ Validation works on parsed Rust and tokens, so spacing, comments and string cont
 - no macros, and no `verifier`, `assume`, `admit`, `proof`, `unsafe`, `extern`, `std`/`core`, `use`, `mod`, `impl`, `include*`, `env`, its own `fn decide`, among others.
 
 It is still not a sandbox: candidates are compiled and run on the machine running `robocheck`.
+
+`around` comes from `robocheck-arena` (robocheck/arena), RoboCheck's extension of robocode 0.5.0: the free distance in
+whole pixels to the nearest wall or building straight ahead (`clearance_ahead`) and behind (`clearance_behind`).
+robocode itself is unchanged.
 
 ## The reference properties
 
@@ -74,6 +80,14 @@ SafeShooter's spec (`src/robots/safe_shooter.rs`), one `ensures` clause per prop
 ## How the verdicts are reached
 
 A property is **proved** only from a Verus run with zero errors that actually verified the candidate: the candidate crate's cached results are cleared before every run (cargo would otherwise treat identical code as already verified and print `0 verified`), and a run counts only if Verus reports at least one item verified and no errors. Verus runs with `--multiple-errors 20`, so every failing clause is reported with its line. Each round, rejected clauses are replaced by `true` (line numbers kept) and the rest re-verified, until a run is clean. Any error that is not one of the reference clauses (an overflow, a helper's own `ensures`) leaves the unsettled properties **unknown**, never proved. Statuses: `proved`, `rejected`, `unknown`, `not_checked`, `build_failed`, `timed_out`.
+
+## Battles and the decision log
+
+Every candidate that builds fights twice, open arena then urban, with the same binary. Each battle writes
+`recording-<arena>.json` (robocode's recording format, v1) and `decisions-<arena>.jsonl`: one line per turn with the
+candidate's full observation, its `around` and its action. `robocheck::violations::find_violations` reads that log
+and reports, per rule, the first turn that broke it and how many turns did. The evidence file (version 2) lists both
+battles under `battles`.
 
 ## One implementation
 
