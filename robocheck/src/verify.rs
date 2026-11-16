@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
-use crate::template::{Assembled, PROPERTIES, neutralize};
+use crate::template::{Assembled, Spec, neutralize};
 
 /// Result states (PRD §7.5).
 #[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
@@ -38,8 +38,10 @@ pub trait Verifier {
 /// An error in Verus's output.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Failure {
-    /// `postcondition not satisfied` at this line of `src/strategy.rs`.
-    Clause { line: u32 },
+    /// `postcondition not satisfied` at this line of `src/strategy.rs`; `at` is
+    /// the code line Verus points to ("at the end of the function body" or
+    /// "at this exit"), when it gives one.
+    Clause { line: u32, at: Option<u32> },
     /// Any other error, with its first line.
     Other { summary: String },
 }
@@ -63,11 +65,41 @@ pub fn parse_failures(log: &str) -> Vec<Failure> {
             .and_then(|loc| loc.split_once("src/strategy.rs:"))
             .and_then(|(_, rest)| rest.split(':').next()?.parse::<u32>().ok());
         match (msg == "postcondition not satisfied", line) {
-            (true, Some(line)) => out.push(Failure::Clause { line }),
+            (true, Some(line)) => out.push(Failure::Clause {
+                line,
+                at: exit_line(&lines[i + 1..]),
+            }),
             _ => out.push(Failure::Other { summary: msg.to_string() }),
         }
     }
     out
+}
+
+/// In one error block (up to the next `error` or results line): the line
+/// number Verus labels "at the end of the function body" or "at this exit".
+fn exit_line(rest: &[&str]) -> Option<u32> {
+    let block: Vec<&str> = rest
+        .iter()
+        .take_while(|l| {
+            !l.starts_with("error") && !l.starts_with("verification results")
+        })
+        .copied()
+        .collect();
+    block.iter().enumerate().find_map(|(j, l)| {
+        if !(l.contains("at the end of the function body")
+            || l.contains("at this exit"))
+            || j == 0
+        {
+            return None;
+        }
+        block[j - 1]
+            .trim_start()
+            .split(" |")
+            .next()?
+            .trim()
+            .parse::<u32>()
+            .ok()
+    })
 }
 
 /// Whether a log reports at least one verified item and no errors.
@@ -89,29 +121,40 @@ pub fn verified_something(log: &str) -> bool {
     counts.iter().any(|(v, _)| *v > 0) && counts.iter().all(|(_, e)| *e == 0)
 }
 
-/// The verdict on one reference property.
-#[derive(Serialize, Clone, Debug, PartialEq)]
-pub struct PropertyResult {
-    pub id: &'static str,
-    pub name: &'static str,
-    pub status: PropertyStatus,
-    pub note: String,
+/// Where Verus rejected a rule: the clause's line in `strategy.rs`, and the
+/// code line it pointed at, if any.
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FailedAt {
+    pub clause_line: u32,
+    pub code_line: Option<u32>,
 }
 
-/// Verifies the reference properties one by one: a property is `proved` only
-/// from a run with zero errors. Each round, clauses Verus rejected are
-/// replaced by `true` and the rest re-verified. Returns the results in
-/// [`PROPERTIES`] order and the log of every round.
+/// The verdict on one rule (a reference property in Phase 0).
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct PropertyResult {
+    pub id: String,
+    pub name: String,
+    pub status: PropertyStatus,
+    pub note: String,
+    pub failed_at: Option<FailedAt>,
+}
+
+/// Verifies the spec's rules one by one: a rule is `proved` only from a run
+/// with zero errors. Each round, clauses Verus rejected are replaced by
+/// `true` and the rest re-verified. Returns one result per rule, in the
+/// spec's order (a rule with no clause is `not_checked`), and every round's log.
 pub fn verify_properties(
     a: &Assembled,
+    spec: &Spec,
     v: &mut dyn Verifier,
     max_rounds: usize,
 ) -> (Vec<PropertyResult>, Vec<String>) {
-    let mut rejected: Vec<(&'static str, u32)> = Vec::new();
+    let mut rejected: Vec<(String, u32, Option<u32>)> = Vec::new();
     let mut logs = Vec::new();
     let mut rest: Option<(PropertyStatus, String)> = None;
     for _ in 0..max_rounds {
-        let ids: Vec<&str> = rejected.iter().map(|(id, _)| *id).collect();
+        let ids: Vec<&str> =
+            rejected.iter().map(|(id, _, _)| id.as_str()).collect();
         let run = match v.run(&neutralize(a, &ids)) {
             Ok(run) => run,
             Err(e) => {
@@ -136,10 +179,10 @@ pub fn verify_properties(
         let mut new = Vec::new();
         for f in &failures {
             match f {
-                Failure::Clause { line } => match a.clause_lines.iter().find(|(l, _)| l == line) {
-                    Some((_, id)) if !ids.contains(id) => new.push((*id, *line)),
+                Failure::Clause { line, at } => match a.clause_lines.iter().find(|(l, _)| l == line) {
+                    Some((_, id)) if !ids.contains(&id.as_str()) => new.push((id.clone(), *line, *at)),
                     Some(_) => {}
-                    None => others.push(format!("postcondition not satisfied on line {line}, not a reference clause")),
+                    None => others.push(format!("postcondition not satisfied on line {line}, not a spec clause")),
                 },
                 Failure::Other { summary } => others.push(summary.clone()),
             }
@@ -167,21 +210,26 @@ pub fn verify_properties(
         PropertyStatus::Unknown,
         format!("not settled within {max_rounds} Verus runs"),
     ));
-    let results = PROPERTIES
+    let results = spec
+        .rules
         .iter()
-        .map(|p| {
-            let lines: Vec<String> =
-                rejected.iter().filter(|(id, _)| *id == p.id).map(|(_, l)| l.to_string()).collect();
-            if lines.is_empty() {
-                PropertyResult { id: p.id, name: p.name, status: rest_status, note: rest_note.clone() }
+        .map(|(id, name)| {
+            let mine: Vec<&(String, u32, Option<u32>)> = rejected.iter().filter(|(r, _, _)| r == id).collect();
+            let has_clause = a.clause_lines.iter().any(|(_, r)| r == id);
+            let (status, note, failed_at) = if !mine.is_empty() {
+                let lines: Vec<String> = mine.iter().map(|(_, l, _)| l.to_string()).collect();
+                let first = mine[0];
+                (
+                    PropertyStatus::Rejected,
+                    format!("Verus: postcondition not satisfied (strategy.rs line {})", lines.join(", ")),
+                    Some(FailedAt { clause_line: first.1, code_line: first.2 }),
+                )
+            } else if !has_clause {
+                (PropertyStatus::NotChecked, "no clause for this rule".to_string(), None)
             } else {
-                PropertyResult {
-                    id: p.id,
-                    name: p.name,
-                    status: PropertyStatus::Rejected,
-                    note: format!("Verus: postcondition not satisfied (strategy.rs line {})", lines.join(", ")),
-                }
-            }
+                (rest_status, rest_note.clone(), None)
+            };
+            PropertyResult { id: id.clone(), name: name.clone(), status, note, failed_at }
         })
         .collect();
     (results, logs)
@@ -302,7 +350,7 @@ impl Verifier for CargoVerus {
 mod tests {
     use super::*;
     use crate::candidate::parse;
-    use crate::template::assemble;
+    use crate::template::{assemble, reference_spec};
     use std::collections::VecDeque;
 
     fn log(name: &str) -> String {
@@ -319,17 +367,24 @@ mod tests {
             "/fixtures/safe_shooter.rs"
         ))
         .unwrap();
-        assemble(&parse(&src).unwrap())
+        assemble(&parse(&src).unwrap(), &reference_spec())
     }
 
     fn line_of(a: &Assembled, id: &str) -> u32 {
-        a.clause_lines.iter().find(|(_, i)| *i == id).unwrap().0
+        a.clause_lines.iter().find(|(_, i)| i == id).unwrap().0
     }
+
+    /// The line Verus points at as "at the end of the function body" in the scripted logs.
+    const BODY_LINE: u32 = 68;
 
     fn clause_failure_log(lines: &[u32]) -> String {
         lines
             .iter()
-            .map(|l| format!("error: postcondition not satisfied\n  --> src/strategy.rs:{l}:9\n   |\n"))
+            .map(|l| {
+                format!(
+                    "error: postcondition not satisfied\n  --> src/strategy.rs:{l}:9\n   |\n...\n{BODY_LINE} |     Action {{ fire, ahead }}\n   |     ------ at the end of the function body\n\n"
+                )
+            })
             .collect::<String>()
             + "verification results:: 5 verified, 1 errors\n"
     }
@@ -365,19 +420,19 @@ mod tests {
         Ok(VerusRun { success: false, timed_out: false, log })
     }
 
-    fn statuses(r: &[PropertyResult]) -> Vec<(&'static str, PropertyStatus)> {
-        r.iter().map(|p| (p.id, p.status)).collect()
+    fn statuses(r: &[PropertyResult]) -> Vec<(&str, PropertyStatus)> {
+        r.iter().map(|p| (p.id.as_str(), p.status)).collect()
     }
 
     #[test]
     fn parser_finds_clause_lines() {
-        let a = assembled();
+        // Lines as in the recorded log (Phase 0's header put SAFE-002 on 33 and SAFE-007 on 39).
         let f = parse_failures(&log("energy_positive"));
         assert_eq!(
             f,
             vec![
-                Failure::Clause { line: line_of(&a, "SAFE-002") },
-                Failure::Clause { line: line_of(&a, "SAFE-007") }
+                Failure::Clause { line: 33, at: Some(68) },
+                Failure::Clause { line: 39, at: Some(68) }
             ]
         );
     }
@@ -463,7 +518,8 @@ mod tests {
     #[test]
     fn all_proved_on_clean_run() {
         let mut v = Fake::new(vec![ok()]);
-        let (r, logs) = verify_properties(&assembled(), &mut v, 8);
+        let (r, logs) =
+            verify_properties(&assembled(), &reference_spec(), &mut v, 8);
         assert!(r.iter().all(|p| p.status == PropertyStatus::Proved));
         assert_eq!((r.len(), logs.len(), v.inputs.len()), (7, 1, 1));
     }
@@ -475,7 +531,7 @@ mod tests {
             failed(clause_failure_log(&[line_of(&a, "SAFE-002")])),
             ok(),
         ]);
-        let (r, _) = verify_properties(&a, &mut v, 8);
+        let (r, _) = verify_properties(&a, &reference_spec(), &mut v, 8);
         for (id, s) in statuses(&r) {
             assert_eq!(
                 s,
@@ -494,7 +550,8 @@ mod tests {
     #[test]
     fn unattributed_errors_make_unknown() {
         let mut v = Fake::new(vec![failed(log("overflow"))]);
-        let (r, _) = verify_properties(&assembled(), &mut v, 8);
+        let (r, _) =
+            verify_properties(&assembled(), &reference_spec(), &mut v, 8);
         assert!(
             r.iter().all(|p| p.status == PropertyStatus::Unknown),
             "{:?}",
@@ -507,7 +564,8 @@ mod tests {
     fn failure_outside_the_reference_clauses_is_unknown() {
         // e.g. a helper's own ensures: a postcondition on a line that is not a reference clause
         let mut v = Fake::new(vec![failed(clause_failure_log(&[120]))]);
-        let (r, _) = verify_properties(&assembled(), &mut v, 8);
+        let (r, _) =
+            verify_properties(&assembled(), &reference_spec(), &mut v, 8);
         assert!(
             r.iter().all(|p| p.status == PropertyStatus::Unknown),
             "{:?}",
@@ -518,7 +576,8 @@ mod tests {
     #[test]
     fn missing_verus_is_not_checked() {
         let mut v = Fake::new(vec![Err("cargo verus not found".into())]);
-        let (r, _) = verify_properties(&assembled(), &mut v, 8);
+        let (r, _) =
+            verify_properties(&assembled(), &reference_spec(), &mut v, 8);
         assert!(r.iter().all(|p| p.status == PropertyStatus::NotChecked
             && p.note.contains("cargo verus not found")));
     }
@@ -533,13 +592,18 @@ mod tests {
                 log: String::new(),
             })
         };
-        let (r, _) = verify_properties(&a, &mut Fake::new(vec![timeout()]), 8);
+        let (r, _) = verify_properties(
+            &a,
+            &reference_spec(),
+            &mut Fake::new(vec![timeout()]),
+            8,
+        );
         assert!(r.iter().all(|p| p.status == PropertyStatus::TimedOut));
         let mut v = Fake::new(vec![
             failed(clause_failure_log(&[line_of(&a, "SAFE-007")])),
             timeout(),
         ]);
-        let (r, _) = verify_properties(&a, &mut v, 8);
+        let (r, _) = verify_properties(&a, &reference_spec(), &mut v, 8);
         for (id, s) in statuses(&r) {
             assert_eq!(
                 s,
@@ -554,11 +618,81 @@ mod tests {
     }
 
     #[test]
+    fn parse_failures_reads_body_location() {
+        // A real Verus log: the failed clause, then the code line "at the end of the function body".
+        let f = parse_failures(&log("energy_positive"));
+        assert!(
+            f.iter()
+                .all(|x| matches!(x, Failure::Clause { at: Some(68), .. })),
+            "{f:?}"
+        );
+        assert_eq!(
+            parse_failures(&clause_failure_log(&[33])),
+            vec![Failure::Clause { line: 33, at: Some(BODY_LINE) }]
+        );
+        let no_body = "error: postcondition not satisfied\n  --> src/strategy.rs:33:9\n   |\n\nerror: postcondition not satisfied\n  --> src/strategy.rs:39:9\n";
+        assert_eq!(
+            parse_failures(no_body),
+            vec![
+                Failure::Clause { line: 33, at: None },
+                Failure::Clause { line: 39, at: None }
+            ]
+        );
+    }
+
+    #[test]
+    fn rejected_rule_carries_failed_at() {
+        let a = assembled();
+        let line = line_of(&a, "SAFE-002");
+        let mut v = Fake::new(vec![failed(clause_failure_log(&[line])), ok()]);
+        let (r, _) = verify_properties(&a, &reference_spec(), &mut v, 8);
+        let safe2 = r.iter().find(|p| p.id == "SAFE-002").unwrap();
+        assert_eq!(
+            safe2.failed_at,
+            Some(FailedAt { clause_line: line, code_line: Some(BODY_LINE) })
+        );
+        assert!(
+            r.iter()
+                .filter(|p| p.id != "SAFE-002")
+                .all(|p| p.failed_at.is_none())
+        );
+    }
+
+    #[test]
+    fn rule_without_clauses_is_not_checked() {
+        use crate::rulespec::reference_clauses;
+        use crate::template::generated_spec;
+        let spec = generated_spec(&[
+            ("S1".to_string(), "afford".to_string(), reference_clauses("S1")),
+            ("U1".to_string(), "vague".to_string(), Vec::new()),
+        ]);
+        let src = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/fixtures/safe_shooter.rs"
+        ))
+        .unwrap();
+        let a = assemble(&parse(&src).unwrap(), &spec);
+        let (r, _) =
+            verify_properties(&a, &spec, &mut Fake::new(vec![ok()]), 8);
+        assert_eq!(
+            statuses(&r),
+            [
+                ("S1", PropertyStatus::Proved),
+                ("U1", PropertyStatus::NotChecked)
+            ]
+        );
+    }
+
+    #[test]
     fn rounds_are_bounded() {
         let a = assembled();
         let fail = || failed(clause_failure_log(&[line_of(&a, "SAFE-001")]));
-        let (r, logs) =
-            verify_properties(&a, &mut Fake::new(vec![fail(), fail()]), 2);
+        let (r, logs) = verify_properties(
+            &a,
+            &reference_spec(),
+            &mut Fake::new(vec![fail(), fail()]),
+            2,
+        );
         assert_eq!(logs.len(), 2);
         assert!(r.iter().any(|p| p.status == PropertyStatus::Unknown));
     }

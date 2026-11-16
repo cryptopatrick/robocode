@@ -1,0 +1,68 @@
+{
+  "format": "robocheck-evidence",
+  "version": 2,
+  "run_id": "6965760fe0bb-1794817596",
+  "created_at": "2026-11-16T08:26:36Z",
+  "candidate": {
+    "path": "candidate.rs",
+    "sha256": "9e63f20768cbaae470c6ba27a3bec8a863286345acc48337e2ade5f18a1d327e"
+  },
+  "artifact_hash": "b06e546b0935288bec56eb6915de4661002badabc73216412a5757d167730f78",
+  "spec_hash": "f20c7cd6bb549c02c02856ffcf400b63e0746118bd6c24d202ef9e7f6be66cd9",
+  "validation": {
+    "ok": true,
+    "problems": []
+  },
+  "build": {
+    "status": "ok",
+    "log_file": "build.log"
+  },
+  "verification": {
+    "properties": [
+      {
+        "id": "S2",
+        "name": "Only fire at a robot you saw this turn, with the gun aimed at it.",
+        "status": "unknown",
+        "note": "possible arithmetic underflow/overflow",
+        "failed_at": null
+      }
+    ],
+    "log_files": [
+      "verus-1.log"
+    ]
+  },
+  "battles": [
+    {
+      "arena": "open",
+      "status": "ok",
+      "opponent": "Circler",
+      "turns": 168,
+      "winner": "Circler",
+      "artifact_hash": "b06e546b0935288bec56eb6915de4661002badabc73216412a5757d167730f78",
+      "same_artifact": true,
+      "recording_file": "recording-open.json",
+      "recording_sha256": "4ca969c33c9bebf676e2b3bbec8dae0f3a6155049f1c20d5ba48309436db3c7b",
+      "decisions_file": "decisions-open.jsonl",
+      "error": null
+    },
+    {
+      "arena": "urban",
+      "status": "ok",
+      "opponent": "Circler",
+      "turns": 340,
+      "winner": "Candidate",
+      "artifact_hash": "b06e546b0935288bec56eb6915de4661002badabc73216412a5757d167730f78",
+      "same_artifact": true,
+      "recording_file": "recording-urban.json",
+      "recording_sha256": "adc912951d8b0e26ea30f13af7ac14e333291bb07321a2a008e1b12f0792983a",
+      "decisions_file": "decisions-urban.jsonl",
+      "error": null
+    }
+  ],
+  "toolchain": {
+    "robocode": "0.5.0",
+    "verus": "0.2026.11.02.8bf68ee",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "z3": "Z3 version 4.16.0 - 64 bit"
+  }
+}

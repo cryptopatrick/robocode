@@ -7,11 +7,12 @@ publish = false
 
 [dependencies]
 robocode = { path = "{{ROBOCODE_PATH}}" }
+robocheck-arena = { path = "{{ARENA_PATH}}" }
 vstd = { version = "=0.0.0-2026-11-01-0251", optional = true }
 sha2 = "0.10"
 
 [features]
-verus = ["robocode/verus", "dep:vstd"]
+verus = ["robocode/verus", "robocheck-arena/verus", "dep:vstd"]
 
 [[bin]]
 name = "{{BIN}}"

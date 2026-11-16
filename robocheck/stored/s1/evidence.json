@@ -1,0 +1,68 @@
+{
+  "format": "robocheck-evidence",
+  "version": 2,
+  "run_id": "1054484cff96-1794817580",
+  "created_at": "2026-11-16T08:26:20Z",
+  "candidate": {
+    "path": "candidate.rs",
+    "sha256": "3ade1baf452e8e87fd0f17f0ad0852dfa08c77d343ca150f191a2161f5d0cdfb"
+  },
+  "artifact_hash": "28f08ba71f9d475f7272c420858d8fb9e9e52ca9d80dff9353abab0167c4312a",
+  "spec_hash": "0e21291fd4e4ec044e7e3f17758d6606fd222318e9607fdd354748fb92ba26a6",
+  "validation": {
+    "ok": true,
+    "problems": []
+  },
+  "build": {
+    "status": "ok",
+    "log_file": "build.log"
+  },
+  "verification": {
+    "properties": [
+      {
+        "id": "S1",
+        "name": "Never fire a shot you can't afford.",
+        "status": "proved",
+        "note": "",
+        "failed_at": null
+      }
+    ],
+    "log_files": [
+      "verus-1.log"
+    ]
+  },
+  "battles": [
+    {
+      "arena": "open",
+      "status": "ok",
+      "opponent": "Circler",
+      "turns": 420,
+      "winner": "Candidate",
+      "artifact_hash": "28f08ba71f9d475f7272c420858d8fb9e9e52ca9d80dff9353abab0167c4312a",
+      "same_artifact": true,
+      "recording_file": "recording-open.json",
+      "recording_sha256": "6e8b1cfb58cbade1b12f822386fc06034f1db23677b874717852885ed8316abe",
+      "decisions_file": "decisions-open.jsonl",
+      "error": null
+    },
+    {
+      "arena": "urban",
+      "status": "ok",
+      "opponent": "Circler",
+      "turns": 340,
+      "winner": "Candidate",
+      "artifact_hash": "28f08ba71f9d475f7272c420858d8fb9e9e52ca9d80dff9353abab0167c4312a",
+      "same_artifact": true,
+      "recording_file": "recording-urban.json",
+      "recording_sha256": "df5121a5a5b1dc99d228c8393a0ac4411fdde2296769ccd79123df6bb664fff7",
+      "decisions_file": "decisions-urban.jsonl",
+      "error": null
+    }
+  ],
+  "toolchain": {
+    "robocode": "0.5.0",
+    "verus": "0.2026.11.02.8bf68ee",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "z3": "Z3 version 4.16.0 - 64 bit"
+  }
+}

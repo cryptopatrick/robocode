@@ -1,7 +1,7 @@
 //! TRUSTED TEMPLATE (robocheck). The candidate supplies only the body of
 //! `decide` and helper functions below the marked line; the reference spec on
-//! `decide` is human-written and may not be changed by the candidate.
-//! Reference: SafeShooter's properties, src/robots/safe_shooter.rs.
+//! `decide` is written by robocheck (Phase 0's human-written reference, or
+//! rendered from AI-formalised rules) and may not be changed by the candidate.
 #![allow(
     clippy::manual_range_contains,
     clippy::manual_clamp,
@@ -14,9 +14,12 @@
 #[cfg(feature = "verus")]
 use vstd::prelude::*;
 
+use robocheck_arena::{OBSTACLE_MARGIN, Surroundings};
 use robocode::robots::safe_shooter::{AIM_TOLERANCE, MAX_GUN_TURN, MAX_RADAR_TURN, WALL_MARGIN};
 use robocode::strategy::{Action, Observation};
 use robocode::units::{Angle, Power, angle_diff};
+#[cfg(verus_only)]
+use robocheck_arena::surroundings_ok;
 #[cfg(verus_only)]
 use robocode::robots::safe_shooter::{aimed, heading_into_near_wall, ready, reverse_heading};
 #[cfg(verus_only)]
@@ -24,34 +27,17 @@ use robocode::strategy::well_formed;
 #[cfg(verus_only)]
 use robocode::units::{MAX_POWER, MIN_POWER, spec_angle_diff};
 
-/// The candidate's decision for one turn, checked against the reference spec.
+/// The candidate's decision for one turn, checked against the spec. `around`
+/// is what robocode 0.5.0's `Observation` lacks: the free distance to walls
+/// and buildings ahead and behind (robocheck-arena).
 #[cfg_attr(feature = "verus", verus_verify)]
 #[cfg_attr(feature = "verus", verus_spec(r =>
-    requires well_formed(*obs),
+    requires well_formed(*obs), surroundings_ok(*around),
     ensures
-        r.fire matches Some(p) ==> MIN_POWER.0 <= p.0 <= MAX_POWER.0, // SAFE-001
-        r.fire matches Some(p) ==> obs.energy.0 > p.0, // SAFE-002
-        r.fire is Some ==> obs.gun_heat.0 == 0, // SAFE-003
-        r.fire is Some ==> (obs.target matches Some(t) && t.age == 0), // SAFE-004
-        r.fire is Some ==> aimed(*obs), // SAFE-005
-        r.ahead matches Some(a) ==> (a > 0 ==> !heading_into_near_wall(*obs, obs.heading.0 as int)), // SAFE-006
-        r.ahead matches Some(a) ==> (a < 0 ==> !heading_into_near_wall(*obs, reverse_heading(obs.heading.0 as int))), // SAFE-006
-        r.fire is Some <==> ready(*obs), // SAFE-007
+{{CLAUSES}}
 ))]
-pub fn decide(obs: &Observation) -> Action {
+pub fn decide(obs: &Observation, around: &Surroundings) -> Action {
 {{BODY}}
-}
-
-/// The candidate as a robot for the battle runner.
-pub struct Candidate;
-
-impl robocode::strategy::Strategy for Candidate {
-    fn name(&self) -> &str {
-        "Candidate"
-    }
-    fn decide(&mut self, obs: &Observation) -> Action {
-        decide(obs)
-    }
 }
 
 // ---- candidate helpers below (untrusted) ----

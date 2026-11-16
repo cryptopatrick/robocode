@@ -55,7 +55,11 @@ mod tests {
         let dir = temp_dir(&format!("{fixture}-{tag}"));
         materialize(
             &dir,
-            &assemble(&parse(&src).unwrap()).strategy_rs,
+            &assemble(
+                &parse(&src).unwrap(),
+                &crate::template::reference_spec(),
+            )
+            .strategy_rs,
             &repo_root(),
         )
         .unwrap();

@@ -1,0 +1,17 @@
+{
+  "created_at": "2026-11-16T08:27:26Z",
+  "model": "claude-sonnet-5-5",
+  "robocode": "0.5.0",
+  "verus": "0.2026.11.02.8bf68ee",
+  "cost_usd": 0.2781,
+  "runs": {
+    "s1-s2-s3": "s1-s2-s3/run.json",
+    "s1-s2": "s1-s2/run.json",
+    "s1-s3": "s1-s3/run.json",
+    "s2-s3": "s2-s3/run.json",
+    "s1": "s1/run.json",
+    "s2": "s2/run.json",
+    "s3": "s3/run.json",
+    "none": "none/run.json"
+  }
+}

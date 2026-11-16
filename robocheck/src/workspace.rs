@@ -46,8 +46,10 @@ pub fn materialize(
     std::fs::create_dir_all(dir.join("src/bin"))?;
     let (krate, bin) = crate_and_bin(strategy_rs);
     let path = repo_root.display().to_string();
+    let arena = repo_root.join("robocheck/arena").display().to_string();
     let manifest = MANIFEST_IN
         .replace("{{ROBOCODE_PATH}}", &path)
+        .replace("{{ARENA_PATH}}", &arena)
         .replace("{{CRATE}}", &krate)
         .replace("{{BIN}}", &bin);
     std::fs::write(dir.join("Cargo.toml"), manifest)?;

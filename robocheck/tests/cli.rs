@@ -49,7 +49,7 @@ fn cheat_is_refused_before_anything_runs() {
     );
     assert_eq!(statuses(&ev), vec!["not_checked"; 7]);
     assert_eq!(ev["build"]["status"], "skipped");
-    assert_eq!(ev["battle"]["status"], "skipped");
+    assert_eq!(ev["battles"][0]["status"], "skipped");
     assert!(!out.join("build.log").exists());
 }
 
@@ -66,7 +66,7 @@ fn type_error_is_build_failed_and_battle_skipped() {
             .contains("mismatched types")
     );
     assert_eq!(statuses(&ev), vec!["build_failed"; 7]);
-    assert_eq!(ev["battle"]["status"], "skipped");
+    assert_eq!(ev["battles"][0]["status"], "skipped");
     assert_eq!(ev["format"], "robocheck-evidence");
     assert_eq!(ev["spec_hash"].as_str().unwrap().len(), 64);
 }
@@ -76,4 +76,47 @@ fn missing_candidate_is_a_tool_error() {
     let (code, ev, _) = run(&["run", "/no/such/file.rs"], "missing");
     assert_eq!(code, 2);
     assert!(ev.is_none());
+}
+
+#[test]
+fn evidence_v2_lists_two_battles() {
+    // A compiling candidate with no Verus available: verification is not_checked, both battles run.
+    let fake_verus = std::env::temp_dir()
+        .join(format!("robocheck-no-verus-{}", std::process::id()));
+    std::fs::create_dir_all(&fake_verus).unwrap();
+    let out = std::env::temp_dir()
+        .join(format!("robocheck-cli-v2-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out);
+    let status = Command::new(env!("CARGO_BIN_EXE_robocheck"))
+        .args([
+            "run",
+            fixture("safe_shooter").to_str().unwrap(),
+            "--turns",
+            "300",
+            "--out",
+        ])
+        .arg(&out)
+        .env("ROBOCHECK_VERUS_DIR", &fake_verus)
+        .status()
+        .unwrap();
+    assert_eq!(status.code(), Some(0));
+    let ev: Value = serde_json::from_str(
+        &std::fs::read_to_string(out.join("evidence.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(ev["version"], 2);
+    let battles = ev["battles"].as_array().unwrap();
+    assert_eq!(
+        battles
+            .iter()
+            .map(|b| b["arena"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        ["open", "urban"]
+    );
+    for b in battles {
+        assert_eq!(b["status"], "ok");
+        assert_eq!(b["same_artifact"], true);
+        assert!(out.join(b["recording_file"].as_str().unwrap()).exists());
+        assert!(out.join(b["decisions_file"].as_str().unwrap()).exists());
+    }
 }

@@ -22,3 +22,25 @@ fn lock_template_pins_the_current_robocode_version() {
         "robocheck/template/Cargo.lock.template must pin robocode {version}"
     );
 }
+
+#[test]
+fn lock_template_pins_the_current_robocheck_arena_version() {
+    let manifest = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/arena/Cargo.toml"
+    ))
+    .unwrap();
+    let version = manifest
+        .lines()
+        .find_map(|l| {
+            l.strip_prefix("version = \"").and_then(|v| v.strip_suffix('"'))
+        })
+        .expect("robocheck/arena/Cargo.toml has a version");
+    let template = include_str!("../template/Cargo.lock.template");
+    let pinned =
+        format!("name = \"robocheck-arena\"\nversion = \"{version}\"");
+    assert!(
+        template.contains(&pinned),
+        "the lock template must pin robocheck-arena {version}"
+    );
+}

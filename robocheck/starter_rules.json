@@ -1,0 +1,30 @@
+{
+  "rules": [
+    {
+      "id": "S1",
+      "text": "Never fire a shot you can't afford.",
+      "reference": [
+        { "when": "fires", "require": { "all": [
+          { "cmp": { "left": { "shot_power": true }, "op": ">=", "right": { "num": 100 } } },
+          { "cmp": { "left": { "shot_power": true }, "op": "<=", "right": { "num": 3000 } } },
+          { "cmp": { "left": { "obs": "energy" }, "op": ">", "right": { "shot_power": true } } }
+        ] } }
+      ]
+    },
+    {
+      "id": "S2",
+      "text": "Only fire at a robot you saw this turn, with the gun aimed at it.",
+      "reference": [
+        { "when": "fires", "require": { "all": [ { "pred": "target_seen_now" }, { "pred": "aimed" } ] } }
+      ]
+    },
+    {
+      "id": "S3",
+      "text": "Never drive toward a wall or building closer than 80 px.",
+      "reference": [
+        { "when": "drives_forward", "require": { "cmp": { "left": { "obs": "clearance_ahead" }, "op": ">=", "right": { "num": 80 } } } },
+        { "when": "drives_backward", "require": { "cmp": { "left": { "obs": "clearance_behind" }, "op": ">=", "right": { "num": 80 } } } }
+      ]
+    }
+  ]
+}

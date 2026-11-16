@@ -1,5 +1,7 @@
 //! The candidate file: helper functions and the body of `decide`, as an AI
-//! would generate them. The spec'd signature of `decide` is never part of it.
+//! would generate them. The spec'd signature of `decide` is never part of it:
+//! the template supplies `pub fn decide(obs: &Observation, around: &Surroundings) -> Action`,
+//! so the body sees `obs` and `around` (robocheck-arena's free distances to walls and buildings).
 
 /// A parsed candidate: the helper functions and the body of `decide`.
 #[derive(Debug, Clone, PartialEq)]
@@ -24,9 +26,7 @@ pub fn parse(src: &str) -> Result<Candidate, Vec<String>> {
     let start = match h {
         Some(h) if h < b => h + 1,
         Some(_) => {
-            return Err(vec![format!(
-                "`{HELPERS}` must come before `{BODY}`"
-            )]);
+            return Err(vec![format!("`{HELPERS}` must come before `{BODY}`")]);
         }
         None => 0,
     };
@@ -54,7 +54,7 @@ use proc_macro2::{Delimiter, TokenStream, TokenTree};
 /// line breaks can't hide them): ways to skip or weaken verification, to make
 /// the verified and the battled builds differ (`cfg`), or to reach outside the
 /// strategy.
-const FORBIDDEN_IDENTS: [&str; 33] = [
+pub const FORBIDDEN_IDENTS: [&str; 33] = [
     "cfg",
     "cfg_attr",
     "verifier",

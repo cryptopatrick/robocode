@@ -4,17 +4,18 @@
 use std::time::Duration;
 
 use robocheck::candidate::parse;
-use robocheck::template::assemble;
+use robocheck::template::{assemble, reference_spec};
 use robocheck::verify::{CargoVerus, PropertyStatus, verify_properties};
 use robocheck::workspace::{materialize, repo_root, verus_target_dir};
 
 /// Verifies a fixture with real Verus; returns (property id, status) pairs.
-fn verify_fixture(name: &str) -> Vec<(&'static str, PropertyStatus)> {
+fn verify_fixture(name: &str) -> Vec<(String, PropertyStatus)> {
     let src = std::fs::read_to_string(
         repo_root().join(format!("robocheck/fixtures/{name}.rs")),
     )
     .unwrap();
-    let a = assemble(&parse(&src).unwrap());
+    let spec = reference_spec();
+    let a = assemble(&parse(&src).unwrap(), &spec);
     let dir = std::env::temp_dir()
         .join(format!("robocheck-e2e-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -25,14 +26,14 @@ fn verify_fixture(name: &str) -> Vec<(&'static str, PropertyStatus)> {
         verus_dir: CargoVerus::default_verus_dir(),
         timeout: Duration::from_secs(300),
     };
-    let (r, logs) = verify_properties(&a, &mut v, 8);
+    let (r, logs) = verify_properties(&a, &spec, &mut v, 8);
     assert!(!logs.is_empty());
-    r.iter().map(|p| (p.id, p.status)).collect()
+    r.iter().map(|p| (p.id.clone(), p.status)).collect()
 }
 
 fn expect(name: &str, rejected: &[&str]) {
     for (id, s) in verify_fixture(name) {
-        let want = if rejected.contains(&id) {
+        let want = if rejected.contains(&id.as_str()) {
             PropertyStatus::Rejected
         } else {
             PropertyStatus::Proved
@@ -90,9 +91,11 @@ fn cli_safe_shooter_proves_everything_and_battles_the_same_artifact() {
     for p in ev["verification"]["properties"].as_array().unwrap() {
         assert_eq!(p["status"], "proved", "{p}");
     }
-    assert_eq!(ev["battle"]["status"], "ok");
-    assert_eq!(ev["battle"]["same_artifact"], true);
-    assert_eq!(ev["battle"]["artifact_hash"], ev["artifact_hash"]);
+    for b in ev["battles"].as_array().unwrap() {
+        assert_eq!(b["status"], "ok", "{b}");
+        assert_eq!(b["same_artifact"], true, "{b}");
+        assert_eq!(b["artifact_hash"], ev["artifact_hash"], "{b}");
+    }
     assert!(ev["toolchain"]["verus"].as_str().unwrap().contains("0.2026"));
 }
 
@@ -108,8 +111,10 @@ fn cli_rejected_candidate_still_battles() {
         .map(|p| p["id"].as_str().unwrap())
         .collect();
     assert_eq!(rejected, vec!["SAFE-002", "SAFE-007"]);
-    assert_eq!(ev["battle"]["status"], "ok");
-    assert_eq!(ev["battle"]["same_artifact"], true);
+    for b in ev["battles"].as_array().unwrap() {
+        assert_eq!(b["status"], "ok", "{b}");
+        assert_eq!(b["same_artifact"], true, "{b}");
+    }
 }
 
 /// Review finding 3: a candidate that hangs is recorded as a timed-out
@@ -137,7 +142,13 @@ fn cli_hanging_candidate_times_out() {
         &std::fs::read_to_string(out.join("evidence.json")).unwrap(),
     )
     .unwrap();
-    assert_eq!(ev["battle"]["status"], "timed_out");
+    assert!(
+        ev["battles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|b| b["status"] == "timed_out")
+    );
     for p in ev["verification"]["properties"].as_array().unwrap() {
         assert_ne!(p["status"], "proved", "{p}");
     }
