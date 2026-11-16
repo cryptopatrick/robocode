@@ -26,6 +26,8 @@ jobs:
       # The same tests with debug assertions off, as a release build runs them.
       - name: Tests (release profile, no debug assertions)
         run: cargo test --workspace --exclude roboverus-exercises --exclude roboverus-solutions --exclude cargo-robocode --profile testrelease
+      - name: Benchmarks still run (short form)
+        run: cargo bench -p robocode -- --test
       - name: Clippy
         run: cargo clippy --workspace --exclude cargo-robocode --all-targets -- -D warnings
       # The workspace run turns on robocode's `verus` feature (the exercise
@@ -104,6 +106,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Package the published crate
         run: cargo package -p robocode
+
+  msrv:
+    name: Minimum Rust version (1.85)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.85"
+      - name: Build and test robocode
+        run: cargo test -p robocode
 
   guide:
     name: Guide
