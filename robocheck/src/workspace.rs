@@ -39,7 +39,12 @@ pub fn materialize(dir: &Path, strategy_rs: &str, repo_root: &Path) -> std::io::
     std::fs::create_dir_all(dir.join("src/bin"))?;
     let (krate, bin) = crate_and_bin(strategy_rs);
     let path = repo_root.display().to_string();
-    let manifest = MANIFEST_IN.replace("{{ROBOCODE_PATH}}", &path).replace("{{CRATE}}", &krate).replace("{{BIN}}", &bin);
+    let arena = repo_root.join("robocheck/arena").display().to_string();
+    let manifest = MANIFEST_IN
+        .replace("{{ROBOCODE_PATH}}", &path)
+        .replace("{{ARENA_PATH}}", &arena)
+        .replace("{{CRATE}}", &krate)
+        .replace("{{BIN}}", &bin);
     std::fs::write(dir.join("Cargo.toml"), manifest)?;
     let lock = LOCKFILE.replace("name = \"robocheck-candidate\"", &format!("name = \"{krate}\""));
     std::fs::write(dir.join("Cargo.lock"), lock)?;

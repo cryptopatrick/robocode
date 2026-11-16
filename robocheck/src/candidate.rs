@@ -1,5 +1,7 @@
 //! The candidate file: helper functions and the body of `decide`, as an AI
-//! would generate them. The spec'd signature of `decide` is never part of it.
+//! would generate them. The spec'd signature of `decide` is never part of it:
+//! the template supplies `pub fn decide(obs: &Observation, around: &Surroundings) -> Action`,
+//! so the body sees `obs` and `around` (robocheck-arena's free distances to walls and buildings).
 
 /// A parsed candidate: the helper functions and the body of `decide`.
 #[derive(Debug, Clone, PartialEq)]

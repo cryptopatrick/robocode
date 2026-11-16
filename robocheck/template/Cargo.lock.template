@@ -109,9 +109,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "robocheck-arena"
+version = "0.1.0"
+dependencies = [
+ "robocode",
+ "vstd",
+]
+
+[[package]]
 name = "robocheck-candidate"
 version = "0.1.0"
 dependencies = [
+ "robocheck-arena",
  "robocode",
  "sha2",
  "vstd",

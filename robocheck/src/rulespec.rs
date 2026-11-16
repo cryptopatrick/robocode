@@ -267,8 +267,8 @@ fn obs_verus(f: ObsField) -> &'static str {
         ObsField::Y => "(obs.y as int)",
         ObsField::FieldWidth => "(obs.field_width as int)",
         ObsField::FieldHeight => "(obs.field_height as int)",
-        ObsField::ClearanceAhead => "(env.clearance_ahead as int)",
-        ObsField::ClearanceBehind => "(env.clearance_behind as int)",
+        ObsField::ClearanceAhead => "(around.clearance_ahead as int)",
+        ObsField::ClearanceBehind => "(around.clearance_behind as int)",
     }
 }
 
@@ -332,7 +332,7 @@ fn cond_verus(c: &Cond) -> String {
 }
 
 /// The clause as one Verus `ensures` line (no newline, no trailing comma),
-/// over `obs: &Observation`, `env: &Surroundings` and the result `r`.
+/// over `obs: &Observation`, `around: &Surroundings` and the result `r`.
 pub fn render_verus(c: &Clause) -> String {
     let body = cond_verus(&c.require);
     match c.when {
@@ -518,7 +518,7 @@ mod tests {
         );
         assert_eq!(
             render_verus(&reference_clauses("S3")[0]),
-            "r.ahead matches Some(a) ==> (a > 0 ==> ((env.clearance_ahead as int) >= 80))"
+            "r.ahead matches Some(a) ==> (a > 0 ==> ((around.clearance_ahead as int) >= 80))"
         );
         assert_eq!(
             render_verus(&reference_clauses("S2")[0]),

@@ -4,14 +4,15 @@
 use std::time::Duration;
 
 use robocheck::candidate::parse;
-use robocheck::template::assemble;
+use robocheck::template::{assemble, reference_spec};
 use robocheck::verify::{CargoVerus, PropertyStatus, verify_properties};
 use robocheck::workspace::{materialize, repo_root, verus_target_dir};
 
 /// Verifies a fixture with real Verus; returns (property id, status) pairs.
-fn verify_fixture(name: &str) -> Vec<(&'static str, PropertyStatus)> {
+fn verify_fixture(name: &str) -> Vec<(String, PropertyStatus)> {
     let src = std::fs::read_to_string(repo_root().join(format!("robocheck/fixtures/{name}.rs"))).unwrap();
-    let a = assemble(&parse(&src).unwrap());
+    let spec = reference_spec();
+    let a = assemble(&parse(&src).unwrap(), &spec);
     let dir = std::env::temp_dir().join(format!("robocheck-e2e-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     materialize(&dir, &a.strategy_rs, &repo_root()).unwrap();
@@ -21,14 +22,14 @@ fn verify_fixture(name: &str) -> Vec<(&'static str, PropertyStatus)> {
         verus_dir: CargoVerus::default_verus_dir(),
         timeout: Duration::from_secs(300),
     };
-    let (r, logs) = verify_properties(&a, &mut v, 8);
+    let (r, logs) = verify_properties(&a, &spec, &mut v, 8);
     assert!(!logs.is_empty());
-    r.iter().map(|p| (p.id, p.status)).collect()
+    r.iter().map(|p| (p.id.clone(), p.status)).collect()
 }
 
 fn expect(name: &str, rejected: &[&str]) {
     for (id, s) in verify_fixture(name) {
-        let want = if rejected.contains(&id) { PropertyStatus::Rejected } else { PropertyStatus::Proved };
+        let want = if rejected.contains(&id.as_str()) { PropertyStatus::Rejected } else { PropertyStatus::Proved };
         assert_eq!(s, want, "{name}: {id}");
     }
 }

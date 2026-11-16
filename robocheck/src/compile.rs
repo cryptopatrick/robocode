@@ -39,7 +39,7 @@ mod tests {
     fn materialized(fixture: &str, tag: &str) -> std::path::PathBuf {
         let src = std::fs::read_to_string(repo_root().join(format!("robocheck/fixtures/{fixture}.rs"))).unwrap();
         let dir = temp_dir(&format!("{fixture}-{tag}"));
-        materialize(&dir, &assemble(&parse(&src).unwrap()).strategy_rs, &repo_root()).unwrap();
+        materialize(&dir, &assemble(&parse(&src).unwrap(), &crate::template::reference_spec()).strategy_rs, &repo_root()).unwrap();
         dir
     }
 

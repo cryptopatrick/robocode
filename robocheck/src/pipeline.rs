@@ -7,7 +7,7 @@ use crate::battle::{BattleError, check_same_artifact, run_battle};
 use crate::candidate::{parse, validate};
 use crate::compile::{BuildOutcome, build};
 use crate::evidence::{BattleInfo, Build, CandidateInfo, Evidence, Validation, Verification, rfc3339, toolchain};
-use crate::template::{PROPERTIES, assemble, sha256_hex, spec_hash};
+use crate::template::{Spec, assemble, reference_spec, sha256_hex, spec_hash};
 use crate::verify::{CargoVerus, PropertyResult, PropertyStatus, verify_properties};
 use crate::workspace::{materialize, plain_target_dir, repo_root, verus_target_dir};
 
@@ -26,10 +26,10 @@ pub struct Options {
     pub battle_timeout: Duration,
 }
 
-fn all(status: PropertyStatus, note: &str) -> Vec<PropertyResult> {
-    PROPERTIES
+fn all(spec: &Spec, status: PropertyStatus, note: &str) -> Vec<PropertyResult> {
+    spec.rules
         .iter()
-        .map(|p| PropertyResult { id: p.id, name: p.name, status, note: note.to_string() })
+        .map(|(id, name)| PropertyResult { id: id.clone(), name: name.clone(), status, note: note.to_string(), failed_at: None })
         .collect()
 }
 
@@ -62,7 +62,8 @@ pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
         Ok(c) => validate(c).err().unwrap_or_default(),
         Err(p) => p.clone(),
     };
-    let assembled = parsed.ok().filter(|_| problems.is_empty()).map(|c| assemble(&c));
+    let spec = reference_spec();
+    let assembled = parsed.ok().filter(|_| problems.is_empty()).map(|c| assemble(&c, &spec));
     let artifact_hash = assembled.as_ref().map(|a| sha256_hex(a.strategy_rs.as_bytes()));
     let tag = artifact_hash.as_deref().map_or_else(|| sha256_hex(source.as_bytes()), str::to_string);
     let run_id = format!("{}-{now}", &tag[..12]);
@@ -76,11 +77,11 @@ pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
         created_at: rfc3339(now),
         candidate: CandidateInfo { path: o.candidate.display().to_string(), sha256: sha256_hex(source.as_bytes()) },
         artifact_hash: artifact_hash.clone(),
-        spec_hash: spec_hash(),
+        spec_hash: spec_hash(&spec),
         validation: Validation { ok: problems.is_empty(), problems },
         build: Build { status: "skipped", log_file: None },
         verification: Verification {
-            properties: all(PropertyStatus::NotChecked, "the candidate was refused before verification"),
+            properties: all(&spec, PropertyStatus::NotChecked, "the candidate was refused before verification"),
             log_files: Vec::new(),
         },
         battle: skipped_battle(&o.opponent),
@@ -100,7 +101,7 @@ pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
             BuildOutcome::Failed { log } => {
                 write(&out.join("build.log"), &log)?;
                 ev.build = Build { status: "failed", log_file: Some("build.log".into()) };
-                ev.verification.properties = all(PropertyStatus::BuildFailed, "the candidate does not compile");
+                ev.verification.properties = all(&spec, PropertyStatus::BuildFailed, "the candidate does not compile");
             }
             BuildOutcome::Ok => {
                 write(&out.join("build.log"), "ok\n")?;
@@ -111,7 +112,7 @@ pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
                     verus_dir: o.verus_dir.clone(),
                     timeout: o.timeout,
                 };
-                let (props, logs) = verify_properties(a, &mut verus, 8);
+                let (props, logs) = verify_properties(a, &spec, &mut verus, 8);
                 ev.verification.properties = props;
                 for (i, log) in logs.iter().enumerate() {
                     let name = format!("verus-{}.log", i + 1);

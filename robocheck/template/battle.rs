@@ -6,12 +6,14 @@
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
+use robocheck_arena::ArenaRobot;
 use robocode::Battlefield;
 use robocode::physics::BattleConfig;
-use robocode::runner::{Battle, boxed};
+use robocode::runner::Battle;
+use robocode::terrain::Terrain;
 use robocode::{recording, roster};
 use sha2::{Digest, Sha256};
-use {{LIB}}::strategy::Candidate;
+use {{LIB}}::strategy::decide;
 
 /// The exact source this binary was compiled from.
 const STRATEGY_SRC: &str = include_str!("../strategy.rs");
@@ -31,7 +33,8 @@ fn main() {
     };
     let (w, h) = (800.0, 600.0);
     let config = BattleConfig { battlefield: Battlefield::new(w, h), ..BattleConfig::default() };
-    let battle = Battle::new(config, &roster::spawns(2, w, h), vec![boxed(Candidate), enemy]);
+    let candidate = ArenaRobot::new("Candidate", decide, Terrain::default(), w, h);
+    let battle = Battle::new(config, &roster::spawns(2, w, h), vec![Box::new(candidate), enemy]);
     let rec = recording::record_with_summary(battle, turns);
     if let Err(e) = std::fs::write(&out, &rec.json) {
         eprintln!("cannot write {out}: {e}");

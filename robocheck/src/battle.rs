@@ -120,7 +120,7 @@ pub fn check_same_artifact(verified: &str, battled: &str) -> Result<(), String> 
 mod tests {
     use super::*;
     use crate::candidate::parse;
-    use crate::template::{assemble, sha256_hex};
+    use crate::template::{assemble, reference_spec, sha256_hex};
     use crate::workspace::{materialize, plain_target_dir, repo_root, tests::{shared_target, temp_dir}};
 
     const LIMIT: std::time::Duration = std::time::Duration::from_secs(120);
@@ -131,7 +131,7 @@ mod tests {
 
     fn ready_fixture(name: &str, fixture: &str) -> (std::path::PathBuf, String) {
         let src = std::fs::read_to_string(repo_root().join(format!("robocheck/fixtures/{fixture}.rs"))).unwrap();
-        let a = assemble(&parse(&src).unwrap());
+        let a = assemble(&parse(&src).unwrap(), &reference_spec());
         let dir = temp_dir(name);
         materialize(&dir, &a.strategy_rs, &repo_root()).unwrap();
         (dir, a.strategy_rs)
