@@ -2,6 +2,7 @@
 name = "robocode"
 version = "0.5.0"
 edition = "2024"
+rust-version = "1.85"
 authors = ["CryptoPatrick <cryptopatrick@gmail.com>"]
 
 ###############################################################################
@@ -41,3 +42,13 @@ members = [".", "exercises", "solutions", "wasm", "cli", "mutants", "robocheck"]
 [profile.testrelease]
 inherits = "test"
 debug-assertions = false
+
+[[bench]]
+name = "battle"
+harness = false
+
+[dev-dependencies]
+# Property tests (tests/properties.rs). Pinned; released 2026-02, MSRV 1.85.
+quickcheck = { version = "=1.1.0", default-features = false }
+# Snapshot tests (tests/snapshots.rs). Pinned; released 2026-10, MSRV 1.66.
+insta = "=1.49.0"

@@ -114,10 +114,13 @@ pub fn serve_live(
         for line in std::io::BufReader::new(stdout).lines() {
             let Ok(line) = line else { break };
             let mut s = reader_state.lock().unwrap();
-            if line.contains(r#""done":true"#)
-                && line.len() < 20
-                && let Ok(json) = std::fs::read_to_string(&recording_path)
-            {
+            let finished = line.contains(r#""done":true"#) && line.len() < 20;
+            let recording = if finished {
+                std::fs::read_to_string(&recording_path).ok()
+            } else {
+                None
+            };
+            if let Some(json) = recording {
                 if let Some(out) = &output {
                     match std::fs::write(out, &json) {
                         Ok(()) => eprintln!(

@@ -63,10 +63,10 @@ fn run_generation(
 
 fn create_output_file(path: &str) -> io::Result<File> {
     let path_obj = Path::new(path);
-    if let Some(parent) = path_obj.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        fs::create_dir_all(parent)?;
+    if let Some(parent) = path_obj.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)?;
+        }
     }
     File::create(path_obj)
 }

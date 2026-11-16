@@ -755,17 +755,16 @@ impl Battle {
                 .iter()
                 .rev()
                 .find(|c| c.at_fault && c.other_robot_id == dead);
-            if let Some(hit) = fatal_hit
-                && let Some(s) = index(hit.shooter)
-            {
-                self.round_scores[s].bullet_kill_bonus +=
-                    0.2 * self.damage_to[s][d];
-            } else if fatal_hit.is_none()
-                && let Some(c) = fatal_ram
-                && let Some(a) = index(c.robot_id)
-            {
-                self.round_scores[a].ram_kill_bonus +=
-                    0.3 * self.damage_to[a][d];
+            if let Some(hit) = fatal_hit {
+                if let Some(s) = index(hit.shooter) {
+                    self.round_scores[s].bullet_kill_bonus +=
+                        0.2 * self.damage_to[s][d];
+                }
+            } else if let Some(c) = fatal_ram {
+                if let Some(a) = index(c.robot_id) {
+                    self.round_scores[a].ram_kill_bonus +=
+                        0.3 * self.damage_to[a][d];
+                }
             }
             for (i, r) in self.state.robots.iter().enumerate() {
                 if r.alive {
