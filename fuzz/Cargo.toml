@@ -1,0 +1,23 @@
+[package]
+name = "robocode-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+# Not part of the main workspace: it needs nightly to run, so it has its own.
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+# Pinned; released 2026-06, no MSRV requirement.
+libfuzzer-sys = "=0.4.13"
+robocheck = { path = "../robocheck" }
+
+[[bin]]
+name = "candidate_parse"
+path = "fuzz_targets/candidate_parse.rs"
+test = false
+doc = false
+bench = false
