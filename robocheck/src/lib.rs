@@ -12,3 +12,4 @@ pub mod evidence;
 pub mod pipeline;
 pub mod rulespec;
 pub mod violations;
+pub mod llm;
