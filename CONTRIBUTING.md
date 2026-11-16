@@ -1,80 +1,31 @@
-# Contributing to robocode
-First off, thank you for considering contributing to robocode. 
-It's people like you that make robocode great!
+# Contributing
 
+## Use of AI
 
-## Getting Started
+All use of AI in contributions must follow the
+[AI Policy](https://github.com/cryptopatrick/robocode/blob/master/AI_POLICY.md).
 
-### 1. Fork the Project
-Start by forking the repository and then clone your fork.
+Contributions not following the AI Policy will be closed.
 
-```bash
-git clone https://github.com/cryptopatrick/robocode.git
-cd robocode
-```
+## Commit messages
 
-### 2. Install Rust
-If you haven't already, install Rust by following the instructions [here](https://www.rust-lang.org/tools/install).
+Use [Conventional Commits](https://www.conventionalcommits.org/): a type such
+as `feat:`, `fix:`, `docs:`, `test:`, `ci:`, `refactor:`, `perf:` or `style:`,
+then a short description. The release notes are generated from these messages
+(see `cliff.toml`), so a clear first line is what ends up in the changelog.
 
-### 3a. Install tools
-If you haven't already, install Just by following the instrutions [here](https://github.com/casey/just).
+## Releasing
 
-Install tools by running `install-required`, `install-recommended` or `install-all'
+Needs [git-cliff](https://git-cliff.org): `cargo install git-cliff --locked`.
 
-```bash
-just install-all
-```
-
-### 3b. Running and Testing
-
-To run robocode, piping the output into [bunyan](https://github.com/LukeMathWalker/bunyan) to format outputted the structured logs:
-
-```bash
-cargo run | bunyan
-```
-
-To run the tests:
-
-```bash
-cargo test
-```
-
-### 4. Create a Branch
-Create a branch for your new feature or bug fix:
-
-```bash
-git checkout -b YOUR_USERNAME/your-new-feature
-```
-
-## Coding Guidelines
-Please adhere to the following guidelines:
-
-- Follow the [Rust Coding Guidelines](https://rust-lang.github.io/api-guidelines/about.html).
-- Write tests for new features.
-- Keep commits small and focused.
-- Update the documentation as needed.
-
-## Submitting a Pull Request
-1. Push your changes to your fork:
-
-```bash
-git push origin YOUR_USERNAME/your-new-feature
-```
-
-2. [Submit a pull request](https://github.com/cryptopatrick/robocode/pulls) to the original repository.
-
-3. Please include a clear and descriptive title and a detailed explanation of your changes in the pull request description.
-
-4. Link any relevant issues in your pull request description.
-
-## Reporting Issues
-Please use the [issue tracker](https://github.com/cryptopatrick/robocode/issues) to report any bugs or request new features.
-
-## Licensing
-By contributing, you agree that your contributions will be licensed under the same license as the original project, EPL-1.0.
-
-## Questions?
-Feel free to reach out to the maintainers or open an issue. 
-Always happy to help!
-
-Thank you for contributing to robocode!
+1. Bump `version` in `Cargo.toml`, and the version in `README.md`.
+2. `scripts/changelog vX.Y.Z` adds the new section to `CHANGELOG.md`, generated
+   from the commits since the last tag. Review it and edit where a message
+   needs more words. Mark a breaking change with `!` after its type (for
+   example `feat!:`), so the notes say *Breaking*.
+3. Commit the bump and the changelog, and push.
+4. `cargo publish -p robocode --dry-run`, then `cargo publish -p robocode`.
+5. Tag and push: `git tag -a vX.Y.Z -m "robocode X.Y.Z: <summary>"`, then
+   `git push origin vX.Y.Z`.
+6. Release page: `git cliff --latest --strip header > notes.md`, then
+   `gh release create vX.Y.Z --verify-tag --title "robocode X.Y.Z: <summary>" --notes-file notes.md`.
