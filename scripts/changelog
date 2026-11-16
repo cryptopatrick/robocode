@@ -1,0 +1,30 @@
+#!/bin/bash
+# Adds the notes for the next release to CHANGELOG.md, generated from the
+# commit messages since the last tag (git-cliff, configured in cliff.toml).
+# The new section goes under the title, above the older releases.
+#
+# Usage: scripts/changelog v0.6.0
+# Review the result, edit it if a message needs words, then commit.
+
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+    echo "usage: scripts/changelog <version, e.g. v0.6.0>" >&2
+    exit 2
+fi
+if ! command -v git-cliff >/dev/null; then
+    echo "git-cliff is needed: cargo install git-cliff --locked" >&2
+    exit 1
+fi
+
+# cd to the repository root, wherever this is run from.
+cd "$(dirname "$0")/.."
+
+section=$(mktemp)
+trap 'rm -f "$section"' EXIT
+git cliff --unreleased --tag "$1" > "$section"
+
+# Keep the title (first two lines), then the new section, then the rest.
+{ head -n 2 CHANGELOG.md; sed '/./,$!d' "$section"; echo; tail -n +3 CHANGELOG.md; } > CHANGELOG.md.new
+mv CHANGELOG.md.new CHANGELOG.md
+echo "Added $1 to CHANGELOG.md. Review it, then commit."
