@@ -85,6 +85,25 @@ struct Run {
 }
 
 fn run(tag: &str, rules: Value, replies: Vec<Result<String, LlmError>>, reject: &[&str]) -> Result<Run, String> {
+    run_with(tag, rules, replies, reject, Duration::from_secs(120), false)
+}
+
+/// Verus that cannot be run at all (e.g. not installed).
+struct NoVerus;
+impl Verifier for NoVerus {
+    fn run(&mut self, _: &str) -> Result<VerusRun, String> {
+        Err("cargo-verus not found".into())
+    }
+}
+
+fn run_with(
+    tag: &str,
+    rules: Value,
+    replies: Vec<Result<String, LlmError>>,
+    reject: &[&str],
+    battle_timeout: Duration,
+    no_verus: bool,
+) -> Result<Run, String> {
     let dir = std::env::temp_dir().join(format!("robocheck-rules-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
@@ -96,13 +115,19 @@ fn run(tag: &str, rules: Value, replies: Vec<Result<String, LlmError>>, reject: 
         opponent: "SittingDuck".into(),
         turns: 800,
         out: Some(out.clone()),
-        battle_timeout: Duration::from_secs(120),
+        battle_timeout,
         source: "live".into(),
     };
     let mut llm = ScriptedLlm::new(replies);
     let runs = Rc::new(Cell::new(0));
     let (reject, counter) = (reject.iter().map(|s| s.to_string()).collect::<Vec<_>>(), Rc::clone(&runs));
-    let mut make = move |_dir: &Path| -> Box<dyn Verifier> { Box::new(FakeVerus { reject: reject.clone(), runs: Rc::clone(&counter) }) };
+    let mut make = move |_dir: &Path| -> Box<dyn Verifier> {
+        if no_verus {
+            Box::new(NoVerus)
+        } else {
+            Box::new(FakeVerus { reject: reject.clone(), runs: Rc::clone(&counter) })
+        }
+    };
     let (written, _) = run_rules(&opts, &mut llm, &mut make)?;
     assert_eq!(written, out);
     let page: Value = serde_json::from_str(&std::fs::read_to_string(out.join("run.json")).unwrap()).unwrap();
@@ -314,7 +339,7 @@ fn formalise_failure_ends_run_without_verus() {
     for id in ["S1", "S2", "S3"] {
         assert_eq!(rule(&r.page, id)["status"], "not_checked");
     }
-    let r = run("refused", starters(), vec![Err(LlmError::Refused(Some("cyber".into())))], &[]).unwrap();
+    let r = run("refused", starters(), vec![Err(LlmError::Refused { category: Some("cyber".into()), cost_usd: 0.0 })], &[]).unwrap();
     assert_eq!(r.page["outcome"], "formalise_failed");
 }
 
@@ -359,4 +384,42 @@ fn real_verus_rejects_wall_blind_on_s3() {
     assert!(s3.failed_at.is_some_and(|f| f.code_line.is_some()), "{:?}", s3.failed_at);
     assert_eq!(s3.triggered, "yes");
     assert!(page.same_artifact);
+}
+
+/// Review finding 1: Verus that never ran must not make a run "proved".
+#[test]
+fn verus_unavailable_is_not_proved() {
+    let _g = serial();
+    let r = run_with(
+        "noverus",
+        starters(),
+        vec![Ok(formalise_all_starters()), Ok(read_backs(&["S1", "S2", "S3"])), Ok(fixture_reply("safe_shooter")), Ok(explanation(&[]))],
+        &[],
+        Duration::from_secs(120),
+        true,
+    )
+    .unwrap();
+    assert_eq!(r.page["outcome"], "not_checked");
+    for id in ["S1", "S2", "S3"] {
+        assert_eq!(rule(&r.page, id)["status"], "not_checked");
+    }
+}
+
+/// Review finding 2: with no battle fought, a rejected rule is not "never triggered".
+#[test]
+fn rejected_rule_without_a_battle_is_not_fought() {
+    let _g = serial();
+    let r = run_with(
+        "nobattle",
+        starters(),
+        vec![Ok(formalise_all_starters()), Ok(read_backs(&["S1", "S2", "S3"])), Ok(fixture_reply("hangs")), Ok(explanation(&["S1"]))],
+        &["S1"],
+        Duration::from_secs(2),
+        false,
+    )
+    .unwrap();
+    assert_eq!(r.page["battles"]["open"]["status"], "timed_out");
+    let s1 = rule(&r.page, "S1");
+    assert_eq!(s1["status"], "rejected");
+    assert_eq!(s1["triggered"], "not_fought");
 }

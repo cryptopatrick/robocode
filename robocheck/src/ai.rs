@@ -75,9 +75,12 @@ fn prompt(template: &str) -> String {
 
 fn ask(llm: &mut dyn Llm, system: String, user: String, schema: Value, cost: &mut AiCost) -> Result<Value, AiError> {
     let req = LlmRequest { system, user, schema: Some(schema), max_tokens: MAX_TOKENS };
-    let reply = llm.complete(&req).map_err(AiError::Llm);
+    let reply = llm.complete(&req);
     cost.calls += 1;
-    let reply = reply?;
+    if let Err(e) = &reply {
+        cost.usd += e.cost_usd();
+    }
+    let reply = reply.map_err(AiError::Llm)?;
     cost.usd += reply.cost_usd;
     serde_json::from_str(&reply.text).map_err(|e| AiError::BadJson(e.to_string()))
 }
@@ -333,8 +336,11 @@ mod tests {
     fn malformed_json_is_formalise_failed() {
         let mut llm = ScriptedLlm::new(vec![Ok("{\"rules\": [".into())]);
         assert!(matches!(formalise(&mut llm, &[rule("S1", "x")], &mut AiCost::default()), Err(AiError::BadJson(_))));
-        let mut llm = ScriptedLlm::new(vec![Err(LlmError::Refused(Some("cyber".into())))]);
-        assert!(matches!(formalise(&mut llm, &[rule("S1", "x")], &mut AiCost::default()), Err(AiError::Llm(LlmError::Refused(_)))));
+        let mut llm = ScriptedLlm::new(vec![Err(LlmError::Refused { category: Some("cyber".into()), cost_usd: 0.003 })]);
+        let mut cost = AiCost::default();
+        assert!(matches!(formalise(&mut llm, &[rule("S1", "x")], &mut cost), Err(AiError::Llm(LlmError::Refused { .. }))));
+        // A refusal is billed, so it counts against the budget.
+        assert!((cost.usd - 0.003).abs() < 1e-12, "{}", cost.usd);
     }
 
     #[test]

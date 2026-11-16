@@ -49,10 +49,10 @@ pub enum LlmError {
     NoKey,
     Http(u16, String),
     Network(String),
-    /// The model declined (`stop_reason: refusal`), with its category.
-    Refused(Option<String>),
-    /// The reply hit `max_tokens`.
-    Truncated,
+    /// The model declined (`stop_reason: refusal`), with its category. Still billed.
+    Refused { category: Option<String>, cost_usd: f64 },
+    /// The reply hit `max_tokens`. Still billed.
+    Truncated { cost_usd: f64 },
     BadReply(String),
 }
 
@@ -62,9 +62,21 @@ impl std::fmt::Display for LlmError {
             LlmError::NoKey => f.write_str("ANTHROPIC_API_KEY is not set"),
             LlmError::Http(code, body) => write!(f, "Claude API returned HTTP {code}: {body}"),
             LlmError::Network(e) => write!(f, "could not reach the Claude API: {e}"),
-            LlmError::Refused(c) => write!(f, "the model declined the request ({})", c.as_deref().unwrap_or("no category")),
-            LlmError::Truncated => f.write_str("the reply was cut off at max_tokens"),
+            LlmError::Refused { category, .. } => {
+                write!(f, "the model declined the request ({})", category.as_deref().unwrap_or("no category"))
+            }
+            LlmError::Truncated { .. } => f.write_str("the reply was cut off at max_tokens"),
             LlmError::BadReply(e) => write!(f, "unexpected reply from the Claude API: {e}"),
+        }
+    }
+}
+
+impl LlmError {
+    /// What the failed call was billed (refusals and truncations are; the rest never reached the model).
+    pub fn cost_usd(&self) -> f64 {
+        match self {
+            LlmError::Refused { cost_usd, .. } | LlmError::Truncated { cost_usd } => *cost_usd,
+            _ => 0.0,
         }
     }
 }
@@ -115,19 +127,6 @@ fn usage_of(v: &Value) -> Usage {
 /// Reads a Messages API response.
 pub fn parse_reply(v: &Value) -> Result<LlmReply, LlmError> {
     let content = v.get("content").and_then(Value::as_array).ok_or_else(|| LlmError::BadReply("no content array".into()))?;
-    match v.get("stop_reason").and_then(Value::as_str) {
-        Some("refusal") => {
-            let category = v.pointer("/stop_details/category").and_then(Value::as_str).map(str::to_string);
-            return Err(LlmError::Refused(category));
-        }
-        Some("max_tokens") => return Err(LlmError::Truncated),
-        _ => {}
-    }
-    let text: String = content
-        .iter()
-        .filter(|b| b.get("type").and_then(Value::as_str) == Some("text"))
-        .filter_map(|b| b.get("text").and_then(Value::as_str))
-        .collect();
     let served_by = v.get("model").and_then(Value::as_str).unwrap_or(MODEL).to_string();
     let top = v.get("usage").cloned().unwrap_or(Value::Null);
     let usage = usage_of(&top);
@@ -138,6 +137,19 @@ pub fn parse_reply(v: &Value) -> Result<LlmReply, LlmError> {
             .sum(),
         _ => cost_usd(&served_by, &usage),
     };
+    match v.get("stop_reason").and_then(Value::as_str) {
+        Some("refusal") => {
+            let category = v.pointer("/stop_details/category").and_then(Value::as_str).map(str::to_string);
+            return Err(LlmError::Refused { category, cost_usd: cost });
+        }
+        Some("max_tokens") => return Err(LlmError::Truncated { cost_usd: cost }),
+        _ => {}
+    }
+    let text: String = content
+        .iter()
+        .filter(|b| b.get("type").and_then(Value::as_str) == Some("text"))
+        .filter_map(|b| b.get("text").and_then(Value::as_str))
+        .collect();
     Ok(LlmReply { text, usage, served_by, cost_usd: cost })
 }
 
@@ -311,13 +323,28 @@ mod tests {
             "stop_details": {"type": "refusal", "category": "cyber", "explanation": "…"},
             "content": [], "usage": {"input_tokens": 10, "output_tokens": 0}
         });
-        assert_eq!(parse_reply(&refused).unwrap_err(), LlmError::Refused(Some("cyber".into())));
+        assert!(matches!(parse_reply(&refused).unwrap_err(), LlmError::Refused { category: Some(c), .. } if c == "cyber"));
         let truncated = json!({
             "model": "claude-sonnet-5-5", "stop_reason": "max_tokens",
             "content": [{"type": "text", "text": "{\"ok\":"}], "usage": {"input_tokens": 10, "output_tokens": 16000}
         });
-        assert_eq!(parse_reply(&truncated).unwrap_err(), LlmError::Truncated);
+        assert!(matches!(parse_reply(&truncated).unwrap_err(), LlmError::Truncated { .. }));
         assert!(matches!(parse_reply(&json!({"content": "nope"})), Err(LlmError::BadReply(_))));
+    }
+
+    #[test]
+    fn refused_and_truncated_replies_still_cost() {
+        let refused = json!({
+            "model": "claude-sonnet-5-5", "stop_reason": "refusal", "stop_details": {"category": "cyber"},
+            "content": [], "usage": {"input_tokens": 1000, "output_tokens": 0}
+        });
+        assert!((parse_reply(&refused).unwrap_err().cost_usd() - 0.002).abs() < 1e-12);
+        let truncated = json!({
+            "model": "claude-sonnet-5-5", "stop_reason": "max_tokens",
+            "content": [], "usage": {"input_tokens": 0, "output_tokens": 16000}
+        });
+        assert!((parse_reply(&truncated).unwrap_err().cost_usd() - 0.16).abs() < 1e-12);
+        assert_eq!(LlmError::NoKey.cost_usd(), 0.0);
     }
 
     #[test]
@@ -368,9 +395,9 @@ mod tests {
 
     #[test]
     fn scripted_llm_replays_and_records() {
-        let mut llm = ScriptedLlm::new(vec![Ok("first".into()), Err(LlmError::Truncated)]);
+        let mut llm = ScriptedLlm::new(vec![Ok("first".into()), Err(LlmError::Truncated { cost_usd: 0.0 })]);
         assert_eq!(llm.complete(&request()).unwrap().text, "first");
-        assert_eq!(llm.complete(&request()).unwrap_err(), LlmError::Truncated);
+        assert_eq!(llm.complete(&request()).unwrap_err(), LlmError::Truncated { cost_usd: 0.0 });
         assert_eq!(llm.requests.len(), 2);
         assert_eq!(llm.requests[0].user, request().user);
     }

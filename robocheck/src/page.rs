@@ -18,8 +18,9 @@ pub struct RunPage {
     pub robocode: String,
     pub robocheck_arena: &'static str,
     pub cost_usd: f64,
-    /// `proved`, `rejected`, `unknown`, `timed_out`, `build_failed`, `refused`,
-    /// `formalise_failed`, `generate_failed` or `no_rules_in_force`.
+    /// `proved` (every rule in force proved by a Verus run), `rejected`, `unknown`, `timed_out`,
+    /// `not_checked` (Verus never ran), `build_failed`, `refused`, `formalise_failed`,
+    /// `generate_failed` or `no_rules_in_force`.
     pub outcome: &'static str,
     /// Why the run stopped early, for the failure outcomes.
     pub outcome_note: Option<String>,
@@ -28,6 +29,8 @@ pub struct RunPage {
     pub deleted_starters: Vec<DeletedStarter>,
     pub code: Code,
     pub explanation: Option<ExplanationEntry>,
+    /// A battle whose binary was not the verified code is `failed` and its
+    /// recording and decisions are dropped. In stored runs, recordings are gzipped (`<name>.gz`).
     pub battles: Battles,
     /// Every battle ran the exact `strategy.rs` that was verified.
     pub same_artifact: bool,
@@ -48,7 +51,8 @@ pub struct RuleEntry {
     /// The AI's reading of why the code can break a rejected rule.
     pub why: Option<String>,
     pub violations: ArenaViolations,
-    /// `yes` (a battle broke it), `rejected_not_triggered`, or `n/a`.
+    /// For a rejected rule: `yes` (a battle broke it), `rejected_not_triggered` (a battle was
+    /// fought and never broke it) or `not_fought` (no battle ran); otherwise `n/a`.
     pub triggered: &'static str,
 }
 

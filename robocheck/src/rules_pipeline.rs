@@ -91,8 +91,8 @@ fn write(path: &Path, text: &str) -> Result<(), String> {
 
 fn ai_failure(step: &str, e: &AiError) -> String {
     match e {
-        AiError::Llm(LlmError::Refused(c)) => {
-            format!("the model declined to {step} ({})", c.as_deref().unwrap_or("no category"))
+        AiError::Llm(LlmError::Refused { category, .. }) => {
+            format!("the model declined to {step} ({})", category.as_deref().unwrap_or("no category"))
         }
         e => format!("could not {step}: {e}"),
     }
@@ -144,9 +144,12 @@ impl State {
                 } else {
                     verdict.map_or("not_checked", |v| status_name(v.status))
                 };
+                let fought = self.battles.open.as_ref().is_some_and(|b| b.status == "ok")
+                    || self.battles.urban.as_ref().is_some_and(|b| b.status == "ok");
                 let triggered = match status {
                     "rejected" if violations.open.is_some() || violations.urban.is_some() => "yes",
-                    "rejected" => "rejected_not_triggered",
+                    "rejected" if fought => "rejected_not_triggered",
+                    "rejected" => "not_fought",
                     _ => "n/a",
                 };
                 RuleEntry {
@@ -177,15 +180,25 @@ impl State {
         if self.clauses.iter().all(|(_, c)| c.is_empty()) {
             return "no_rules_in_force";
         }
-        let has = |s: PropertyStatus| self.verdicts.iter().any(|v| v.status == s);
+        // Only rules that have clauses count; "proved" needs every one of them proved.
+        let in_force: Vec<PropertyStatus> = self
+            .verdicts
+            .iter()
+            .filter(|v| self.clauses.iter().any(|(id, c)| id == &v.id && !c.is_empty()))
+            .map(|v| v.status)
+            .collect();
+        let has = |s: PropertyStatus| in_force.contains(&s);
         if has(PropertyStatus::Rejected) {
             "rejected"
         } else if has(PropertyStatus::TimedOut) {
             "timed_out"
         } else if has(PropertyStatus::Unknown) {
             "unknown"
-        } else {
+        } else if !in_force.is_empty() && in_force.iter().all(|s| *s == PropertyStatus::Proved) {
             "proved"
+        } else {
+            // Verus never ran (missing, or could not start) or the robot did not build.
+            "not_checked"
         }
     }
 }

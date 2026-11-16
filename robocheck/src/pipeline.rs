@@ -73,6 +73,18 @@ pub fn fight_both(
         .map(|&arena| {
             let file = format!("recording-{}.json", arena.name());
             match run_battle(build_dir, &plain_target_dir(), opponent, arena, turns, &out.join(&file), timeout) {
+                // A battle of some other code says nothing about the verified robot: drop it.
+                Ok(r) if check_same_artifact(verified_hash, &r.artifact_hash).is_err() => {
+                    let _ = std::fs::remove_file(out.join(&file));
+                    let _ = std::fs::remove_file(&r.decisions_file);
+                    BattleInfo {
+                        status: "failed",
+                        same_artifact: Some(false),
+                        error: check_same_artifact(verified_hash, &r.artifact_hash).err(),
+                        artifact_hash: Some(r.artifact_hash),
+                        ..skipped_battle(arena, opponent)
+                    }
+                }
                 Ok(r) => BattleInfo {
                     arena: arena.name(),
                     status: "ok",
@@ -175,4 +187,31 @@ pub fn run(o: &Options) -> Result<(PathBuf, Evidence), String> {
     let json = serde_json::to_string_pretty(&ev).map_err(|e| e.to_string())?;
     write(&out.join("evidence.json"), &json)?;
     Ok((out, ev))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::candidate::parse;
+    use crate::template::{assemble, reference_spec};
+    use crate::workspace::{materialize, tests::{shared_target, temp_dir}};
+
+    /// Review finding 3: a battle whose binary isn't the verified code is not a battle of that code.
+    #[test]
+    fn battle_on_different_code_is_failed() {
+        let _guard = shared_target();
+        let src = std::fs::read_to_string(repo_root().join("robocheck/fixtures/safe_shooter.rs")).unwrap();
+        let a = assemble(&parse(&src).unwrap(), &reference_spec());
+        let dir = temp_dir("pipeline-mismatch");
+        materialize(&dir, &a.strategy_rs, &repo_root()).unwrap();
+        let out = dir.join("out");
+        std::fs::create_dir_all(&out).unwrap();
+        let battles = fight_both(&dir, &out, "not-the-verified-hash", "SittingDuck", 200, Duration::from_secs(120));
+        for b in &battles {
+            assert_eq!(b.status, "failed", "{b:?}");
+            assert_eq!(b.same_artifact, Some(false));
+            assert!(b.recording_file.is_none() && b.decisions_file.is_none(), "{b:?}");
+            assert!(b.error.as_deref().is_some_and(|e| e.contains("differs")), "{b:?}");
+        }
+    }
 }

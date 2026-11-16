@@ -184,7 +184,7 @@ fn check_term(t: &Term, when: Trigger, depth: usize, s: &mut Stats) -> Result<()
     s.nodes += 1;
     s.depth = s.depth.max(depth);
     match t {
-        Term::Num(n) if n.abs() > MAX_NUM => Err(format!("number {n} is outside ±{MAX_NUM}")),
+        Term::Num(n) if n.unsigned_abs() > MAX_NUM as u64 => Err(format!("number {n} is outside ±{MAX_NUM}")),
         Term::Num(_) | Term::Obs(_) | Term::Target(_) => Ok(()),
         Term::ShotPower(b) => {
             if !b {
@@ -508,6 +508,12 @@ mod tests {
         assert!(validate(&c(1_000_000)).is_ok());
         assert!(validate(&c(-1_000_000)).is_ok());
         assert!(validate(&c(1_000_001)).unwrap_err().contains("1000000"));
+    }
+
+    #[test]
+    fn rejects_i64_min_without_panicking() {
+        let c = clause(r#"{"when":"always","require":{"cmp":{"left":{"obs":"x"},"op":"<","right":{"num":-9223372036854775808}}}}"#).unwrap();
+        assert!(validate(&c).is_err());
     }
 
     #[test]
