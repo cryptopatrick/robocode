@@ -2,12 +2,15 @@
 // @@helpers
 
 // @@body
-let mut turn_gun = None;
+    let mut turn_gun = None;
     let mut turn_body = None;
-    if let Some(t) = obs.target {
-        let d = angle_diff(t.bearing, obs.gun_heading);
-        turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });
-        turn_body = Some(angle_diff(t.bearing, obs.heading));
+    match obs.target {
+        Some(t) => {
+            let d = angle_diff(t.bearing, obs.gun_heading);
+            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });
+            turn_body = Some(angle_diff(t.bearing, obs.heading));
+        }
+        None => {}
     }
     let mut fire = None;
     if obs.gun_heat.0 == 0 {

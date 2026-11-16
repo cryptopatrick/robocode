@@ -64,7 +64,14 @@ note: Verus printed one or more automatically chosen quantifier triggers
 30 |             forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    Checking robocheck-candidate-c3752cb57385 v0.1.0 (/Users/cp/wer/crt/robocode-robocheck-aggr/target/robocheck/work/1054484cff96-1794863587/verify)
-verification results:: 1 verified, 0 errors
-verification results:: 0 verified, 0 errors
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.81s
+    Checking robocheck-candidate-2c04c5148bdd v0.1.0 (/Users/cp/wer/crt/robocode-robocheck-aggr/target/robocheck/work/1054484cff96-1794870707/verify)
+error: cannot use function `robocheck_candidate_2c04c5148bdd::strategy::fire_power` which is ignored because it is either declared outside the verus! macro or it is marked as `external`
+  --> src/strategy.rs:50:20
+   |
+50 |     Action { fire: fire_power(obs), ahead: Some(100), turn_body, turn_gun, turn_radar: Some(MAX_RADAR_TURN) }
+   |                    ^^^^^^^^^^^^^^^
+   |
+   = help: the following declaration may resolve this error:
+           assume_specification [crate::strategy::fire_power] (_0: &robocode::strategy::Observation) -> std::option::Option<robocode::units::Power>;
+
+error: could not compile `robocheck-candidate-2c04c5148bdd` (lib) due to 1 previous error

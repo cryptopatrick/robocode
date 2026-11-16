@@ -64,17 +64,7 @@ note: Verus printed one or more automatically chosen quantifier triggers
 30 |             forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    Checking robocheck-candidate-7499d943e6c0 v0.1.0 (/Users/cp/wer/crt/robocode-robocheck-aggr/target/robocheck/work/af55ee477d62-1794863529/verify)
-error: cannot use function `robocheck_candidate_7499d943e6c0::strategy::clamp_turn` which is ignored because it is either declared outside the verus! macro or it is marked as `external`
-  --> src/strategy.rs:48:29
-   |
-48 |             turn_gun = Some(clamp_turn(d, MAX_GUN_TURN));
-   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-...
-52 |                 turn_radar = Some(clamp_turn(r, MAX_RADAR_TURN));
-   |                                   -----------------------------
-   |
-   = help: the following declaration may resolve this error:
-           assume_specification [crate::strategy::clamp_turn] (_0: i32, _1: i32) -> i32;
-
-error: could not compile `robocheck-candidate-7499d943e6c0` (lib) due to 1 previous error
+    Checking robocheck-candidate-702062d6cbe7 v0.1.0 (/Users/cp/wer/crt/robocode-robocheck-aggr/target/robocheck/work/af55ee477d62-1794870654/verify)
+verification results:: 1 verified, 0 errors
+verification results:: 0 verified, 0 errors
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.84s

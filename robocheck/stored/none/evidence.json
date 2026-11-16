@@ -1,0 +1,60 @@
+{
+  "format": "robocheck-evidence",
+  "version": 2,
+  "run_id": "4f53cda18c2b-1794870760",
+  "created_at": "2026-11-16T23:12:40Z",
+  "candidate": {
+    "path": "candidate.rs",
+    "sha256": "7ca42ac6f945cea5e496676d286283b9b99e5a610fcdc046c667a56bf72ad148"
+  },
+  "artifact_hash": "0b8b3bd326ae36d9c2a1acd43c83ac095e3baae0f9322c64961e6de09db07a22",
+  "spec_hash": "29db0a707801e9eb2e32a84bdbba57fa30e2d82c19e9c4464e371d8f5355fbee",
+  "validation": {
+    "ok": true,
+    "problems": []
+  },
+  "build": {
+    "status": "ok",
+    "log_file": "build.log"
+  },
+  "verification": {
+    "properties": [],
+    "log_files": [
+      "verus-1.log"
+    ]
+  },
+  "battles": [
+    {
+      "arena": "open",
+      "status": "ok",
+      "opponent": "Circler",
+      "turns": 123,
+      "winner": "Circler",
+      "artifact_hash": "0b8b3bd326ae36d9c2a1acd43c83ac095e3baae0f9322c64961e6de09db07a22",
+      "same_artifact": true,
+      "recording_file": "recording-open.json",
+      "recording_sha256": "986bf0b3b2be0cd5944d3ab7abe100958c36b8a1711d0c42794351e5bda064fb",
+      "decisions_file": "decisions-open.jsonl",
+      "error": null
+    },
+    {
+      "arena": "urban",
+      "status": "ok",
+      "opponent": "Circler",
+      "turns": 204,
+      "winner": "Candidate",
+      "artifact_hash": "0b8b3bd326ae36d9c2a1acd43c83ac095e3baae0f9322c64961e6de09db07a22",
+      "same_artifact": true,
+      "recording_file": "recording-urban.json",
+      "recording_sha256": "761255f15b8ac37fab8b0fbfa787e80a9ed37b9433c5dfee0f2e703dcdfe4822",
+      "decisions_file": "decisions-urban.jsonl",
+      "error": null
+    }
+  ],
+  "toolchain": {
+    "robocode": "0.5.0",
+    "verus": "0.2026.11.02.8bf68ee",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "z3": "Z3 version 4.16.0 - 64 bit"
+  }
+}

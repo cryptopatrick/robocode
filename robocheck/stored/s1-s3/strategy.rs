@@ -39,12 +39,15 @@ use robocode::units::{MAX_POWER, MIN_POWER, spec_angle_diff};
         r.ahead matches Some(a) ==> (a < 0 ==> ((around.clearance_behind as int) >= 80)), // S3
 ))]
 pub fn decide(obs: &Observation, around: &Surroundings) -> Action {
-let mut turn_gun = None;
+    let mut turn_gun = None;
     let mut turn_body = None;
-    if let Some(t) = obs.target {
-        let d = angle_diff(t.bearing, obs.gun_heading);
-        turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });
-        turn_body = Some(angle_diff(t.bearing, obs.heading));
+    match obs.target {
+        Some(t) => {
+            let d = angle_diff(t.bearing, obs.gun_heading);
+            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });
+            turn_body = Some(angle_diff(t.bearing, obs.heading));
+        }
+        None => {}
     }
     let mut fire = None;
     if obs.gun_heat.0 == 0 {

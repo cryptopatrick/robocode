@@ -64,7 +64,7 @@ note: Verus printed one or more automatically chosen quantifier triggers
 30 |             forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    Checking robocheck-candidate-e518d2108742 v0.1.0 (/Users/cp/wer/crt/robocode-robocheck-aggr/target/robocheck/work/6965760fe0bb-1794863604/verify)
-verification results:: 1 verified, 0 errors
+    Checking robocheck-candidate-6a4f909a2494 v0.1.0 (/Users/cp/wer/crt/robocode-robocheck-aggr/target/robocheck/work/6965760fe0bb-1794870724/verify)
+verification results:: 3 verified, 0 errors
 verification results:: 0 verified, 0 errors
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.79s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.83s

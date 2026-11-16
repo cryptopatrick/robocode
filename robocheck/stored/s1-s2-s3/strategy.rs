@@ -36,37 +36,31 @@ use robocode::units::{MAX_POWER, MIN_POWER, spec_angle_diff};
     ensures
         r.fire matches Some(p) ==> (((p.0 as int) >= 100) && ((p.0 as int) <= 3000) && ((obs.energy.0 as int) > (p.0 as int))), // S1
         r.fire matches Some(p) ==> ((obs.target matches Some(t) && t.age == 0) && aimed(*obs)), // S2
-        r.ahead matches Some(a) ==> (a > 0 ==> ((around.clearance_ahead as int) >= ((a as int) + 80))), // S3
-        r.ahead matches Some(a) ==> (a < 0 ==> ((around.clearance_behind as int) >= (80 - (a as int)))), // S3
+        r.ahead matches Some(a) ==> (a > 0 ==> (((around.clearance_ahead as int) - (a as int)) >= 80)), // S3
+        r.ahead matches Some(a) ==> (a < 0 ==> (((around.clearance_behind as int) + (a as int)) >= 80)), // S3
 ))]
 pub fn decide(obs: &Observation, around: &Surroundings) -> Action {
-    let mut fire = None;
+let mut fire = None;
     let mut turn_gun = None;
-    let mut turn_radar = Some(MAX_RADAR_TURN);
     let mut turn_body = None;
     match obs.target {
         Some(t) => {
             let d = angle_diff(t.bearing, obs.gun_heading);
             turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });
-            let r = angle_diff(t.bearing, obs.radar_heading);
-            let o = 2 * r;
-            turn_radar = Some(if o > MAX_RADAR_TURN { MAX_RADAR_TURN } else if o < -MAX_RADAR_TURN { -MAX_RADAR_TURN } else { o });
-            let b = angle_diff(t.bearing, obs.heading);
-            turn_body = Some(b);
-            if obs.gun_heat.0 == 0 && t.age == 0 && obs.energy.0 > 3000 && -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE {
-                fire = Some(Power(3000));
+            turn_body = Some(angle_diff(t.bearing, obs.heading));
+            if obs.gun_heat.0 == 0 && t.age == 0 && -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE {
+                if obs.energy.0 > 3000 {
+                    fire = Some(Power(3000));
+                } else if obs.energy.0 > 100 {
+                    fire = Some(Power(obs.energy.0 - 1));
+                }
             }
         }
         None => {}
     }
-    let ahead = if around.clearance_ahead >= 81 {
-        Some(around.clearance_ahead - 80)
-    } else if around.clearance_behind >= 81 {
-        Some(-(around.clearance_behind - 80))
-    } else {
-        None
-    };
-    Action { fire, ahead, turn_body, turn_gun, turn_radar }
+    let room = around.clearance_ahead - 80;
+    let ahead = if room > 0 { room } else { 0 };
+    Action { fire, ahead: Some(ahead), turn_body, turn_gun, turn_radar: Some(MAX_RADAR_TURN) }
 }
 
 // ---- candidate helpers below (untrusted) ----

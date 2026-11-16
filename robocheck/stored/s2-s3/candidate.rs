@@ -2,10 +2,10 @@
 // @@helpers
 
 // @@body
-    let mut fire = None;
+let mut fire = None;
     let mut turn_gun = None;
     let mut turn_radar = Some(MAX_RADAR_TURN);
-    let mut ahead_v = 0;
+    let mut speed = 100;
     match obs.target {
         Some(t) => {
             let d = angle_diff(t.bearing, obs.gun_heading);
@@ -13,16 +13,18 @@
             if t.age == 0 {
                 let o = 2 * angle_diff(t.bearing, obs.radar_heading);
                 turn_radar = Some(if o > MAX_RADAR_TURN { MAX_RADAR_TURN } else if o < -MAX_RADAR_TURN { -MAX_RADAR_TURN } else { o });
-                if obs.gun_heat.0 == 0 && d >= -AIM_TOLERANCE && d <= AIM_TOLERANCE {
+                if obs.gun_heat.0 == 0 && -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE {
                     fire = Some(Power(3000));
                 }
             }
         }
         None => {}
     }
-    if around.clearance_ahead >= 180 {
-        ahead_v = 100;
+    let ahead = if around.clearance_ahead >= 180 {
+        Some(100)
     } else if around.clearance_behind >= 180 {
-        ahead_v = -100;
-    }
-    Action { fire, ahead: Some(ahead_v), turn_body: None, turn_gun, turn_radar }
+        Some(-100)
+    } else {
+        None
+    };
+    Action { fire, ahead, turn_body: None, turn_gun, turn_radar }

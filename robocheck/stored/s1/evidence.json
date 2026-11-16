@@ -1,13 +1,13 @@
 {
   "format": "robocheck-evidence",
   "version": 2,
-  "run_id": "1054484cff96-1794863587",
-  "created_at": "2026-11-16T21:13:07Z",
+  "run_id": "1054484cff96-1794870707",
+  "created_at": "2026-11-16T23:11:47Z",
   "candidate": {
     "path": "candidate.rs",
-    "sha256": "a52fef411d6c85ea70963a2c5b7aa7730b550b5dd6ffda148e89904b0a5aadfc"
+    "sha256": "2488c2ae8dbb63f3e5090b871c21752034c409d4189809e0ad4e3bf217e954f2"
   },
-  "artifact_hash": "c3752cb573851a05dbd6be0d44260e80ed6d3ce3837a5946774400f6270346db",
+  "artifact_hash": "2c04c5148bdd6a0bc51356989b74dde07951b4a226b06a631007723f665f371c",
   "spec_hash": "0e21291fd4e4ec044e7e3f17758d6606fd222318e9607fdd354748fb92ba26a6",
   "validation": {
     "ok": true,
@@ -22,8 +22,8 @@
       {
         "id": "S1",
         "name": "Never fire a shot you can't afford.",
-        "status": "proved",
-        "note": "",
+        "status": "unknown",
+        "note": "cannot use function `robocheck_candidate_2c04c5148bdd::strategy::fire_power` which is ignored because it is either declared outside the verus! macro or it is marked as `external`",
         "failed_at": null
       }
     ],
@@ -38,7 +38,7 @@
       "opponent": "Circler",
       "turns": 123,
       "winner": "Circler",
-      "artifact_hash": "c3752cb573851a05dbd6be0d44260e80ed6d3ce3837a5946774400f6270346db",
+      "artifact_hash": "2c04c5148bdd6a0bc51356989b74dde07951b4a226b06a631007723f665f371c",
       "same_artifact": true,
       "recording_file": "recording-open.json",
       "recording_sha256": "986bf0b3b2be0cd5944d3ab7abe100958c36b8a1711d0c42794351e5bda064fb",
@@ -51,7 +51,7 @@
       "opponent": "Circler",
       "turns": 204,
       "winner": "Candidate",
-      "artifact_hash": "c3752cb573851a05dbd6be0d44260e80ed6d3ce3837a5946774400f6270346db",
+      "artifact_hash": "2c04c5148bdd6a0bc51356989b74dde07951b4a226b06a631007723f665f371c",
       "same_artifact": true,
       "recording_file": "recording-urban.json",
       "recording_sha256": "761255f15b8ac37fab8b0fbfa787e80a9ed37b9433c5dfee0f2e703dcdfe4822",
