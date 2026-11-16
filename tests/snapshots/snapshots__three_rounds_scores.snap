@@ -1,0 +1,6 @@
+---
+source: tests/snapshots.rs
+expression: out
+---
+Spinner: wins 0 survived 2 bullet damage 0.00 total score 0.00 (survival 0.00, last survivor 0.00, bullet damage 0.00, kill bonus 0.00, ram 0.00)
+SittingDuck: wins 1 survived 3 bullet damage 0.00 total score 60.00 (survival 50.00, last survivor 10.00, bullet damage 0.00, kill bonus 0.00, ram 0.00)
