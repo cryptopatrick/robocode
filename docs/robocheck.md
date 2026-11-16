@@ -37,6 +37,34 @@ evidence: target/robocheck/runs/<run id>/evidence.json
 
 Options: `--opponent` (`SafeShooter`, `Circler`, `Spinner`, `SittingDuck`; default `SittingDuck`), `--turns` (default 2000), `--out DIR`, `--timeout SECS` (per Verus run, default 300; a timeout kills Verus's whole process group), `--battle-timeout SECS` (default 120; a hung battle is recorded as `timed_out`). Exit code 0 when the pipeline completed, whatever the verdicts; 2 when the tool itself could not run.
 
+## Rules in plain English: `robocheck rules`
+
+```sh
+cargo run -p robocheck -- rules rules.json        # needs ANTHROPIC_API_KEY and Verus
+```
+
+`rules.json` is `{"rules": [{"id": "S1", "text": "Never fire a shot you can't afford."}, …]}`: the starter rules
+`S1`–`S3` (`robocheck/starter_rules.json`, any of which may be left out) and up to five visitor rules `U1`–`U5`,
+each at most 280 characters. The limits are checked before any AI call. Then, with Claude (`claude-sonnet-5-5`):
+
+1. **formalise**: each rule becomes clauses in a small JSON spec language (`robocheck/src/rulespec.rs`), or a
+   reason it can't (too vague, needs something the robot can't sense, not a per-turn rule, conflicts). RoboCheck
+   validates every clause and renders it as one Verus `ensures` line; the AI never writes Verus text;
+2. **read back**: a separate call, which sees only the rendered clauses and never the visitor's words, says in
+   plain English what each rule's spec requires;
+3. **generate**: the AI writes the robot once. There is no second attempt;
+4. the robot goes through the same validation, template, build and Verus rounds as `robocheck run`, and fights
+   in both arenas whatever the verdicts;
+5. **violations**: each battle's decision log is checked against every rule in force, and against the reference
+   formalisation of any starter rule the visitor deleted;
+6. **explain**: a headline, a short summary, and for each rejected rule why the code can break it (the AI's
+   reading of the line Verus pointed at).
+
+The output folder holds `run.json` (format `robocheck-run`, version 1: everything the RoboCheck page shows),
+`evidence.json` (version 2), `candidate.rs`, `strategy.rs`, the Verus logs, and per arena `recording-<arena>.json`
+and `decisions-<arena>.jsonl`. `--stored` marks the run as a stored (precomputed) one. The default opponent is
+`Circler`.
+
 ## The candidate format
 
 ```rust

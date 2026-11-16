@@ -1,4 +1,5 @@
 //! `robocheck run <candidate.rs> [--opponent NAME] [--turns N] [--out DIR] [--timeout SECS] [--battle-timeout SECS]`
+//! `robocheck rules <rules.json> [--opponent NAME] [--turns N] [--out DIR] [--timeout SECS] [--battle-timeout SECS] [--stored]`
 //!
 //! Exit code 0 when the pipeline completed (whatever the verdicts), 2 when the
 //! tool itself could not run.
@@ -10,8 +11,69 @@ use std::time::Duration;
 use robocheck::pipeline::{Options, run};
 use robocheck::verify::CargoVerus;
 
-const USAGE: &str =
-    "usage: robocheck run <candidate.rs> [--opponent NAME] [--turns N] [--out DIR] [--timeout SECS] [--battle-timeout SECS]";
+const USAGE: &str = "usage: robocheck run <candidate.rs> [--opponent NAME] [--turns N] [--out DIR] [--timeout SECS] [--battle-timeout SECS]
+       robocheck rules <rules.json> [--opponent NAME] [--turns N] [--out DIR] [--timeout SECS] [--battle-timeout SECS] [--stored]";
+
+/// `robocheck rules`: needs ANTHROPIC_API_KEY and Verus.
+fn rules(args: &[String], file: &str) -> ExitCode {
+    use robocheck::llm::ClaudeClient;
+    use robocheck::rules_pipeline::{RulesOptions, run_rules};
+    use robocheck::verify::Verifier;
+    let parse_num = |key: &str, default: u64| value(args, key).map_or(Ok(default), |v| v.parse::<u64>());
+    let (Ok(turns), Ok(timeout), Ok(battle_timeout)) =
+        (parse_num("--turns", 2000), parse_num("--timeout", 300), parse_num("--battle-timeout", 120))
+    else {
+        eprintln!("{USAGE}");
+        return ExitCode::from(2);
+    };
+    let mut llm = match ClaudeClient::from_env() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let options = RulesOptions {
+        rules_file: PathBuf::from(file),
+        opponent: value(args, "--opponent").unwrap_or_else(|| "Circler".into()),
+        turns,
+        out: value(args, "--out").map(PathBuf::from),
+        battle_timeout: Duration::from_secs(battle_timeout),
+        source: if args.iter().any(|a| a == "--stored") { "stored".into() } else { "live".into() },
+    };
+    let mut make = |dir: &std::path::Path| -> Box<dyn Verifier> {
+        Box::new(CargoVerus {
+            dir: dir.to_path_buf(),
+            target_dir: robocheck::workspace::verus_target_dir(),
+            verus_dir: CargoVerus::default_verus_dir(),
+            timeout: Duration::from_secs(timeout),
+        })
+    };
+    match run_rules(&options, &mut llm, &mut make) {
+        Ok((out, page)) => {
+            println!("outcome: {}{}", page.outcome, page.outcome_note.as_deref().map(|n| format!(" ({n})")).unwrap_or_default());
+            for r in &page.rules {
+                println!("{:<3} {:<15} {}", r.id, r.status, r.text);
+                if let Some(rb) = &r.read_back {
+                    println!("    understood as: {rb}");
+                }
+            }
+            for d in &page.deleted_starters {
+                println!("{:<3} {:<15} {}", d.id, "deleted", d.text);
+            }
+            if let Some(e) = &page.explanation {
+                println!("{}", e.headline);
+            }
+            println!("cost: ${:.4}; same implementation verified and battled: {}", page.cost_usd, page.same_artifact);
+            println!("run: {}", out.join("run.json").display());
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            ExitCode::from(2)
+        }
+    }
+}
 
 fn value(args: &[String], key: &str) -> Option<String> {
     args.iter().position(|a| a == key).and_then(|i| args.get(i + 1)).cloned()
@@ -19,6 +81,9 @@ fn value(args: &[String], key: &str) -> Option<String> {
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if let (Some("rules"), Some(file)) = (args.first().map(String::as_str), args.get(1)) {
+        return rules(&args, file);
+    }
     let (Some("run"), Some(candidate)) = (args.first().map(String::as_str), args.get(1)) else {
         eprintln!("{USAGE}");
         return ExitCode::from(2);

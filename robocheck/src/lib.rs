@@ -14,3 +14,5 @@ pub mod rulespec;
 pub mod violations;
 pub mod llm;
 pub mod ai;
+pub mod rules_pipeline;
+pub mod page;
