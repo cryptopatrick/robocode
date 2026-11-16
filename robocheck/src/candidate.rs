@@ -46,7 +46,7 @@ use proc_macro2::{Delimiter, TokenStream, TokenTree};
 /// line breaks can't hide them): ways to skip or weaken verification, to make
 /// the verified and the battled builds differ (`cfg`), or to reach outside the
 /// strategy.
-const FORBIDDEN_IDENTS: [&str; 33] = [
+pub const FORBIDDEN_IDENTS: [&str; 33] = [
     "cfg", "cfg_attr", "verifier", "assume", "admit", "assume_specification", "external", "external_body",
     "exec_allows_no_decreases_clause", "broadcast", "uninterp", "proof", "unsafe", "extern", "include",
     "include_str", "include_bytes", "env", "option_env", "asm", "global_asm", "macro_rules", "std", "core",
