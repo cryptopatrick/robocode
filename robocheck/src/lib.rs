@@ -10,3 +10,4 @@ pub mod verify;
 pub mod battle;
 pub mod evidence;
 pub mod pipeline;
+pub mod rulespec;
