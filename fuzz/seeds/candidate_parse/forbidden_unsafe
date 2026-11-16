@@ -1,0 +1,2 @@
+// @@body
+fn f() { unsafe { } }
