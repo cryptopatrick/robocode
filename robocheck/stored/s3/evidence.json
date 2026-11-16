@@ -1,61 +1,53 @@
 {
   "format": "robocheck-evidence",
   "version": 2,
-  "run_id": "12c07fc9c96a-1794817621",
-  "created_at": "2026-11-16T08:27:01Z",
+  "run_id": "12c07fc9c96a-1794863613",
+  "created_at": "2026-11-16T21:13:33Z",
   "candidate": {
     "path": "candidate.rs",
-    "sha256": "05c612c18f3bf1061a296074f42f5f248551b744f2e6cb6488c6bb9846b914af"
+    "sha256": "bad2ffdfec14e25f54c92a4d00cac19f6ba7d79f8f9f9089a63da1f9502200be"
   },
-  "artifact_hash": "769cb11104688fb0e0150883491d517ed87794e20dfe855791de12f834c1e256",
+  "artifact_hash": null,
   "spec_hash": "520878c2abc60b972447340ee00daba48b27d7a11af2a99c9d59c296fb7587d3",
   "validation": {
-    "ok": true,
-    "problems": []
+    "ok": false,
+    "problems": [
+      "the body of `decide` is empty"
+    ]
   },
   "build": {
-    "status": "ok",
-    "log_file": "build.log"
+    "status": "skipped",
+    "log_file": null
   },
   "verification": {
-    "properties": [
-      {
-        "id": "S3",
-        "name": "Never drive toward a wall or building closer than 80 px.",
-        "status": "proved",
-        "note": "",
-        "failed_at": null
-      }
-    ],
-    "log_files": [
-      "verus-1.log"
-    ]
+    "properties": [],
+    "log_files": []
   },
   "battles": [
     {
       "arena": "open",
-      "status": "ok",
+      "status": "skipped",
       "opponent": "Circler",
-      "turns": 168,
-      "winner": "Circler",
-      "artifact_hash": "769cb11104688fb0e0150883491d517ed87794e20dfe855791de12f834c1e256",
-      "same_artifact": true,
-      "recording_file": "recording-open.json",
-      "recording_sha256": "458617424ff56d5b3a747eebc84db03cd5198a83adb4f590af99b3e519441bf8",
-      "decisions_file": "decisions-open.jsonl",
+      "turns": null,
+      "winner": null,
+      "artifact_hash": null,
+      "same_artifact": null,
+      "recording_file": null,
+      "recording_sha256": null,
+      "decisions_file": null,
       "error": null
     },
     {
       "arena": "urban",
-      "status": "ok",
+      "status": "skipped",
       "opponent": "Circler",
-      "turns": 340,
-      "winner": "Candidate",
-      "artifact_hash": "769cb11104688fb0e0150883491d517ed87794e20dfe855791de12f834c1e256",
-      "same_artifact": true,
-      "recording_file": "recording-urban.json",
-      "recording_sha256": "3738bf8597f031e63ea4b689e2b4fb2e0f06192747ca82b6781697b82ce04a45",
-      "decisions_file": "decisions-urban.jsonl",
+      "turns": null,
+      "winner": null,
+      "artifact_hash": null,
+      "same_artifact": null,
+      "recording_file": null,
+      "recording_sha256": null,
+      "decisions_file": null,
       "error": null
     }
   ],

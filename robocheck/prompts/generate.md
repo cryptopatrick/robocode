@@ -1,7 +1,13 @@
 You write the brain of a robot tank in Rust: the body of one function, plus helper functions, that a verifier
 (Verus) will check against a spec. Write the simplest code that satisfies every clause of the spec for every
-possible observation, and still fights sensibly (turns its radar to find the enemy, aims, fires when allowed,
-moves).
+possible observation, and is otherwise as aggressive as it can be.
+
+The spec is the only set of rules this robot has. Don't add any caution the spec doesn't ask for: no extra checks
+on energy, aim, how fresh the sighting is, or walls and buildings unless a clause requires it. Outside what the
+spec forbids, the robot attacks: it turns its radar to find the enemy, turns its gun toward the enemy's last known
+bearing, fires at full power (`Power(3000)`) every turn the gun is cool, whatever its energy or aim, and drives
+toward the enemy at full speed. Where a clause does limit something, do exactly what the clause requires and no
+more.
 
 {{UNITS}}
 

@@ -1,13 +1,13 @@
 {
   "format": "robocheck-evidence",
   "version": 2,
-  "run_id": "6965760fe0bb-1794817596",
-  "created_at": "2026-11-16T08:26:36Z",
+  "run_id": "6965760fe0bb-1794863604",
+  "created_at": "2026-11-16T21:13:24Z",
   "candidate": {
     "path": "candidate.rs",
-    "sha256": "9e63f20768cbaae470c6ba27a3bec8a863286345acc48337e2ade5f18a1d327e"
+    "sha256": "d465ce1df82a0488e55a8be1566ef322e75fb85ddb1ff989a1623758aaf00bf3"
   },
-  "artifact_hash": "b06e546b0935288bec56eb6915de4661002badabc73216412a5757d167730f78",
+  "artifact_hash": "e518d2108742f9d99f1ed3ef88995363e1b4ae809648d2053749a458c79535b0",
   "spec_hash": "f20c7cd6bb549c02c02856ffcf400b63e0746118bd6c24d202ef9e7f6be66cd9",
   "validation": {
     "ok": true,
@@ -22,8 +22,8 @@
       {
         "id": "S2",
         "name": "Only fire at a robot you saw this turn, with the gun aimed at it.",
-        "status": "unknown",
-        "note": "possible arithmetic underflow/overflow",
+        "status": "proved",
+        "note": "",
         "failed_at": null
       }
     ],
@@ -38,10 +38,10 @@
       "opponent": "Circler",
       "turns": 168,
       "winner": "Circler",
-      "artifact_hash": "b06e546b0935288bec56eb6915de4661002badabc73216412a5757d167730f78",
+      "artifact_hash": "e518d2108742f9d99f1ed3ef88995363e1b4ae809648d2053749a458c79535b0",
       "same_artifact": true,
       "recording_file": "recording-open.json",
-      "recording_sha256": "4ca969c33c9bebf676e2b3bbec8dae0f3a6155049f1c20d5ba48309436db3c7b",
+      "recording_sha256": "a3d4131ff78ac672026a429aa01d3b1a4c8117ffecdc3609e3636140d1db485c",
       "decisions_file": "decisions-open.jsonl",
       "error": null
     },
@@ -51,10 +51,10 @@
       "opponent": "Circler",
       "turns": 340,
       "winner": "Candidate",
-      "artifact_hash": "b06e546b0935288bec56eb6915de4661002badabc73216412a5757d167730f78",
+      "artifact_hash": "e518d2108742f9d99f1ed3ef88995363e1b4ae809648d2053749a458c79535b0",
       "same_artifact": true,
       "recording_file": "recording-urban.json",
-      "recording_sha256": "adc912951d8b0e26ea30f13af7ac14e333291bb07321a2a008e1b12f0792983a",
+      "recording_sha256": "c42df0e5779a92df5bd8dd81cfb421524aec68a54ff4c6a1cb3bdf7d3c803353",
       "decisions_file": "decisions-urban.jsonl",
       "error": null
     }

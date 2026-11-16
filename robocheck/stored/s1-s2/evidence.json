@@ -1,13 +1,13 @@
 {
   "format": "robocheck-evidence",
   "version": 2,
-  "run_id": "af55ee477d62-1794817524",
-  "created_at": "2026-11-16T08:25:24Z",
+  "run_id": "af55ee477d62-1794863529",
+  "created_at": "2026-11-16T21:12:09Z",
   "candidate": {
     "path": "candidate.rs",
-    "sha256": "2d1a0aac638d97f6e360b3c89888b5c66ee3850b2966c42af27a9b400b5ad115"
+    "sha256": "8a9ba823c6a42468d6cd4af756da7c8ec5636de37e18e0dac3bf2e12e03648fc"
   },
-  "artifact_hash": "e0f8effc53b5a8d031fa10978e8c9158277ea302eae728a98051e051315380eb",
+  "artifact_hash": "7499d943e6c0cfa87f3514c5537f831b76fef7495b080bdb76580705c0fcfd49",
   "spec_hash": "8f8d2a77f39d593f6963de65335297b719ae639b927f2aac063dc77218430a41",
   "validation": {
     "ok": true,
@@ -22,15 +22,15 @@
       {
         "id": "S1",
         "name": "Never fire a shot you can't afford.",
-        "status": "proved",
-        "note": "",
+        "status": "unknown",
+        "note": "cannot use function `robocheck_candidate_7499d943e6c0::strategy::clamp_turn` which is ignored because it is either declared outside the verus! macro or it is marked as `external`",
         "failed_at": null
       },
       {
         "id": "S2",
         "name": "Only fire at a robot you saw this turn, with the gun aimed at it.",
-        "status": "proved",
-        "note": "",
+        "status": "unknown",
+        "note": "cannot use function `robocheck_candidate_7499d943e6c0::strategy::clamp_turn` which is ignored because it is either declared outside the verus! macro or it is marked as `external`",
         "failed_at": null
       }
     ],
@@ -43,12 +43,12 @@
       "arena": "open",
       "status": "ok",
       "opponent": "Circler",
-      "turns": 168,
+      "turns": 124,
       "winner": "Circler",
-      "artifact_hash": "e0f8effc53b5a8d031fa10978e8c9158277ea302eae728a98051e051315380eb",
+      "artifact_hash": "7499d943e6c0cfa87f3514c5537f831b76fef7495b080bdb76580705c0fcfd49",
       "same_artifact": true,
       "recording_file": "recording-open.json",
-      "recording_sha256": "2278e8bdd67aec97ae4dbadff99cc204dcff5f0ae8a715e101179badfea786bd",
+      "recording_sha256": "305486c8e43413943fae470e7673d3748a8653e26eac32ac6e9301b7d9463a50",
       "decisions_file": "decisions-open.jsonl",
       "error": null
     },
@@ -56,12 +56,12 @@
       "arena": "urban",
       "status": "ok",
       "opponent": "Circler",
-      "turns": 340,
-      "winner": "Candidate",
-      "artifact_hash": "e0f8effc53b5a8d031fa10978e8c9158277ea302eae728a98051e051315380eb",
+      "turns": 286,
+      "winner": "Circler",
+      "artifact_hash": "7499d943e6c0cfa87f3514c5537f831b76fef7495b080bdb76580705c0fcfd49",
       "same_artifact": true,
       "recording_file": "recording-urban.json",
-      "recording_sha256": "8da66aa7435b6f67ec36e3f6ccb32552259fe1cc9a209ff57d9e7616f6cfb96a",
+      "recording_sha256": "eb968890e4b792546791c72d93e49aee17f6ee4b7835cc18ae243062de15ff13",
       "decisions_file": "decisions-urban.jsonl",
       "error": null
     }
