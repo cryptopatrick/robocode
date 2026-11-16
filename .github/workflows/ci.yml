@@ -118,6 +118,15 @@ jobs:
       - name: Build and test robocode
         run: cargo test -p robocode
 
+  fuzz:
+    name: Fuzz targets build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build the fuzz targets
+        run: cargo build --manifest-path fuzz/Cargo.toml --locked
+
   guide:
     name: Guide
     runs-on: ubuntu-latest
