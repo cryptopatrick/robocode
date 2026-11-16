@@ -1,0 +1,82 @@
+{
+  "format": "robocheck-evidence",
+  "version": 2,
+  "run_id": "77b7e8d88749-1794817500",
+  "created_at": "2026-11-16T08:25:00Z",
+  "candidate": {
+    "path": "candidate.rs",
+    "sha256": "8aeb7bf00eca0686bc13bbfd3f3189f023e8542cf8c3ab98db07ffb2fab2481b"
+  },
+  "artifact_hash": "cd5dc6fb8e3cfda1d4f06643f26d2547e36df738ad3666eb0c7197d7075c588a",
+  "spec_hash": "0f3674c0e6d2d67b69a9966c19833f97a24ae9ca4ed45a46cb04f7261dee1830",
+  "validation": {
+    "ok": true,
+    "problems": []
+  },
+  "build": {
+    "status": "ok",
+    "log_file": "build.log"
+  },
+  "verification": {
+    "properties": [
+      {
+        "id": "S1",
+        "name": "Never fire a shot you can't afford.",
+        "status": "proved",
+        "note": "",
+        "failed_at": null
+      },
+      {
+        "id": "S2",
+        "name": "Only fire at a robot you saw this turn, with the gun aimed at it.",
+        "status": "proved",
+        "note": "",
+        "failed_at": null
+      },
+      {
+        "id": "S3",
+        "name": "Never drive toward a wall or building closer than 80 px.",
+        "status": "proved",
+        "note": "",
+        "failed_at": null
+      }
+    ],
+    "log_files": [
+      "verus-1.log"
+    ]
+  },
+  "battles": [
+    {
+      "arena": "open",
+      "status": "ok",
+      "opponent": "Circler",
+      "turns": 361,
+      "winner": "Candidate",
+      "artifact_hash": "cd5dc6fb8e3cfda1d4f06643f26d2547e36df738ad3666eb0c7197d7075c588a",
+      "same_artifact": true,
+      "recording_file": "recording-open.json",
+      "recording_sha256": "4c1e7c062637933c0106664fe30f4df71daf2b1ecf20d1a237549ef0193a5d43",
+      "decisions_file": "decisions-open.jsonl",
+      "error": null
+    },
+    {
+      "arena": "urban",
+      "status": "ok",
+      "opponent": "Circler",
+      "turns": 340,
+      "winner": "Candidate",
+      "artifact_hash": "cd5dc6fb8e3cfda1d4f06643f26d2547e36df738ad3666eb0c7197d7075c588a",
+      "same_artifact": true,
+      "recording_file": "recording-urban.json",
+      "recording_sha256": "14225881ad153ca5da0afcbc4e408c9f3b46d9c0c2b5fc2334316b77544c5e11",
+      "decisions_file": "decisions-urban.jsonl",
+      "error": null
+    }
+  ],
+  "toolchain": {
+    "robocode": "0.5.0",
+    "verus": "0.2026.11.02.8bf68ee",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "z3": "Z3 version 4.16.0 - 64 bit"
+  }
+}

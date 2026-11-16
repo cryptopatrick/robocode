@@ -1,0 +1,75 @@
+{
+  "format": "robocheck-evidence",
+  "version": 2,
+  "run_id": "c750af1e36aa-1794817542",
+  "created_at": "2026-11-16T08:25:42Z",
+  "candidate": {
+    "path": "candidate.rs",
+    "sha256": "887ec504f8e0a1df1b9f91e9d6d7ff69981428877e3f625920d04d26482ba211"
+  },
+  "artifact_hash": "ee76d23a39e46ed6a730853ec8980e488584f0c7d68368e715f46f157c1730b7",
+  "spec_hash": "a3ad106ef5899b81643360b0ba599d616d056105a9a0d0c7691eac8b7f093f93",
+  "validation": {
+    "ok": true,
+    "problems": []
+  },
+  "build": {
+    "status": "ok",
+    "log_file": "build.log"
+  },
+  "verification": {
+    "properties": [
+      {
+        "id": "S1",
+        "name": "Never fire a shot you can't afford.",
+        "status": "proved",
+        "note": "",
+        "failed_at": null
+      },
+      {
+        "id": "S3",
+        "name": "Never drive toward a wall or building closer than 80 px.",
+        "status": "proved",
+        "note": "",
+        "failed_at": null
+      }
+    ],
+    "log_files": [
+      "verus-1.log"
+    ]
+  },
+  "battles": [
+    {
+      "arena": "open",
+      "status": "ok",
+      "opponent": "Circler",
+      "turns": 221,
+      "winner": "Candidate",
+      "artifact_hash": "ee76d23a39e46ed6a730853ec8980e488584f0c7d68368e715f46f157c1730b7",
+      "same_artifact": true,
+      "recording_file": "recording-open.json",
+      "recording_sha256": "1b8ff6fa6c4a9b9af487ebc8dddc811ccb5e907d4429b9e2da381246bcb5c94f",
+      "decisions_file": "decisions-open.jsonl",
+      "error": null
+    },
+    {
+      "arena": "urban",
+      "status": "ok",
+      "opponent": "Circler",
+      "turns": 340,
+      "winner": "Candidate",
+      "artifact_hash": "ee76d23a39e46ed6a730853ec8980e488584f0c7d68368e715f46f157c1730b7",
+      "same_artifact": true,
+      "recording_file": "recording-urban.json",
+      "recording_sha256": "7d2ab373bc088e506a5817c5b1b0ab4347cce6d9960831f06f188571c1e8b4c5",
+      "decisions_file": "decisions-urban.jsonl",
+      "error": null
+    }
+  ],
+  "toolchain": {
+    "robocode": "0.5.0",
+    "verus": "0.2026.11.02.8bf68ee",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "z3": "Z3 version 4.16.0 - 64 bit"
+  }
+}

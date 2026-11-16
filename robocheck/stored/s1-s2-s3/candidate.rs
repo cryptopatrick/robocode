@@ -1,0 +1,32 @@
+// Written by claude-sonnet-5-5 for RoboCheck.
+// @@helpers
+
+// @@body
+    let mut turn_gun = None;
+    let mut fire = None;
+    match obs.target {
+        Some(t) => {
+            let d = angle_diff(t.bearing, obs.gun_heading);
+            if t.age <= 1 {
+                turn_gun = Some(if d > MAX_GUN_TURN {
+                    MAX_GUN_TURN
+                } else if d < -MAX_GUN_TURN {
+                    -MAX_GUN_TURN
+                } else {
+                    d
+                });
+            }
+            if t.age == 0 && obs.gun_heat.0 == 0 && -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE && obs.energy.0 > 1000 {
+                fire = Some(Power(1000));
+            }
+        }
+        None => {}
+    }
+    let ahead = if around.clearance_ahead >= 180 {
+        Some(100)
+    } else if around.clearance_behind >= 180 {
+        Some(-100)
+    } else {
+        None
+    };
+    Action { fire, ahead, turn_body: Some(300), turn_gun, turn_radar: Some(MAX_RADAR_TURN) }
