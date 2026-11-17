@@ -6,7 +6,7 @@ use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 use robocode::physics::BattleConfig;
 use robocode::runner::Battle;
 use robocode::terrain::Terrain;
-use robocode::{Battlefield, Point, Rect, recording, roster};
+use robocode::{Battlefield, Point, Ratio, Rect, recording, roster};
 
 /// A random battle: 2–4 built-in robots on a 400–1000 px arena, with or
 /// without the urban map, for 1–300 turns.
@@ -236,4 +236,330 @@ fn a_reported_contact_lies_on_the_rectangle() {
         }
     }
     QuickCheck::new().tests(2000).quickcheck(prop as fn(Case) -> TestResult);
+}
+
+// ---------------------------------------------------------------------------
+// Radar beam: what the drawing shows against what the scan sees.
+
+use robocode::line_of_sight;
+use robocode::physics::radar::radar_beam;
+use robocode::physics::{BattleState, RobotState, ScannedRobot};
+use robocode::rules::{RADAR_SCAN_RADIUS, ROBOT_RADIUS};
+
+/// A uniform number in [0, 1] (0 and 1 themselves come up now and then).
+fn unit(g: &mut Gen) -> f64 {
+    u32::arbitrary(g) as f64 / u32::MAX as f64
+}
+
+fn between(g: &mut Gen, lo: f64, hi: f64) -> f64 {
+    lo + (hi - lo) * unit(g)
+}
+
+/// Distance from `p` to the rectangle (0 inside it).
+fn distance_to_rect(p: Point, r: &Rect) -> f64 {
+    let dx = (r.min.x - p.x).max(0.0).max(p.x - r.max.x);
+    let dy = (r.min.y - p.y).max(0.0).max(p.y - r.max.y);
+    (dx * dx + dy * dy).sqrt()
+}
+
+/// One radar turn: two still robots, buildings, and each robot's radar
+/// heading before the turn and how far it sweeps.
+#[derive(Clone, Debug)]
+struct ScanCase {
+    width: f64,
+    height: f64,
+    buildings: Vec<Rect>,
+    robots: [Point; 2],
+    /// (radar heading before the turn, sweep), per robot.
+    radars: [(f64, f64); 2],
+}
+
+impl ScanCase {
+    fn field(&self) -> Battlefield {
+        Battlefield::new(self.width, self.height)
+    }
+
+    /// Robots inside the field, clear of every building by more than a
+    /// robot's radius, and clear of each other.
+    fn valid(&self) -> bool {
+        let r = ROBOT_RADIUS;
+        let in_field = |p: &Point| {
+            p.x >= r
+                && p.x <= self.width - r
+                && p.y >= r
+                && p.y <= self.height - r
+        };
+        let clear = |p: &Point| {
+            self.buildings.iter().all(|b| distance_to_rect(*p, b) > r + 0.01)
+        };
+        let [a, b] = self.robots;
+        self.robots.iter().all(|p| in_field(p) && clear(p))
+            && ((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt()
+                > 2.0 * r + 1.0
+    }
+}
+
+fn random_sweep(g: &mut Gen) -> f64 {
+    if u8::arbitrary(g) % 4 == 0 { 0.0 } else { between(g, -45.0, 45.0) }
+}
+
+fn random_building(g: &mut Gen, w: f64, h: f64) -> Rect {
+    let (bw, bh) = (between(g, 10.0, 200.0), between(g, 10.0, 200.0));
+    Rect::new(between(g, 0.0, w - bw), between(g, 0.0, h - bh), bw, bh)
+}
+
+impl Arbitrary for ScanCase {
+    fn arbitrary(g: &mut Gen) -> Self {
+        let r = ROBOT_RADIUS;
+        let mut last = None;
+        for _ in 0..200 {
+            let (width, height) = if bool::arbitrary(g) {
+                Ratio::ALL[usize::arbitrary(g) % 4].size()
+            } else {
+                (between(g, 400.0, 1400.0), between(g, 400.0, 1400.0))
+            };
+            let a = Point::new(
+                between(g, r, width - r),
+                between(g, r, height - r),
+            );
+            let a_radar = (between(g, 0.0, 360.0), random_sweep(g));
+            // The target: mostly near an edge of the swept arc, where its body
+            // overlaps the arc while its centre is outside the swept angle.
+            let distance = between(g, 2.0 * r + 1.0, RADAR_SCAN_RADIUS + 5.0);
+            let half = (r / distance).asin().to_degrees();
+            let (start, sweep) = a_radar;
+            let bearing = match u8::arbitrary(g) % 4 {
+                0 => start + between(g, -half - 1.0, half + 1.0),
+                1 => start + sweep + between(g, -half - 1.0, half + 1.0),
+                2 => start + between(g, -10.0, 10.0) + sweep * unit(g),
+                _ => between(g, 0.0, 360.0),
+            };
+            let b = a.translate(bearing, distance);
+            let b_radar = (between(g, 0.0, 360.0), random_sweep(g));
+
+            let mut buildings: Vec<Rect> = (0..1 + usize::arbitrary(g) % 6)
+                .map(|_| random_building(g, width, height))
+                .collect();
+            // Often one building has a corner just off the line of sight, so
+            // the scan is decided by a few pixels.
+            if bool::arbitrary(g) {
+                let t = between(g, 0.2, 0.8);
+                let (dx, dy) = (b.x - a.x, b.y - a.y);
+                let len = (dx * dx + dy * dy).sqrt();
+                let off = between(g, -3.0, 3.0);
+                let corner = Point::new(
+                    a.x + dx * t - dy / len * off,
+                    a.y + dy * t + dx / len * off,
+                );
+                let (bw, bh) =
+                    (between(g, 10.0, 120.0), between(g, 10.0, 120.0));
+                let x =
+                    if bool::arbitrary(g) { corner.x } else { corner.x - bw };
+                let y =
+                    if bool::arbitrary(g) { corner.y } else { corner.y - bh };
+                buildings.push(Rect::new(x, y, bw, bh));
+            }
+            let case = ScanCase {
+                width,
+                height,
+                buildings,
+                robots: [a, b],
+                radars: [a_radar, b_radar],
+            };
+            if case.valid() {
+                return case;
+            }
+            last = Some(case);
+        }
+        last.expect("at least one attempt")
+    }
+}
+
+/// The engine's relative-angle normalisation, in (-180, 180].
+fn relative(angle: f64) -> f64 {
+    let mut a = angle % 360.0;
+    if a <= -180.0 {
+        a += 360.0;
+    } else if a > 180.0 {
+        a -= 360.0;
+    }
+    if a.abs() < robocode::rules::EPSILON { 0.0 } else { a }
+}
+
+/// Runs one turn and returns the battle afterwards and the scan events.
+fn run_scan_turn(
+    c: &ScanCase,
+) -> Result<(BattleState, Vec<ScannedRobot>), String> {
+    let robots = (0..2)
+        .map(|i| {
+            let mut robot = RobotState::new(i, c.robots[i]);
+            robot.radar_heading = c.radars[i].0;
+            robot.control.radar_turn_remaining = c.radars[i].1;
+            robot
+        })
+        .collect();
+    let config =
+        BattleConfig { battlefield: c.field(), ..BattleConfig::default() };
+    let mut battle = BattleState::new(config, robots);
+    battle.terrain =
+        Terrain { buildings: c.buildings.clone(), roads: Vec::new() };
+    let scans = battle.step().scans;
+    // The scan saw the robots where they stand now only if nothing moved.
+    for (i, robot) in battle.robots.iter().enumerate() {
+        if robot.position != c.robots[i] {
+            return Err(format!("robot {i} moved to {:?}", robot.position));
+        }
+    }
+    Ok((battle, scans))
+}
+
+/// The swept radar arc of `robot` this turn, as `radar_beam` takes it.
+fn beam_of(robot: &RobotState, c: &ScanCase) -> Vec<Point> {
+    let sweep = relative(robot.radar_heading - robot.last_radar_heading);
+    radar_beam(
+        robot.position,
+        robot.last_radar_heading,
+        sweep,
+        &c.buildings,
+        &c.field(),
+    )
+}
+
+/// Even-odd point-in-polygon test.
+fn polygon_contains(poly: &[Point], p: Point) -> bool {
+    let mut inside = false;
+    for i in 0..poly.len() {
+        let (a, b) = (poly[i], poly[(i + 1) % poly.len()]);
+        if (a.y > p.y) != (b.y > p.y) {
+            let x = a.x + (p.y - a.y) / (b.y - a.y) * (b.x - a.x);
+            if p.x < x {
+                inside = !inside;
+            }
+        }
+    }
+    inside
+}
+
+fn distance_to_segment(p: Point, a: Point, b: Point) -> f64 {
+    let (dx, dy) = (b.x - a.x, b.y - a.y);
+    let len2 = dx * dx + dy * dy;
+    let t = if len2 == 0.0 {
+        0.0
+    } else {
+        (((p.x - a.x) * dx + (p.y - a.y) * dy) / len2).clamp(0.0, 1.0)
+    };
+    let (cx, cy) = (a.x + dx * t - p.x, a.y + dy * t - p.y);
+    (cx * cx + cy * cy).sqrt()
+}
+
+fn distance_to_polygon(poly: &[Point], p: Point) -> f64 {
+    (0..poly.len())
+        .map(|i| distance_to_segment(p, poly[i], poly[(i + 1) % poly.len()]))
+        .fold(f64::INFINITY, f64::min)
+}
+
+fn quickcheck_tests(default: u64) -> u64 {
+    std::env::var("QUICKCHECK_TESTS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(default)
+}
+
+/// The drawing never lies: every robot the engine scans has its centre in
+/// the scanner's beam polygon, or within 0.5 px of its edge.
+#[test]
+fn scanned_centres_lie_inside_the_beam() {
+    fn prop(c: ScanCase) -> TestResult {
+        if !c.valid() {
+            return TestResult::discard();
+        }
+        let (battle, scans) = match run_scan_turn(&c) {
+            Ok(v) => v,
+            Err(e) => return TestResult::error(e),
+        };
+        for s in &scans {
+            let scanner = &battle.robots[s.scanner];
+            let centre = battle.robots[s.target].position;
+            let beam = beam_of(scanner, &c);
+            if !polygon_contains(&beam, centre) {
+                let off = distance_to_polygon(&beam, centre);
+                if off.is_nan() || off > 0.5 {
+                    return TestResult::error(format!(
+                        "robot {} scanned robot {} at {centre:?}, {off} px outside \
+                         its beam {beam:?} in {c:?}",
+                        s.scanner, s.target
+                    ));
+                }
+            }
+        }
+        TestResult::passed()
+    }
+    let n = quickcheck_tests(1000);
+    QuickCheck::new()
+        .tests(n)
+        .max_tests(n * 10)
+        .quickcheck(prop as fn(ScanCase) -> TestResult);
+}
+
+/// The engine's arc test: the interval `rel ± half_width` overlaps 0..sweep.
+fn arc_overlaps(sweep: f64, rel: f64, half_width: f64) -> bool {
+    if half_width >= 180.0 {
+        return true;
+    }
+    let (lo, hi) = if sweep >= 0.0 { (0.0, sweep) } else { (sweep, 0.0) };
+    [rel - 360.0, rel, rel + 360.0]
+        .iter()
+        .any(|r| r + half_width >= lo && r - half_width <= hi)
+}
+
+/// A target in range whose body overlaps the swept arc is scanned exactly
+/// when the shared line-of-sight function says the centres see each other.
+#[test]
+fn scan_line_of_sight_matches_shared_function() {
+    fn prop(c: ScanCase) -> TestResult {
+        if !c.valid() {
+            return TestResult::discard();
+        }
+        let (battle, scans) = match run_scan_turn(&c) {
+            Ok(v) => v,
+            Err(e) => return TestResult::error(e),
+        };
+        for a in &battle.robots {
+            for b in &battle.robots {
+                if a.id == b.id {
+                    continue;
+                }
+                let (dx, dy) =
+                    (b.position.x - a.position.x, b.position.y - a.position.y);
+                let distance = (dx * dx + dy * dy).sqrt();
+                let bearing = dx.atan2(-dy).to_degrees();
+                let half_width =
+                    (b.radius / distance).min(1.0).asin().to_degrees();
+                let sweep = relative(a.radar_heading - a.last_radar_heading);
+                let rel = relative(bearing - a.last_radar_heading);
+                if distance > RADAR_SCAN_RADIUS
+                    || !arc_overlaps(sweep, rel, half_width)
+                {
+                    continue;
+                }
+                let scanned = scans
+                    .iter()
+                    .any(|s| s.scanner == a.id && s.target == b.id);
+                let sight =
+                    line_of_sight(a.position, b.position, &c.buildings);
+                if scanned != sight {
+                    return TestResult::error(format!(
+                        "robot {} -> {}: scanned {scanned}, line of sight {sight}",
+                        a.id, b.id
+                    ));
+                }
+            }
+        }
+        TestResult::passed()
+    }
+    let n = quickcheck_tests(1000);
+    QuickCheck::new()
+        .tests(n)
+        .max_tests(n * 10)
+        .quickcheck(prop as fn(ScanCase) -> TestResult);
 }

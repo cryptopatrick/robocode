@@ -9,6 +9,7 @@
 mod bullet;
 mod engine;
 mod events;
+pub mod radar;
 mod robot;
 pub mod snapshot;
 
