@@ -358,19 +358,13 @@ impl BattleState {
                 a.radar_heading - a.last_radar_heading,
             );
             if with_beams {
-                // A radar that did not move this turn records no beam, which
-                // keeps recordings small.
-                if sweep == 0.0 {
-                    beams.push(Vec::new());
-                } else {
-                    beams.push(radar_beam(
-                        a.position,
-                        a.last_radar_heading,
-                        sweep,
-                        &self.terrain.buildings,
-                        &self.config.battlefield,
-                    ));
-                }
+                beams.push(radar_beam(
+                    a.position,
+                    a.last_radar_heading,
+                    sweep,
+                    &self.terrain.buildings,
+                    &self.config.battlefield,
+                ));
             }
             for b in &self.robots {
                 if b.id == a.id || !b.alive {
