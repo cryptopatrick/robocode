@@ -147,6 +147,13 @@ pub fn angle_to_point(from: Point, to: Point) -> f64 {
     normalize_absolute_angle(radians.to_degrees())
 }
 
+/// True if no building touches the straight segment `from`..`to`. The single
+/// shared line-of-sight test: the radar scan and the drawn radar beam both
+/// use it, so what the beam shows is what the scan sees.
+pub fn line_of_sight(from: Point, to: Point, buildings: &[Rect]) -> bool {
+    buildings.iter().all(|b| b.first_contact(from, to).is_none())
+}
+
 /// An axis-aligned rectangle (a building or a road), in battlefield pixels.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rect {

@@ -1,6 +1,6 @@
 use crate::geometry::{Ratio, Rect};
 use crate::geometry::{
-    Battlefield, Point, angle_to_point, distance_squared,
+    Battlefield, Point, angle_to_point, distance_squared, line_of_sight,
     normalize_relative_angle,
 };
 use crate::physics::bullet::BulletState;
@@ -330,7 +330,9 @@ impl BattleState {
     /// Radar scan: each living robot detects every other living robot within
     /// [`rules::RADAR_SCAN_RADIUS`] whose body overlaps the arc its radar swept
     /// this turn. Simplification of Java's arc/bounding-box test: the body is
-    /// treated as a circle of the robot's radius.
+    /// treated as a circle of the robot's radius. Centre-line rule: the scan
+    /// also needs a clear line of sight between the two robots' centres, so any
+    /// building touching that segment (even a grazed corner) blocks it.
     fn scan(&mut self, events: &mut TurnEvents) {
         for a in &self.robots {
             if !a.alive {
@@ -355,7 +357,13 @@ impl BattleState {
                 };
                 let rel =
                     normalize_relative_angle(bearing - a.last_radar_heading);
-                if arc_overlaps(sweep, rel, half_width) {
+                if arc_overlaps(sweep, rel, half_width)
+                    && line_of_sight(
+                        a.position,
+                        b.position,
+                        &self.terrain.buildings,
+                    )
+                {
                     events.scans.push(ScannedRobot {
                         scanner: a.id,
                         target: b.id,
