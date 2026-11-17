@@ -5,6 +5,7 @@
 #[cfg(feature = "verus")]
 use vstd::prelude::*;
 
+pub mod maneuver;
 pub mod targeting;
 
 use crate::units::{Angle, Energy, GunHeat, Power};
