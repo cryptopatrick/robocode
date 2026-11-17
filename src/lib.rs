@@ -36,7 +36,7 @@ pub mod strategy;
 pub mod terrain;
 pub mod units;
 
-pub use geometry::{Battlefield, Point, Rect};
+pub use geometry::{Battlefield, Point, Ratio, Rect};
 
 /// Names the robot defined in a robot file, for `cargo robocode`.
 ///

@@ -1,5 +1,7 @@
 //! Simple 2D geometry helpers tailored for the RoboCode battlefield model.
 
+use std::str::FromStr;
+
 use crate::rules::EPSILON;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -33,6 +35,11 @@ impl Battlefield {
         Self { width, height }
     }
 
+    pub fn from_ratio(ratio: Ratio) -> Self {
+        let (width, height) = ratio.size();
+        Self { width, height }
+    }
+
     pub fn clamp_point(&self, mut point: Point, radius: f64) -> (Point, bool) {
         let min_x = radius;
         let max_x = self.width - radius;
@@ -57,6 +64,53 @@ impl Battlefield {
         }
 
         (point, collided)
+    }
+}
+
+/// Battlefield aspect-ratio presets; all share a height of 600.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ratio {
+    R4x3,
+    R2x1,
+    R16x9,
+    R1x1,
+}
+
+impl Ratio {
+    pub const ALL: [Ratio; 4] = [Ratio::R4x3, Ratio::R2x1, Ratio::R16x9, Ratio::R1x1];
+
+    pub fn size(self) -> (f64, f64) {
+        match self {
+            Ratio::R4x3 => (800.0, 600.0),
+            Ratio::R2x1 => (1200.0, 600.0),
+            Ratio::R16x9 => (1067.0, 600.0),
+            Ratio::R1x1 => (600.0, 600.0),
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Ratio::R4x3 => "4:3",
+            Ratio::R2x1 => "2:1",
+            Ratio::R16x9 => "16:9",
+            Ratio::R1x1 => "1:1",
+        }
+    }
+
+    /// The preset whose size is exactly `width` x `height`.
+    pub fn from_size(width: f64, height: f64) -> Option<Ratio> {
+        Ratio::ALL.into_iter().find(|r| r.size() == (width, height))
+    }
+}
+
+impl FromStr for Ratio {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ratio::ALL
+            .into_iter()
+            .find(|r| r.name() == s)
+            .ok_or_else(|| format!("unknown ratio `{s}`: expected 4:3, 2:1, 16:9 or 1:1"))
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::geometry::Rect;
+use crate::geometry::{Ratio, Rect};
 use crate::geometry::{
     Battlefield, Point, angle_to_point, distance_squared,
     normalize_relative_angle,
@@ -22,7 +22,7 @@ pub struct BattleConfig {
 impl Default for BattleConfig {
     fn default() -> Self {
         Self {
-            battlefield: Battlefield::new(800.0, 600.0),
+            battlefield: Battlefield::from_ratio(Ratio::R4x3),
             gun_cooling_rate: rules::GUN_COOLING_RATE,
         }
     }
