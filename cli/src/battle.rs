@@ -11,6 +11,8 @@ pub struct BattleArgs {
     pub robot: String,
     pub vs: Vec<String>,
     pub arena: String,
+    /// A ratio preset (4:3, 2:1, 16:9, 1:1); replaces `arena`.
+    pub ratio: Option<String>,
     pub turns: u64,
     pub rounds: u32,
     /// Run live (paced, streamed) instead of precomputing.
@@ -42,6 +44,20 @@ fn entry(arg: &str) -> Result<Entry, Failure> {
         "unknown opponent: {arg} (built-in robots: {}; or give a path to a .rs file)",
         robocode::roster::BUILT_IN.join(", ")
     )))
+}
+
+/// The battlefield size: the ratio's size if one is given, else `arena`.
+pub(crate) fn battlefield_size(
+    arena: &str,
+    ratio: Option<&str>,
+) -> Result<(f64, f64), Failure> {
+    match ratio {
+        Some(r) => r
+            .parse::<robocode::Ratio>()
+            .map(|r| r.size())
+            .map_err(Failure::usage),
+        None => parse_arena(arena),
+    }
 }
 
 fn parse_arena(arena: &str) -> Result<(f64, f64), Failure> {
@@ -190,7 +206,8 @@ pub fn compile(args: &BattleArgs) -> Result<Compiled, Failure> {
     for v in &vs {
         entries.push(entry(v)?);
     }
-    let (width, height) = parse_arena(&args.arena)?;
+    let (width, height) =
+        battlefield_size(&args.arena, args.ratio.as_deref())?;
     robocode::recording::validate_setup(
         entries.len(),
         width,

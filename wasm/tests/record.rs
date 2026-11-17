@@ -187,3 +187,12 @@ fn bullets_are_absorbed_in_an_urban_battle() {
         .sum();
     assert!(absorbed > 0, "no bullet met a building in the whole battle");
 }
+
+#[test]
+fn ratio_size_matches_the_engine() {
+    for r in robocode::Ratio::ALL {
+        let (w, h) = r.size();
+        assert_eq!(robocode_wasm::ratio_size(r.name()), Ok(vec![w, h]));
+    }
+    assert!(robocode_wasm::ratio_size("3:2").is_err());
+}

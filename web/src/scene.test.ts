@@ -68,3 +68,28 @@ describe('scene mapping', () => {
     expect(terrainBoxes({ battlefield: { width: 1, height: 1 } } as Recording)).toEqual({ buildings: [], roads: [] });
   });
 });
+
+import * as THREE from 'three';
+import { cameraFor } from './scene';
+
+describe('cameraFor', () => {
+  const sizes: [number, number][] = [[800, 600], [1200, 600], [1067, 600], [600, 600]];
+  for (const aspect of [16 / 9, 1, 9 / 16]) {
+    it(`keeps all four walls in view at aspect ${aspect.toFixed(2)}`, () => {
+      for (const [w, h] of sizes) {
+        const c = cameraFor(w, h, aspect);
+        const cam = new THREE.PerspectiveCamera(c.fov, aspect, 1, 5000);
+        cam.position.set(...c.position);
+        cam.lookAt(...c.target);
+        cam.updateMatrixWorld();
+        cam.updateProjectionMatrix();
+        for (const [x, y] of [[0, 0], [w, 0], [w, h], [0, h]]) {
+          const p = worldPoint(x, y, w, h);
+          const ndc = new THREE.Vector3(p.x, 0, p.z).project(cam);
+          expect(Math.abs(ndc.x), `${w}x${h} x`).toBeLessThanOrEqual(1);
+          expect(Math.abs(ndc.y), `${w}x${h} y`).toBeLessThanOrEqual(1);
+        }
+      }
+    });
+  }
+});

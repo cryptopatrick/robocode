@@ -43,3 +43,35 @@ describe('labelX', () => {
     expect(labelX(10, 800, 80)).toBe(40 + 4);
   });
 });
+
+import { drawArena } from './draw';
+import type { Recording } from './recording';
+
+describe('canvas fits each ratio', () => {
+  const sizes: [number, number][] = [[800, 600], [1200, 600], [1067, 600], [600, 600]];
+  for (const [w, h] of sizes) {
+    it(`draws a corner robot's label inside ${w} × ${h}`, () => {
+      const r = { ...robot(94), position: { x: w - 20, y: h - 20 } };
+      const rec = {
+        battlefield: { width: w, height: h },
+        robots: [{ id: 0, name: 'SafeShooter' }],
+        turns: [{ turn: 0, robots: [r], bullets: [], events: {} }],
+      } as unknown as Recording;
+      const texts: { text: string; x: number; y: number; width: number }[] = [];
+      const noop = () => undefined;
+      const ctx = new Proxy({} as Record<string, unknown>, {
+        get: (t, k: string) => {
+          if (k === 'measureText') return (text: string) => ({ width: text.length * 6 });
+          if (k === 'fillText') return (text: string, x: number, y: number) => texts.push({ text, x, y, width: text.length * 6 });
+          return k in t ? t[k] : noop;
+        },
+        set: (t, k: string, v) => ((t[k] = v), true),
+      }) as unknown as CanvasRenderingContext2D;
+      drawArena(ctx, rec, 0, { names: true, energy: true, scanArcs: false, effects: false } as never);
+      expect(texts).toHaveLength(1);
+      const t = texts[0];
+      expect(t.x + t.width / 2).toBeLessThanOrEqual(w);
+      expect(t.y).toBeLessThanOrEqual(h);
+    });
+  }
+});

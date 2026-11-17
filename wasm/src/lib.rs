@@ -209,3 +209,16 @@ pub fn run_battle(
     record_battle(&spec_from_csv(robots_csv, width, height, max_turns, urban))
         .map_err(|e| JsError::new(&e))
 }
+
+/// The `[width, height]` of a battlefield ratio ("4:3", "2:1", "16:9" or
+/// "1:1"), so the page never keeps its own table of sizes.
+pub fn ratio_size(name: &str) -> Result<Vec<f64>, String> {
+    let (w, h) = name.parse::<robocode::Ratio>()?.size();
+    Ok(vec![w, h])
+}
+
+/// JS entry point for [`ratio_size`]; throws a JS `Error` on an unknown ratio.
+#[wasm_bindgen(js_name = ratio_size)]
+pub fn ratio_size_js(name: &str) -> Result<Vec<f64>, JsError> {
+    ratio_size(name).map_err(|e| JsError::new(&e))
+}
