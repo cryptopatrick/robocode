@@ -169,8 +169,20 @@ export function drawArena(
   if (view.scanArcs) {
     snap.robots.forEach((r, i) => {
       if (!r.alive || turn === 0) return;
-      const { start, sweep } = scanArc(prev.robots[i].radar_heading, r.radar_heading);
       const color = ROBOT_COLORS[i % ROBOT_COLORS.length];
+      if (r.beam) {
+        // Recorded beam (v2): absolute arena coordinates, drawn as is.
+        if (r.beam.length < 3) return;
+        ctx.save();
+        ctx.fillStyle = `${color}12`;
+        ctx.beginPath();
+        r.beam.forEach(([bx, by], k) => (k === 0 ? ctx.moveTo(bx, by) : ctx.lineTo(bx, by)));
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
+      const { start, sweep } = scanArc(prev.robots[i].radar_heading, r.radar_heading);
       ctx.save();
       ctx.translate(r.position.x, r.position.y);
       if (Math.abs(sweep) < rad(0.5)) {

@@ -41,7 +41,9 @@ npm run dev      # open the printed http://localhost:5173 address
 
 - `turns[k]` is `TurnSnapshot::to_json_string()` from the engine (pixels and degrees).
 - `decisions[k][i]` is what robot `i` observed and decided to produce turn `k`, in the fixed-point units of `robocode::units`: milli-units for energy, heat and power, decidegrees for angles. It is `null` at turn 0 and once the robot is dead.
-- Version 2 adds `beam` to each robot object in `turns[k].robots`, only in battles that have buildings (`terrain` in the header). It is the polygon the radar swept this turn and could see, as `[[x,y],...]` in pixels rounded to 0.1, in angle order around the robot. Typically 5 to 8 vertices. It is written on every turn for every living robot, and is `[]` for a dead robot. Open-arena recordings have no `beam` key and are identical to version 1 apart from `"version"`. Viewers read versions 1 and 2. The 3D view does not draw the beam in 0.6.0.
+- Version 2 adds `beam` to each robot object in `turns[k].robots`, only in battles that have buildings (`terrain` in the header). It is the polygon the radar swept this turn and could see, as `[[x,y],...]` in pixels rounded to 0.1, in angle order around the robot. Typically 5 to 8 vertices. It is written on every turn for every living robot, and is `[]` for a dead robot. Open-arena recordings have no `beam` key and are identical to version 1 apart from `"version"`. Viewers read versions 1 and 2.
+
+The 2D view draws a recorded beam as a filled polygon in the robot's color, with the same faint fill as the old scan wedge, exactly as recorded (no clipping or reshaping). A recording without `beam` (version 1, or no buildings) still gets the 1200 px wedge, and an empty beam draws nothing. Shadows behind buildings are left undrawn. The 3D view does not draw the beam in 0.6.0.
 - Robots spawn at `(100,100)`, `(w−100,h−100)`, `(w−100,100)`, `(100,h−100)`, heading 0°.
 
 ## Not carried over from the Java game

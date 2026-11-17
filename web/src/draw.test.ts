@@ -75,3 +75,54 @@ describe('canvas fits each ratio', () => {
     });
   }
 });
+
+describe('recorded beam', () => {
+  type Call = [string, ...number[]];
+  const run = (beam: [number, number][] | undefined, scanArcs = true) => {
+    const calls: Call[] = [];
+    const fills: unknown[] = [];
+    const noop = () => undefined;
+    const ctx = new Proxy({} as Record<string, unknown>, {
+      get: (t, k: string) => {
+        if (k === 'measureText') return () => ({ width: 10 });
+        if (k === 'arc' || k === 'moveTo' || k === 'lineTo') return (...a: number[]) => calls.push([k, ...a]);
+        if (k === 'fill') return () => { if (String(t.fillStyle).endsWith('12')) fills.push(t.fillStyle); };
+        return k in t ? t[k] : noop;
+      },
+      set: (t, k: string, v) => ((t[k] = v), true),
+    }) as unknown as CanvasRenderingContext2D;
+    const mk = (radar: number) => ({ ...robot(94), position: { x: 100, y: 100 }, radar_heading: radar, ...(beam ? { beam } : {}) });
+    const rec = {
+      battlefield: { width: 800, height: 600 },
+      robots: [{ id: 0, name: 'A' }],
+      turns: [
+        { turn: 0, robots: [mk(0)], bullets: [], events: {} },
+        { turn: 1, robots: [mk(30)], bullets: [], events: {} },
+      ],
+    } as unknown as Recording;
+    drawArena(ctx, rec, 1, { names: false, energy: false, scanArcs, effects: false } as never);
+    return { calls, fills };
+  };
+  const pts: [number, number][] = [[110, 100], [300, 50], [500, 120], [300, 200], [105, 105]];
+
+  it('fills the recorded beam', () => {
+    const { calls, fills } = run(pts);
+    const base = run(pts, false).calls.length;
+    const path = calls.filter((c) => c[0] === 'moveTo' || c[0] === 'lineTo').map((c) => [c[1], c[2]]);
+    expect(calls.length - base).toBe(pts.length);
+    expect(JSON.stringify(path)).toContain(JSON.stringify(pts).slice(1, -1));
+    expect(calls.some((c) => c[0] === 'arc' && c[3] === 1200)).toBe(false);
+    expect(fills).toHaveLength(1);
+  });
+
+  it('draws nothing for empty beam', () => {
+    const { calls, fills } = run([]);
+    expect(calls).toHaveLength(run([], false).calls.length);
+    expect(fills).toHaveLength(0);
+  });
+
+  it('falls back to the wedge without beam', () => {
+    const { calls } = run(undefined);
+    expect(calls.find((c) => c[0] === 'arc')?.[3]).toBe(1200);
+  });
+});

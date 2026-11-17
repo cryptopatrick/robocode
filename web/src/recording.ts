@@ -18,6 +18,8 @@ export interface RobotSnapshot {
   gun_heat: number;
   alive: boolean;
   radius: number;
+  /** Recording v2, battles with buildings: the radar's visible polygon in arena pixels. */
+  beam?: [number, number][];
 }
 
 export interface BulletSnapshot {
@@ -61,7 +63,7 @@ export interface Decision {
 
 export interface Recording {
   format: 'roboverus-recording';
-  version: 1;
+  version: 1 | 2;
   robots: { id: number; name: string }[];
   battlefield: { width: number; height: number };
   /** Map objects as [x, y, width, height]. Absent in an empty arena. */
@@ -86,7 +88,7 @@ export function parseRecording(text: string): Recording {
   if (rec.format !== 'roboverus-recording') {
     throw new Error('Not a RoboVerus recording');
   }
-  if (rec.version !== 1) {
+  if (rec.version !== 1 && rec.version !== 2) {
     throw new Error(`Unsupported recording version ${String(rec.version)}`);
   }
   if (
