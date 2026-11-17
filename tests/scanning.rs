@@ -121,7 +121,7 @@ fn building_between_blocks_both_scans() {
 }
 
 #[test]
-fn grazing_a_corner_is_blocked() {
+fn diagonal_through_a_building_is_blocked() {
     let (a, b) = (Point::new(100.0, 100.0), Point::new(500.0, 500.0));
     let corner = Rect::new(300.0, 300.0, 50.0, 50.0);
     assert_eq!(mutual_scan(a, b, vec![corner]), (false, false));
@@ -135,4 +135,18 @@ fn building_off_the_line_does_not_block() {
     let off = Rect::new(330.0, 270.0, 50.0, 50.0);
     assert!(line_of_sight(a, b, &[off]));
     assert_eq!(mutual_scan(a, b, vec![off]), (true, true));
+}
+
+#[test]
+fn grazing_a_corner_is_blocked() {
+    // The line y = x touches each rectangle only at the single point (300,300):
+    // one has its bottom-left corner there, the other its top-right corner.
+    let (a, b) = (Point::new(100.0, 100.0), Point::new(500.0, 500.0));
+    for corner in [
+        Rect::new(300.0, 250.0, 50.0, 50.0),
+        Rect::new(250.0, 300.0, 50.0, 50.0),
+    ] {
+        assert!(!line_of_sight(a, b, &[corner]), "{corner:?}");
+        assert_eq!(mutual_scan(a, b, vec![corner]), (false, false));
+    }
 }
