@@ -24,3 +24,5 @@ web/node_modules/
 web/dist/
 web/src/pkg/
 .DS_Store
+robocheck/viewer/node_modules/
+robocheck/viewer/dist/
