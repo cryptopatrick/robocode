@@ -51,7 +51,7 @@ fn battle_writes_recording() {
     );
     assert!(out.status.success(), "{}", stderr(&out));
     let json = std::fs::read_to_string(dir.join("battle.json")).unwrap();
-    assert!(json.starts_with(r#"{"format":"roboverus-recording","version":1,"robots":[{"id":0,"name":"MyRobot"},{"id":1,"name":"SittingDuck"}]"#), "{}", &json[..200.min(json.len())]);
+    assert!(json.starts_with(r#"{"format":"roboverus-recording","version":2,"robots":[{"id":0,"name":"MyRobot"},{"id":1,"name":"SittingDuck"}]"#), "{}", &json[..200.min(json.len())]);
     assert!(
         String::from_utf8_lossy(&out.stdout).contains("MyRobot wins after"),
         "{}",

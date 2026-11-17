@@ -1,7 +1,7 @@
 //! Runs `robocode` battles for the browser battle viewer.
 //!
 //! A battle is simulated to the end and returned as a JSON **recording**
-//! (format `roboverus-recording`, version 1); see [`robocode::recording`].
+//! (format `roboverus-recording`, version 2); see [`robocode::recording`].
 
 use robocode::Battlefield;
 use robocode::live::{LiveSession, Pacer};

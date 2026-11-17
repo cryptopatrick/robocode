@@ -1,8 +1,9 @@
-//! Battle recordings: format `roboverus-recording`, version 1.
+//! Battle recordings: format `roboverus-recording`, version 2.
 //!
 //! A recording holds every turn's snapshot plus what each fixed-point
 //! strategy robot observed and decided. The battle viewer plays them back.
-//! See `docs/viewer.md` for the format.
+//! Version 2 adds each robot's radar `beam` polygon, only in battles with
+//! buildings. See `docs/viewer.md` for the format.
 
 use std::fmt::Write as _;
 
@@ -146,7 +147,7 @@ fn robots_and_field(battle: &Battle) -> String {
 /// The recording's header as a standalone JSON object (first line of a live stream).
 pub fn header_json(battle: &Battle) -> String {
     format!(
-        r#"{{"format":"roboverus-recording","version":1,{}}}"#,
+        r#"{{"format":"roboverus-recording","version":2,{}}}"#,
         robots_and_field(battle)
     )
 }
@@ -180,7 +181,7 @@ pub fn frame(battle: &Battle, events: &TurnEvents) -> Frame {
     }
 }
 
-/// Builds a v1 recording one frame at a time (as a live battle produces them).
+/// Builds a v2 recording one frame at a time (as a live battle produces them).
 pub struct RecordingBuilder {
     head: String,
     turns: Vec<String>,
@@ -220,7 +221,7 @@ impl RecordingBuilder {
         let energies: Vec<String> =
             outcome.energies.iter().map(|e| e.to_string()).collect();
         let json = format!(
-            r#"{{"format":"roboverus-recording","version":1,{},"turns":[{}],"decisions":[{}],"outcome":{{"winner":{},"turns":{},"energies":[{}]}}}}"#,
+            r#"{{"format":"roboverus-recording","version":2,{},"turns":[{}],"decisions":[{}],"outcome":{{"winner":{},"turns":{},"energies":[{}]}}}}"#,
             self.head,
             self.turns.join(","),
             self.decisions.join(","),

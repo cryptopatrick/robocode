@@ -22,6 +22,9 @@ pub struct RobotState {
     pub turret: Turret,
     /// Collided with a robot last turn (Java skips the next body turn).
     pub in_collision: bool,
+    /// The radar beam polygon of the last scan. Filled only in battles with
+    /// buildings (empty for a dead robot); empty otherwise.
+    pub beam: Vec<Point>,
 }
 
 impl RobotState {
@@ -41,6 +44,7 @@ impl RobotState {
             control: RobotControl::default(),
             turret: Turret::default(),
             in_collision: false,
+            beam: Vec::new(),
         }
     }
 

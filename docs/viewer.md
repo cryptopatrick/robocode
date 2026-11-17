@@ -28,10 +28,10 @@ npm run dev      # open the printed http://localhost:5173 address
 - **Save recording / Open recording**: download the battle as JSON, or open one saved earlier.
 - **Robot images…**: optionally pick your own images. File names containing `body`, `gun` or `radar` replace those parts for every robot. Images should point up. *Reset images* goes back to the built-in look. No images are bundled.
 
-## Recording format (version 1)
+## Recording format (version 2)
 
 ```json
-{ "format": "roboverus-recording", "version": 1,
+{ "format": "roboverus-recording", "version": 2,
   "robots": [ { "id": 0, "name": "SafeShooter" } ],
   "battlefield": { "width": 800, "height": 600 },
   "turns": [ /* turn snapshots, index 0 = spawn state */ ],
@@ -41,6 +41,7 @@ npm run dev      # open the printed http://localhost:5173 address
 
 - `turns[k]` is `TurnSnapshot::to_json_string()` from the engine (pixels and degrees).
 - `decisions[k][i]` is what robot `i` observed and decided to produce turn `k`, in the fixed-point units of `robocode::units`: milli-units for energy, heat and power, decidegrees for angles. It is `null` at turn 0 and once the robot is dead.
+- Version 2 adds `beam` to each robot object in `turns[k].robots`, only in battles that have buildings (`terrain` in the header). It is the polygon the radar swept this turn and could see, as `[[x,y],...]` in pixels rounded to 0.1, in angle order around the robot. Typically 5 to 8 vertices. It is `[]` for a dead robot, and also for a robot whose radar did not turn that turn (size fallback: beams grew gzipped urban recordings by about 61% when written every turn, over the 50% budget, so beams are written only while the radar sweeps; this barely reduced the growth because radars nearly always sweep). Open-arena recordings have no `beam` key and are identical to version 1 apart from `"version"`. Viewers read versions 1 and 2. The 3D view does not draw the beam in 0.6.0.
 - Robots spawn at `(100,100)`, `(w−100,h−100)`, `(w−100,100)`, `(100,h−100)`, heading 0°.
 
 ## Not carried over from the Java game

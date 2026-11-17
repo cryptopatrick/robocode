@@ -20,7 +20,7 @@ fn record(robots: &[&str]) -> Value {
 fn records_safe_shooter_vs_spinner() {
     let r = record(&["SafeShooter", "Spinner"]);
     assert_eq!(r["format"], "roboverus-recording");
-    assert_eq!(r["version"], 1);
+    assert_eq!(r["version"], 2);
     assert_eq!(r["robots"][1]["name"], "Spinner");
     assert_eq!(r["battlefield"]["width"], 800.0);
     let turns = r["turns"].as_array().unwrap();
@@ -113,7 +113,13 @@ fn fnv1a(s: &str) -> u64 {
 #[test]
 fn recording_fingerprint_is_unchanged() {
     let json = record_battle(&spec(&["SafeShooter", "Spinner"])).unwrap();
-    assert_eq!((json.len(), fnv1a(&json)), (716_414, 0xa87d_8e29_504d_8bfd));
+    // Open arena: identical to 0.5.0 apart from `"version"`, so hash it as v1
+    // and the fingerprint stays the 0.5.0 one.
+    let as_v1 = json.replacen(r#""version":2"#, r#""version":1"#, 1);
+    assert_eq!(
+        (as_v1.len(), fnv1a(&as_v1)),
+        (716_414, 0xa87d_8e29_504d_8bfd)
+    );
 }
 
 #[test]
