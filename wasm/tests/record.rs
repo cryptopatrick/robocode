@@ -116,10 +116,7 @@ fn recording_fingerprint_is_unchanged() {
     // Open arena: identical to 0.5.0 apart from `"version"`, so hash it as v1
     // and the fingerprint stays the 0.5.0 one.
     let as_v1 = json.replacen(r#""version":2"#, r#""version":1"#, 1);
-    assert_eq!(
-        (as_v1.len(), fnv1a(&as_v1)),
-        (716_414, 0xa87d_8e29_504d_8bfd)
-    );
+    assert_eq!((as_v1.len(), fnv1a(&as_v1)), (716_414, 0xa87d_8e29_504d_8bfd));
 }
 
 #[test]
@@ -179,8 +176,10 @@ fn an_urban_recording_carries_its_terrain_and_an_empty_one_does_not() {
 
 #[test]
 fn bullets_are_absorbed_in_an_urban_battle() {
-    let urban =
-        BattleSpec { urban: true, ..spec(&["Spinner", "SafeShooter"]) };
+    // Buildings block the radar, so a robot that fires only at scanned targets
+    // (SafeShooter) never shoots here. Circler fires on its own and one of its
+    // bullets meets a building.
+    let urban = BattleSpec { urban: true, ..spec(&["Circler", "Spinner"]) };
     let json: Value =
         serde_json::from_str(&record_battle(&urban).unwrap()).unwrap();
     let absorbed: usize = json["turns"]
