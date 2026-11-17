@@ -13,7 +13,7 @@ use robocode::terrain::Terrain;
 use wasm_bindgen::prelude::*;
 
 /// Robots that can be picked in the browser.
-pub const ROBOT_NAMES: [&str; 4] = roster::BUILT_IN;
+pub const ROBOT_NAMES: [&str; roster::BUILT_IN.len()] = roster::BUILT_IN;
 
 /// What to battle.
 #[derive(Debug, Clone, PartialEq)]

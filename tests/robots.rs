@@ -254,3 +254,194 @@ fn circler_beats_sitting_duck() {
     assert_eq!(outcome.winner, Some(0), "{outcome:?}");
     assert_eq!(battle.name(0), "Circler");
 }
+
+// --- Tactician ---
+
+mod tactician {
+    use super::*;
+    use robocode::recording;
+    use robocode::robots::Tactician;
+    use robocode::robots::tactician::choose;
+    use robocode::roster;
+    use robocode::strategy::Strategy;
+    use robocode::strategy::maneuver::{Maneuver, Risk};
+    use robocode::terrain::Terrain;
+
+    fn with(energy: u32, t: Option<TargetInfo>) -> Observation {
+        Observation { energy: Energy(energy), target: t, ..obs() }
+    }
+
+    #[test]
+    fn choose_table() {
+        use Maneuver::*;
+        let n = Risk::Normal;
+        let p = n.params(); // reserve 20000, evade 12, stale 20
+        let fresh = Some(target(0, 300, 0));
+        let aged = Some(target(0, 300, 5));
+        let stale = Some(target(0, 300, 25));
+        let rows: Vec<(
+            &str,
+            Maneuver,
+            u32,
+            bool,
+            Observation,
+            Risk,
+            Maneuver,
+        )> = vec![
+            ("shot evades", Attack, 20, true, with(50_000, fresh), n, Evade),
+            (
+                "evade interrupts early",
+                Patrol,
+                1,
+                true,
+                with(50_000, fresh),
+                n,
+                Evade,
+            ),
+            (
+                "search when no target",
+                Attack,
+                20,
+                false,
+                with(50_000, None),
+                n,
+                Search,
+            ),
+            (
+                "search when stale",
+                Patrol,
+                20,
+                false,
+                with(50_000, stale),
+                n,
+                Search,
+            ),
+            (
+                "defensive when low",
+                Attack,
+                20,
+                false,
+                with(10_000, fresh),
+                n,
+                Defensive,
+            ),
+            (
+                "attack when fresh",
+                Patrol,
+                20,
+                false,
+                with(50_000, fresh),
+                n,
+                Attack,
+            ),
+            (
+                "patrol when aged",
+                Attack,
+                20,
+                false,
+                with(50_000, aged),
+                n,
+                Patrol,
+            ),
+            (
+                "hysteresis holds attack",
+                Attack,
+                3,
+                false,
+                with(50_000, stale),
+                n,
+                Attack,
+            ),
+            (
+                "hysteresis ends at 8",
+                Attack,
+                8,
+                false,
+                with(50_000, stale),
+                n,
+                Search,
+            ),
+            (
+                "aggressive ignores shot above reserve",
+                Attack,
+                20,
+                true,
+                with(50_000, fresh),
+                Risk::Aggressive,
+                Attack,
+            ),
+            (
+                "aggressive evades below reserve",
+                Attack,
+                20,
+                true,
+                with(4_000, fresh),
+                Risk::Aggressive,
+                Evade,
+            ),
+            (
+                "evade holds before evade_turns",
+                Evade,
+                11,
+                false,
+                with(50_000, fresh),
+                n,
+                Evade,
+            ),
+            (
+                "evade ends after evade_turns",
+                Evade,
+                12,
+                false,
+                with(50_000, fresh),
+                n,
+                Attack,
+            ),
+        ];
+        for (what, cur, turns, shot, o, risk, want) in rows {
+            let got = choose(cur, turns, shot, &o, &risk.params(), risk);
+            assert_eq!(got, want, "{what}");
+        }
+        let _ = p;
+    }
+
+    #[test]
+    fn tactician_reports_its_intent() {
+        let mut t = Tactician::new(Risk::Cautious, 3);
+        t.decide(&obs());
+        let i = t.intent().expect("Tactician has an intent");
+        assert_eq!(i.risk, Risk::Cautious);
+    }
+
+    #[test]
+    fn existing_robots_have_no_intent() {
+        assert_eq!(boxed_strategy_intent(), None);
+    }
+
+    fn boxed_strategy_intent() -> Option<robocode::strategy::maneuver::Intent>
+    {
+        SafeShooter.intent()
+    }
+
+    fn battle(t: Tactician) -> Battle {
+        let robots = vec![boxed(t), roster::built_in("Circler").unwrap()];
+        let mut b = Battle::new(
+            BattleConfig::default(),
+            &roster::spawns(2, 800.0, 600.0),
+            robots,
+        );
+        b.set_terrain(Terrain::urban(800.0, 600.0));
+        b
+    }
+
+    #[test]
+    fn tactician_battles_are_deterministic() {
+        for make in [(|| Tactician::default()) as fn() -> Tactician, || {
+            Tactician::new(Risk::Aggressive, 9)
+        }] {
+            let a = recording::record(battle(make()), 500);
+            let b = recording::record(battle(make()), 500);
+            assert_eq!(a, b);
+        }
+    }
+}

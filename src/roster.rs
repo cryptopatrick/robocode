@@ -3,12 +3,12 @@
 
 use crate::api::Robot;
 use crate::physics::SpawnSpec;
-use crate::robots::{Circler, SafeShooter, SittingDuck, Spinner};
+use crate::robots::{Circler, SafeShooter, SittingDuck, Spinner, Tactician};
 use crate::runner::boxed;
 
 /// Names of the built-in robots.
-pub const BUILT_IN: [&str; 4] =
-    ["SafeShooter", "Circler", "Spinner", "SittingDuck"];
+pub const BUILT_IN: [&str; 5] =
+    ["SafeShooter", "Circler", "Spinner", "SittingDuck", "Tactician"];
 
 /// A fresh built-in robot, or `None` for an unknown name.
 pub fn built_in(name: &str) -> Option<Box<dyn Robot>> {
@@ -17,6 +17,7 @@ pub fn built_in(name: &str) -> Option<Box<dyn Robot>> {
         "Circler" => Some(Box::new(Circler::default())),
         "Spinner" => Some(boxed(Spinner)),
         "SittingDuck" => Some(boxed(SittingDuck)),
+        "Tactician" => Some(boxed(Tactician::default())),
         _ => None,
     }
 }

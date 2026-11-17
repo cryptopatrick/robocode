@@ -102,4 +102,8 @@ pub fn is_well_formed(obs: &Observation) -> bool {
 pub trait Strategy {
     fn name(&self) -> &str;
     fn decide(&mut self, obs: &Observation) -> Action;
+    /// What the robot is doing and how boldly, if it reports that.
+    fn intent(&self) -> Option<maneuver::Intent> {
+        None
+    }
 }
