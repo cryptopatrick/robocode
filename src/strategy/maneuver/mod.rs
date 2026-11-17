@@ -4,7 +4,7 @@
 pub mod memory;
 
 use crate::strategy::Observation;
-use crate::units::{Angle, Energy, Power, angle_diff};
+use crate::units::{angle_diff, Angle, Energy, Power};
 
 /// What the robot is doing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,10 +105,10 @@ pub struct RiskParams {
 }
 
 /// The only way maneuvers fire: a fresh target (`age == 0`) and a power
-/// strictly below the target's energy.
+/// strictly below the robot's own energy (firing everything would kill it).
 pub fn fire_filter(obs: &Observation, power: Power) -> Option<Power> {
     match obs.target {
-        Some(t) if t.age == 0 && power.0 < t.energy.0 => Some(power),
+        Some(t) if t.age == 0 && power.0 < obs.energy.0 => Some(power),
         _ => None,
     }
 }

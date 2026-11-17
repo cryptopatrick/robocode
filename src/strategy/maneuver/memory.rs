@@ -50,6 +50,9 @@ impl ManeuverMemory {
 
     /// Call once per turn before choosing. Returns true when a shot by the
     /// target is detected, and updates the memory.
+    ///
+    /// A shot is only detected between two consecutive fresh scans; a gap
+    /// resets it, so a drop across the gap is not taken for a shot.
     pub fn observe(&mut self, obs: &Observation) -> bool {
         let Some(t) = obs.target.filter(|t| t.age == 0) else {
             // A stale scan breaks the chain: detection needs two fresh scans.

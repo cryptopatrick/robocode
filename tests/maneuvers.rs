@@ -1,5 +1,5 @@
 use robocode::strategy::maneuver::memory::ManeuverMemory;
-use robocode::strategy::maneuver::{Intent, Maneuver, Risk, fire_filter};
+use robocode::strategy::maneuver::{fire_filter, Intent, Maneuver, Risk};
 use robocode::strategy::{Observation, TargetInfo};
 use robocode::units::{Angle, Energy, GunHeat, Power};
 
@@ -92,9 +92,14 @@ fn fire_filter_needs_a_fresh_affordable_target() {
         fire_filter(&with_target(0, 300, 50_000, 0, 1), Power(2000)),
         None
     );
+    // our own energy is what limits the shot
+    let mut poor = with_target(0, 300, 50_000, 0, 0);
+    poor.energy = Energy(2000);
+    assert_eq!(fire_filter(&poor, Power(2000)), None);
+    // a nearly dead target does not block a shot when we have plenty
     assert_eq!(
-        fire_filter(&with_target(0, 300, 2000, 0, 0), Power(2000)),
-        None
+        fire_filter(&with_target(0, 300, 500, 0, 0), Power(2000)),
+        Some(Power(2000))
     );
     assert_eq!(
         fire_filter(&with_target(0, 300, 50_000, 0, 0), Power(2000)),
@@ -140,4 +145,12 @@ fn rng_is_seeded() {
     };
     assert_eq!(bits(7), bits(7));
     assert_ne!(bits(7), bits(8));
+}
+
+#[test]
+fn fresh_stale_fresh_does_not_detect() {
+    let mut m = ManeuverMemory::new(1);
+    assert!(!m.observe(&with_target(0, 300, 50_000, 0, 0)));
+    assert!(!m.observe(&with_target(0, 300, 50_000, 0, 3)));
+    assert!(!m.observe(&with_target(0, 300, 48_000, 0, 0)));
 }
