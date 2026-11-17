@@ -563,3 +563,79 @@ fn scan_line_of_sight_matches_shared_function() {
         .max_tests(n * 10)
         .quickcheck(prop as fn(ScanCase) -> TestResult);
 }
+
+// ---- maneuvers never fire without a fresh, affordable target ----
+
+use robocode::strategy::maneuver::memory::ManeuverMemory;
+use robocode::strategy::maneuver::{Maneuver, Risk};
+use robocode::strategy::{Observation, TargetInfo};
+use robocode::units::{Angle, Energy, GunHeat};
+
+#[derive(Clone, Debug)]
+struct ManeuverCase(Observation);
+
+impl Arbitrary for ManeuverCase {
+    fn arbitrary(g: &mut Gen) -> Self {
+        let angle = |g: &mut Gen| Angle((u16::arbitrary(g) % 3600) as i32);
+        let w = 400 + (u16::arbitrary(g) % 4601) as i32;
+        let h = 400 + (u16::arbitrary(g) % 4601) as i32;
+        let target = bool::arbitrary(g).then(|| TargetInfo {
+            bearing: angle(g),
+            distance: (u16::arbitrary(g) % 6000) as i32,
+            energy: Energy(u32::arbitrary(g) % 200_001),
+            heading: angle(g),
+            velocity: (i16::arbitrary(g) % 81) as i32,
+            age: u32::arbitrary(g) % 41,
+        });
+        ManeuverCase(Observation {
+            turn: u32::arbitrary(g) % 10_000,
+            energy: Energy(u32::arbitrary(g) % 200_001),
+            gun_heat: GunHeat(0),
+            heading: angle(g),
+            gun_heading: angle(g),
+            radar_heading: angle(g),
+            velocity: (i16::arbitrary(g) % 81) as i32,
+            x: (u16::arbitrary(g) as i32) % (w + 1),
+            y: (u16::arbitrary(g) as i32) % (h + 1),
+            field_width: w,
+            field_height: h,
+            target,
+        })
+    }
+}
+
+#[test]
+fn no_maneuver_fires_without_a_fresh_affordable_target() {
+    fn prop(case: ManeuverCase) -> TestResult {
+        let obs = case.0;
+        for m in [
+            Maneuver::Search,
+            Maneuver::Patrol,
+            Maneuver::Defensive,
+            Maneuver::Evade,
+            Maneuver::Attack,
+        ] {
+            for risk in [Risk::Cautious, Risk::Normal, Risk::Aggressive] {
+                for turns in [0, 5] {
+                    let mut mem = ManeuverMemory::new(42);
+                    mem.turns_in_maneuver = turns;
+                    let a = m.run(&obs, &mut mem, &risk.params());
+                    if let Some(p) = a.fire {
+                        let fresh =
+                            obs.target.is_some_and(|t| t.age == 0);
+                        if !fresh || p.0 >= obs.energy.0 {
+                            return TestResult::failed();
+                        }
+                    }
+                    if !matches!(a.turn_radar, Some(r) if r != 0) {
+                        return TestResult::failed();
+                    }
+                }
+            }
+        }
+        TestResult::passed()
+    }
+    QuickCheck::new()
+        .tests(2000)
+        .quickcheck(prop as fn(ManeuverCase) -> TestResult);
+}

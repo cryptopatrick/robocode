@@ -2,6 +2,7 @@
 //! (`Risk`). Task 9 adds the maneuvers themselves; this is their base.
 
 pub mod memory;
+pub mod moves;
 
 use crate::strategy::Observation;
 use crate::units::{angle_diff, Angle, Energy, Power};

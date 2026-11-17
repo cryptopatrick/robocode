@@ -154,3 +154,135 @@ fn fresh_stale_fresh_does_not_detect() {
     assert!(!m.observe(&with_target(0, 300, 50_000, 0, 3)));
     assert!(!m.observe(&with_target(0, 300, 48_000, 0, 0)));
 }
+
+// ---- the five maneuvers ----
+
+use robocode::strategy::maneuver::{bearing_to, moves};
+use robocode::strategy::Action;
+use robocode::units::angle_diff;
+
+const ALL: [Maneuver; 5] = [
+    Maneuver::Search,
+    Maneuver::Patrol,
+    Maneuver::Defensive,
+    Maneuver::Evade,
+    Maneuver::Attack,
+];
+
+#[test]
+fn search_spins_the_radar_full_speed() {
+    let mut mem = ManeuverMemory::new(1);
+    let a = moves::search(&obs(), &mut mem, &Risk::Normal.params());
+    assert_eq!(a.turn_radar, Some(450));
+    assert_eq!(a.fire, None);
+}
+
+#[test]
+fn search_heads_for_the_centre() {
+    let mut o = obs();
+    o.x = 100;
+    o.y = 100;
+    let mut mem = ManeuverMemory::new(1);
+    let a = moves::search(&o, &mut mem, &Risk::Normal.params());
+    let want = angle_diff(bearing_to(&o, 400, 300), o.heading);
+    assert!((a.turn_body.unwrap() - want).abs() <= 10);
+    assert!(a.ahead.unwrap() > 0);
+}
+
+#[test]
+fn patrol_advances_waypoints() {
+    let p = Risk::Normal.params();
+    let mut o = obs();
+    // Waypoint 0 is (cx, keep_clear + 40).
+    o.x = 400;
+    o.y = p.keep_clear + 40 + 5;
+    let mut mem = ManeuverMemory::new(1);
+    assert_eq!(mem.waypoint, 0);
+    let a = moves::patrol(&o, &mut mem, &p);
+    assert_eq!(mem.waypoint, 1);
+    assert_eq!(a.fire, None);
+}
+
+#[test]
+fn evade_drives_at_right_angles() {
+    let mut mem = ManeuverMemory::new(1);
+    let a = moves::evade(
+        &with_target(0, 300, 50_000, 0, 0),
+        &mut mem,
+        &Risk::Normal.params(),
+    );
+    assert!((a.turn_body.unwrap().abs() - 900).abs() <= 1);
+    assert!(a.ahead.unwrap() != 0);
+    assert_eq!(a.fire, None);
+}
+
+#[test]
+fn evade_direction_is_seeded() {
+    let run = |seed| {
+        let mut mem = ManeuverMemory::new(seed);
+        (0..10)
+            .map(|_| {
+                mem.turns_in_maneuver = 0;
+                moves::evade(
+                    &with_target(0, 300, 50_000, 0, 0),
+                    &mut mem,
+                    &Risk::Normal.params(),
+                );
+                mem.evade_dir
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(run(7), run(7));
+    let dirs = run(7);
+    assert!(dirs.iter().any(|&d| d != dirs[0]));
+}
+
+#[test]
+fn evade_keeps_its_direction_after_entry() {
+    let mut mem = ManeuverMemory::new(3);
+    let o = with_target(0, 300, 50_000, 0, 0);
+    moves::evade(&o, &mut mem, &Risk::Normal.params());
+    let d = mem.evade_dir;
+    mem.turns_in_maneuver = 4;
+    moves::evade(&o, &mut mem, &Risk::Normal.params());
+    assert_eq!(mem.evade_dir, d);
+    assert_eq!(mem.turns_in_maneuver, 4);
+}
+
+#[test]
+fn attack_closes_and_fires_when_aimed() {
+    let mut mem = ManeuverMemory::new(1);
+    let a = moves::attack(
+        &with_target(0, 500, 50_000, 0, 0),
+        &mut mem,
+        &Risk::Normal.params(),
+    );
+    assert_eq!(a.ahead, Some(100));
+    assert_eq!(a.fire, Some(Power(2000)));
+}
+
+#[test]
+fn defensive_fires_low_power_only() {
+    let mut mem = ManeuverMemory::new(1);
+    let a = moves::defensive(
+        &with_target(0, 500, 50_000, 0, 0),
+        &mut mem,
+        &Risk::Aggressive.params(),
+    );
+    assert_eq!(a.fire, Some(Power(1000)));
+}
+
+#[test]
+fn every_maneuver_turns_the_radar() {
+    for m in ALL {
+        for o in [obs(), with_target(900, 300, 50_000, 0, 0)] {
+            let mut mem = ManeuverMemory::new(1);
+            let a: Action = m.run(&o, &mut mem, &Risk::Normal.params());
+            assert!(
+                matches!(a.turn_radar, Some(x) if x != 0),
+                "{} left the radar alone",
+                m.name()
+            );
+        }
+    }
+}
