@@ -1,0 +1,28 @@
+{
+  "cheats": [
+    {
+      "file": "cheat_assume.rs",
+      "what": "SafeShooter's strategy plus an assume(false) in the body, which would make every property trivially provable.",
+      "problems": [
+        "the body is not a valid block: expected `,`",
+        "`proof` is not allowed",
+        "`assume` is not allowed"
+      ]
+    },
+    {
+      "file": "cheat_cfg.rs",
+      "what": "Behaves safely under Verus and fires 3.0 every turn in battle, via cfg!(feature = \"verus\").",
+      "problems": [
+        "`cfg` is not allowed",
+        "macro `cfg!` is not allowed"
+      ]
+    },
+    {
+      "file": "cheat_nodecreases.rs",
+      "what": "Whitespace in `verifier :: exec_allows_no_decreases_clause` slipped past the text denylist; a non-terminating helper made every property vacuously provable.",
+      "problems": [
+        "attribute not allowed: #[cfg_attr (feature = \"verus\" , verus_spec (ensures false) , verifier :: exec_allows_no_decreases_clause)]"
+      ]
+    }
+  ]
+}

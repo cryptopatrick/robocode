@@ -75,3 +75,25 @@ fn stored_runs_record_model_and_version() {
         assert_eq!(run["robocode"], manifest["robocode"], "{combo}");
     }
 }
+
+#[test]
+fn stored_cheats_are_refused_with_reasons() {
+    let cheats = json(&stored().join("cheats.json"));
+    let cheats = cheats["cheats"].as_array().expect("cheats array");
+    let files: Vec<&str> =
+        cheats.iter().map(|c| c["file"].as_str().unwrap()).collect();
+    assert_eq!(
+        files,
+        ["cheat_assume.rs", "cheat_cfg.rs", "cheat_nodecreases.rs"]
+    );
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures");
+    for c in cheats {
+        let file = c["file"].as_str().unwrap();
+        let what = c["what"].as_str().unwrap();
+        assert!(!what.trim().is_empty(), "{file}: what");
+        assert!(!what.contains("Expected:"), "{file}: what");
+        let problems = c["problems"].as_array().unwrap();
+        assert!(!problems.is_empty(), "{file}: problems");
+        assert!(fixtures.join(file).exists(), "{file}");
+    }
+}
