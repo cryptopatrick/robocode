@@ -8,7 +8,9 @@
  - **Tactician**, the fifth built-in robot (with SafeShooter, Circler, Spinner and SittingDuck): it picks a maneuver each turn by priority with hysteresis, uses Search/Patrol when no target is seen, and has stuck recovery and a wall guard.
  - **Maneuver library** (`robocode::strategy::maneuver`): `Maneuver` (search, patrol, defensive, evade, attack), `Risk` profiles (cautious, normal, aggressive), `Intent`, a fire filter, and shot detection from the target's energy drop. The library includes stuck recovery and a 30 px wall guard. Shot detection is a heuristic: the energy drop is the only bullet information, so it causes false flinches (see `docs/robot-api.md`).
  - Viewer: each robot's maneuver shows in its label and in the robot panel.
- - *Breaking* New public `Strategy::intent` hook (default `None`) and new public fields for the beam in the engine's snapshots.
+ - *Breaking* `RobotSnapshot` gained a public `beam: Option<Vec<Point>>` field, so constructing it as a struct literal no longer compiles.
+ - *Breaking* `roster::BUILT_IN` grew from `[&str; 4]` to `[&str; 5]` (Tactician).
+ - New `Strategy::intent` hook (a default method returning `None`, so existing strategies are unaffected).
  - Release metadata test; CI builds the fuzz targets.
 
 ## v0.5.0 - 2026-11-12
