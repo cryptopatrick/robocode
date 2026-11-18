@@ -1,5 +1,5 @@
 // Types and parser for battle recordings produced by the `robocode-wasm` crate
-// (format "roboverus-recording", version 1). Units in snapshots are the
+// (format "roboverus-recording", versions 1 and 2). Units in snapshots are the
 // engine's: pixels and degrees. Units in decisions are fixed-point: milli-units
 // for energy/heat/power and decidegrees for angles.
 

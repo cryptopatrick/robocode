@@ -131,7 +131,7 @@ If several robots share a name, the battle numbers them like classic RoboCode: `
 `robocode::strategy::maneuver` is a small library for strategies that act in named modes.
 
 - `Strategy::intent(&self) -> Option<Intent>` lets a strategy report what it is doing. The default is `None`. An `Intent` is a `Maneuver` plus a `Risk`. The recording stores it per turn, and the viewer shows it.
-- **Maneuvers:** `Search` (orbit and sweep to find a target), `Patrol` (follow the centre roads), `Defensive` (keep away when energy is low), `Evade` (dodge after a detected shot) and `Attack` (close in, lock the radar, aim and fire). Every maneuver turns the radar.
+- **Maneuvers:** `Search` (orbit and sweep to find a target), `Patrol` (follow the centre roads), `Defensive` (keep away when energy is low), `Evade` (dodge after a detected shot: a seeded coin picks bearing +90° or −90°, and the robot drives forward that way, taking the other side when the chosen one has less than 30 px of wall room) and `Attack` (close in, lock the radar, aim and fire). Every maneuver turns the radar.
 - **Risk profiles** set the numbers a maneuver uses. `RiskParams` has `reserve`, `engage_distance`, `aim_tolerance`, `shot_power`, `keep_clear`, `evade_turns` and `stale_after`:
 
   | | reserve | engage distance | aim tolerance | shot power | keep clear | evade turns | stale after |
@@ -141,7 +141,8 @@ If several robots share a name, the battle numbers them like classic RoboCode: `
   | `Aggressive` | 5 | 150 px | 8.0° | 3.0 | 25 px | 6 | 30 |
 
 - **Fire filter:** every maneuver fires through `fire_filter`, which allows a shot only at a fresh target (`age == 0`) and with a power strictly below the robot's own energy.
-- **Stuck recovery and wall guard:** a robot that sits at velocity 0 after a move command backs off once and turns away. Every commanded move is clipped so the robot stays 30 px from a wall.
+- **Stuck recovery and wall guard:** every maneuver, Defensive included, has its commanded move clipped to the room left along the current heading, so the robot stays 30 px from a wall. A robot that sits at velocity 0 after a move command backs off once and turns away; Defensive, which stands still on purpose, is exempt from this recovery.
+- **`keep_clear`** is the Patrol waypoint inset: the route's outer waypoints sit `keep_clear + 40` px in from the wall. It does not set the wall guard's margin, which is a fixed 30 px.
 - **Tactician** picks the maneuver each turn: Evade on a detected shot (Aggressive ignores shots above its reserve); otherwise it keeps a maneuver for 8 turns; then Search if the target is stale or missing (alternating with Patrol every 150 turns when nothing is seen), Defensive below the reserve, Attack on a fresh target, else Patrol.
 
 ### Shot detection

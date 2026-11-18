@@ -97,7 +97,8 @@ pub struct RiskParams {
     /// Gun misalignment in decidegrees that still counts as aimed.
     pub aim_tolerance: i32,
     pub shot_power: Power,
-    /// Pixels to keep between the robot and a wall.
+    /// Inset in pixels of Patrol's outer waypoints (plus 40). The wall
+    /// guard's margin is fixed; see `memory::WALL_CLEARANCE`.
     pub keep_clear: i32,
     /// Turns Evade lasts after a detected shot.
     pub evade_turns: u32,
