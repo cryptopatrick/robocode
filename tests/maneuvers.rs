@@ -419,3 +419,20 @@ fn recovery_backs_off_away_from_wall() {
     assert_ne!(a.ahead, Some(0));
     assert!(a.turn_body.is_some());
 }
+
+#[test]
+fn defensive_respects_the_wall_guard() {
+    // Heading up (0), 25 px above the bottom wall, target close on the
+    // right: Defensive backs away (-50), which points at the bottom wall.
+    let o = Observation {
+        y: 575,
+        velocity: 0,
+        ..with_target(900, 200, 50_000, 0, 0)
+    };
+    let mut mem = ManeuverMemory::new(5);
+    let raw = moves::defensive(&o, &mut mem, &Risk::Normal.params());
+    assert_eq!(raw.ahead, Some(-50));
+    assert_eq!(raw.turn_body, Some(0));
+    let a = Maneuver::Defensive.run(&o, &mut mem, &Risk::Normal.params());
+    assert_eq!(a.ahead, Some(0), "backed into the bottom wall");
+}

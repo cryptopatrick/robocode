@@ -32,12 +32,14 @@ impl Maneuver {
             Maneuver::Evade => evade(obs, mem, p),
             Maneuver::Attack => attack(obs, mem, p),
         };
-        // Defensive stands still on purpose, so it is exempt from recovery.
+        // Every maneuver keeps clear of walls. Defensive stands still on
+        // purpose, so it is exempt from stuck recovery.
+        let action = super::memory::wall_guard(obs, action);
         if self == Maneuver::Defensive {
             mem.clear_stuck();
             action
         } else {
-            mem.recover(obs, super::memory::wall_guard(obs, action))
+            mem.recover(obs, action)
         }
     }
 }
