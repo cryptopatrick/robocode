@@ -18,16 +18,16 @@ describe('tank defs', () => {
       expect(TANKS[id].hullLength).toBeLessThanOrEqual(56)
     }
   })
-  it('barrels reach 20 to 28 px past the centre, K2 longest', () => {
-    const reaches = TANK_IDS.map((id) => TANKS[id].barrelReach)
-    for (const r of reaches) {
-      expect(r).toBeGreaterThanOrEqual(20)
-      expect(r).toBeLessThanOrEqual(28)
+  it('barrels reach 26 to 31 px past the centre', () => {
+    for (const id of TANK_IDS) {
+      expect(TANKS[id].barrelReach).toBeGreaterThanOrEqual(26)
+      expect(TANKS[id].barrelReach).toBeLessThanOrEqual(31)
     }
-    expect(TANKS.k2.barrelReach).toBe(Math.max(...reaches))
   })
-  it('merkava turret is set back', () => {
-    expect(TANKS.merkava.pivotY).toBeLessThan(0)
+  it('turret pivots sit near the hull centre', () => {
+    for (const id of TANK_IDS) {
+      expect(Math.abs(TANKS[id].pivotY)).toBeLessThanOrEqual(2)
+    }
   })
   it('names have no country', () => {
     for (const id of TANK_IDS) {

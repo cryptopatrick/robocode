@@ -188,3 +188,7 @@ Robot *i* defaults to `DEFAULT_TANKS[i % 5]`.
 - **Radar.** The radar stays a small dish on the turret roof in both views, because the source models
   have no radar part.
 - **Release.** This ships after 0.6.0, as its own release.
+
+## Amendments (during implementation)
+
+- The supplied 2D art measured hull lengths of about 45-47 px, gun reach of about 28-29 px for every tank, and turret pivots near the hull centre, the Merkava included. The art is the authority for geometry, so the 3D models follow these numbers rather than the earlier seed proportions.
