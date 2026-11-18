@@ -220,6 +220,8 @@ export default function App() {
                   robots={recording.turns[playback.turn].robots}
                   selected={selected}
                   onSelect={setSelected}
+                  decisions={recording.decisions}
+                  turn={playback.turn}
                 />
               </section>
               <section aria-labelledby="decision-h" className="flex flex-col gap-2">

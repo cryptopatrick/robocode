@@ -406,6 +406,12 @@ pub trait Robot {
     fn last_decision(&self) -> Option<(Observation, Action)> {
         None
     }
+
+    /// For strategy robots that report one: what the robot was doing this
+    /// turn, shown by the battle viewer.
+    fn last_intent(&self) -> Option<crate::strategy::maneuver::Intent> {
+        None
+    }
 }
 
 /// `absolute` as seen from `heading`, in `(-180, 180]` degrees.

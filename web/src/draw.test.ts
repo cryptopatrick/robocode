@@ -126,3 +126,26 @@ describe('recorded beam', () => {
     expect(calls.find((c) => c[0] === 'arc')?.[3]).toBe(1200);
   });
 });
+
+describe('intent label', () => {
+  it('shows the intent under the name', () => {
+    const texts: string[] = [];
+    const noop = () => undefined;
+    const ctx = new Proxy({} as Record<string, unknown>, {
+      get: (t, k: string) => {
+        if (k === 'measureText') return () => ({ width: 10 });
+        if (k === 'fillText') return (text: string) => texts.push(text);
+        return k in t ? t[k] : noop;
+      },
+      set: (t, k: string, v) => ((t[k] = v), true),
+    }) as unknown as CanvasRenderingContext2D;
+    const rec = {
+      battlefield: { width: 800, height: 600 },
+      robots: [{ id: 0, name: 'Tactician' }],
+      turns: [{ turn: 0, robots: [{ ...robot(94), position: { x: 100, y: 100 } }], bullets: [], events: {} }],
+      decisions: [[{ intent: { maneuver: 'attack', risk: 'normal' } }]],
+    } as unknown as Recording;
+    drawArena(ctx, rec, 0, { names: true, energy: true, scanArcs: false, effects: false } as never);
+    expect(texts).toContain('ATTACK · normal');
+  });
+});

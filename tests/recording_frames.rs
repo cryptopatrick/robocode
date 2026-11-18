@@ -154,3 +154,27 @@ fn dead_robot_beam_is_empty() {
         assert_eq!(b.iter().filter(|b| **b == "[]").count(), 1, "{b:?}");
     }
 }
+
+#[test]
+fn tactician_decisions_carry_intent() {
+    let json = recording::record(urban_battle("Tactician", "Circler"), 200);
+    let marker = r#""intent":{"maneuver":""#;
+    let mut count = 0;
+    let mut rest = json.as_str();
+    while let Some(i) = rest.find(marker) {
+        let after = &rest[i + marker.len()..];
+        let (m, tail) = after.split_once(r#"","risk":""#).unwrap();
+        let (r, tail) = tail.split_once(r#""}"#).unwrap();
+        assert!(
+            ["search", "patrol", "defensive", "evade", "attack"].contains(&m),
+            "{m}"
+        );
+        assert!(["cautious", "normal", "aggressive"].contains(&r), "{r}");
+        count += 1;
+        rest = tail;
+    }
+    assert!(count > 10, "{count}");
+    // Robots without intent write no field.
+    let plain = recording::record(urban_battle("Circler", "Spinner"), 50);
+    assert!(!plain.contains("intent"));
+}

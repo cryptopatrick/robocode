@@ -59,6 +59,8 @@ export interface Decision {
   turn_body: number | null;
   turn_gun: number | null;
   turn_radar: number | null;
+  /** Strategies that report one (Tactician): the maneuver and risk this turn. */
+  intent?: { maneuver: string; risk: string };
 }
 
 export interface Recording {

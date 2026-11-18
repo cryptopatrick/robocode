@@ -9,6 +9,7 @@ use std::fmt::Write as _;
 
 use crate::physics::TurnEvents;
 use crate::runner::Battle;
+use crate::strategy::maneuver::Intent;
 use crate::strategy::{Action, Observation};
 
 /// Checks a battle setup, with the messages the viewer shows.
@@ -35,7 +36,10 @@ fn opt<T: std::fmt::Display>(v: Option<T>) -> String {
     v.map_or_else(|| "null".to_string(), |v| v.to_string())
 }
 
-fn decision_json((obs, action): &(Observation, Action)) -> String {
+fn decision_json(
+    (obs, action): &(Observation, Action),
+    intent: Option<Intent>,
+) -> String {
     let target = obs.target.map_or_else(
         || "null".to_string(),
         |t| {
@@ -45,8 +49,15 @@ fn decision_json((obs, action): &(Observation, Action)) -> String {
             )
         },
     );
+    let intent = intent.map_or_else(String::new, |i| {
+        format!(
+            r#","intent":{{"maneuver":"{}","risk":"{}"}}"#,
+            i.maneuver.name(),
+            i.risk.name()
+        )
+    });
     format!(
-        r#"{{"energy":{},"gun_heat":{},"gun_heading":{},"target":{},"fire":{},"ahead":{},"turn_body":{},"turn_gun":{},"turn_radar":{}}}"#,
+        r#"{{"energy":{},"gun_heat":{},"gun_heading":{},"target":{},"fire":{},"ahead":{},"turn_body":{},"turn_gun":{},"turn_radar":{}{}}}"#,
         obs.energy.0,
         obs.gun_heat.0,
         obs.gun_heading.0,
@@ -56,6 +67,7 @@ fn decision_json((obs, action): &(Observation, Action)) -> String {
         opt(action.turn_body),
         opt(action.turn_gun),
         opt(action.turn_radar),
+        intent,
     )
 }
 
@@ -169,10 +181,10 @@ pub fn frame(battle: &Battle, events: &TurnEvents) -> Frame {
     let n = battle.state().robots.len();
     let row: Vec<String> = (0..n)
         .map(|i| {
-            battle
-                .last_decision(i)
-                .as_ref()
-                .map_or_else(|| "null".into(), decision_json)
+            battle.last_decision(i).as_ref().map_or_else(
+                || "null".into(),
+                |d| decision_json(d, battle.last_intent(i)),
+            )
         })
         .collect();
     Frame {
