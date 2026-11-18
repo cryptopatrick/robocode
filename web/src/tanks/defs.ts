@@ -7,6 +7,14 @@ export const TANK_IDS: TankId[] = ['leopard2a8', 'abrams', 'k2', 'leclerc', 'mer
 
 export const DEFAULT_TANKS: TankId[] = [...TANK_IDS]
 
+/** A cut sprite: PNG size and the pixel it rotates about. */
+export interface ArtPart {
+  w: number
+  h: number
+  pivotX: number
+  pivotY: number
+}
+
 export interface TankDef {
   id: TankId
   name: string
@@ -18,55 +26,84 @@ export interface TankDef {
   pivotY: number
   /** Muzzle distance from the robot centre in px. */
   barrelReach: number
+  /** px per art pixel: makes the hull 28 px wide. */
+  scale: number
+  /** Cut sprite sizes and rotation pivots, in art pixels (from scripts/cut-tanks.mjs). */
+  art: { hull: ArtPart; turret: ArtPart }
   colors: { base: number; secondary: number; armor: number }
 }
 
-// hullLength, pivotY and barrelReach are seeds from the proportions in
-// _wb/tankmodels.md; the 2D art task replaces them with measured values.
+// hullLength, pivotY, barrelReach and art are measured from the cut sprites
+// (npm run cut-tanks); hullLength = art.hull.h * scale.
 export const TANKS: Record<TankId, TankDef> = {
   leopard2a8: {
     id: 'leopard2a8',
     name: 'Leopard 2A8',
-    hullLength: 49.7,
+    hullLength: 46.4,
     hullWidth: 28,
-    pivotY: 1.1,
-    barrelReach: 24.9,
+    pivotY: -0.1,
+    barrelReach: 28.3,
+    scale: 0.1393,
+    art: {
+      hull: { w: 201, h: 333, pivotX: 97.5, pivotY: 167.5 },
+      turret: { w: 171, h: 323, pivotX: 85, pivotY: 209.5 },
+    },
     colors: { base: 0x77775b, secondary: 0x535746, armor: 0x96947b },
   },
   abrams: {
     id: 'abrams',
     name: 'M1A2 Abrams SEPv3',
-    hullLength: 51.8,
+    hullLength: 47,
     hullWidth: 28,
-    pivotY: -0.5,
-    barrelReach: 24.1,
+    pivotY: 0.4,
+    barrelReach: 29.1,
+    scale: 0.1407,
+    art: {
+      hull: { w: 199, h: 334, pivotX: 92.5, pivotY: 164.5 },
+      turret: { w: 186, h: 312, pivotX: 93, pivotY: 208.5 },
+    },
     colors: { base: 0x777354, secondary: 0x4f5140, armor: 0x999477 },
   },
   k2: {
     id: 'k2',
     name: 'K2 Black Panther',
-    hullLength: 48.6,
+    hullLength: 45.8,
     hullWidth: 28,
-    pivotY: 0.5,
-    barrelReach: 25.6,
+    pivotY: 0.2,
+    barrelReach: 28.9,
+    scale: 0.1379,
+    art: {
+      hull: { w: 203, h: 332, pivotX: 101.5, pivotY: 164.5 },
+      turret: { w: 174, h: 313, pivotX: 83, pivotY: 212 },
+    },
     colors: { base: 0x626b4c, secondary: 0x454c3c, armor: 0x89916a },
   },
   leclerc: {
     id: 'leclerc',
     name: 'Leclerc XLR',
-    hullLength: 48.1,
+    hullLength: 45.1,
     hullWidth: 28,
-    pivotY: 0.5,
-    barrelReach: 23.9,
+    pivotY: 0.3,
+    barrelReach: 28.8,
+    scale: 0.1366,
+    art: {
+      hull: { w: 205, h: 330, pivotX: 102.5, pivotY: 162.5 },
+      turret: { w: 175, h: 323, pivotX: 83.5, pivotY: 212 },
+    },
     colors: { base: 0x777a5b, secondary: 0x4d5540, armor: 0x989879 },
   },
   merkava: {
     id: 'merkava',
     name: 'Merkava (inspired)',
-    hullLength: 54,
+    hullLength: 46.8,
     hullWidth: 28,
-    pivotY: -3.2,
-    barrelReach: 20.5,
+    pivotY: 0.4,
+    barrelReach: 29.1,
+    scale: 0.14,
+    art: {
+      hull: { w: 200, h: 334, pivotX: 99.5, pivotY: 164.5 },
+      turret: { w: 182, h: 323, pivotX: 89, pivotY: 209 },
+    },
     colors: { base: 0x9b9270, secondary: 0x625d4c, armor: 0xb1a587 },
   },
 }
