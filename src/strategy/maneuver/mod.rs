@@ -5,7 +5,7 @@ pub mod memory;
 pub mod moves;
 
 use crate::strategy::Observation;
-use crate::units::{angle_diff, Angle, Energy, Power};
+use crate::units::{Angle, Energy, Power, angle_diff};
 
 /// What the robot is doing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

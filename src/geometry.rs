@@ -77,7 +77,8 @@ pub enum Ratio {
 }
 
 impl Ratio {
-    pub const ALL: [Ratio; 4] = [Ratio::R4x3, Ratio::R2x1, Ratio::R16x9, Ratio::R1x1];
+    pub const ALL: [Ratio; 4] =
+        [Ratio::R4x3, Ratio::R2x1, Ratio::R16x9, Ratio::R1x1];
 
     pub fn size(self) -> (f64, f64) {
         match self {
@@ -107,10 +108,9 @@ impl FromStr for Ratio {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ratio::ALL
-            .into_iter()
-            .find(|r| r.name() == s)
-            .ok_or_else(|| format!("unknown ratio `{s}`: expected 4:3, 2:1, 16:9 or 1:1"))
+        Ratio::ALL.into_iter().find(|r| r.name() == s).ok_or_else(|| {
+            format!("unknown ratio `{s}`: expected 4:3, 2:1, 16:9 or 1:1")
+        })
     }
 }
 

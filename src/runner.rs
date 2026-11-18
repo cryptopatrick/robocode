@@ -6,10 +6,10 @@
 //! take part through [`StrategyRobot`], which builds their [`Observation`].
 
 use crate::api::{
-    relative_bearing, BulletHitBulletEvent, BulletHitEvent, BulletMissedEvent,
-    Commands, Event, HitByBulletEvent, HitRobotEvent, HitWallEvent, Robot,
-    RobotDeathEvent, RoundEndedEvent, ScannedRobotEvent, SkippedTurnEvent,
-    Status,
+    BulletHitBulletEvent, BulletHitEvent, BulletMissedEvent, Commands, Event,
+    HitByBulletEvent, HitRobotEvent, HitWallEvent, Robot, RobotDeathEvent,
+    RoundEndedEvent, ScannedRobotEvent, SkippedTurnEvent, Status,
+    relative_bearing,
 };
 use crate::geometry::angle_to_point;
 use crate::physics::{
@@ -893,11 +893,7 @@ impl Battle {
     /// The observation and action robot `i` used in the most recent step, if
     /// it acted then and is a fixed-point strategy robot.
     pub fn last_decision(&self, i: usize) -> Option<(Observation, Action)> {
-        if self.acted[i] {
-            self.robots[i].last_decision()
-        } else {
-            None
-        }
+        if self.acted[i] { self.robots[i].last_decision() } else { None }
     }
 
     /// The maneuver and risk robot `i` reported in the most recent step.
@@ -905,11 +901,7 @@ impl Battle {
         &self,
         i: usize,
     ) -> Option<crate::strategy::maneuver::Intent> {
-        if self.acted[i] {
-            self.robots[i].last_intent()
-        } else {
-            None
-        }
+        if self.acted[i] { self.robots[i].last_intent() } else { None }
     }
 
     /// Robot `i`'s name in this battle (numbered if several share it).

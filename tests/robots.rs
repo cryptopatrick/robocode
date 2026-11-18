@@ -519,7 +519,8 @@ mod tactician {
         let mut first_500 = 0;
         for turn in 0..2000 {
             let ev = b.step();
-            hits += ev.wall_collisions.iter().filter(|w| w.robot_id == 0).count();
+            hits +=
+                ev.wall_collisions.iter().filter(|w| w.robot_id == 0).count();
             if turn == 499 {
                 first_500 = hits;
             }
@@ -527,7 +528,10 @@ mod tactician {
                 break;
             }
         }
-        assert!(first_500 <= 3, "{first_500} wall hits in the first 500 turns");
+        assert!(
+            first_500 <= 3,
+            "{first_500} wall hits in the first 500 turns"
+        );
         assert!(hits <= 8, "{hits} wall hits in the battle");
     }
 

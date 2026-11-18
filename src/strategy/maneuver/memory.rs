@@ -47,8 +47,11 @@ pub fn wall_room(obs: &Observation, dir: i32, turn: i32) -> i32 {
         let h = obs.heading.0 + turn * k / 2;
         let rad = (h as f64) / 10.0 * std::f64::consts::PI / 180.0;
         let (dx, dy) = (rad.sin() * dir as f64, -rad.cos() * dir as f64);
-        let t = room(obs.x, obs.field_width, dx)
-            .min(room(obs.y, obs.field_height, dy));
+        let t = room(obs.x, obs.field_width, dx).min(room(
+            obs.y,
+            obs.field_height,
+            dy,
+        ));
         best = best.min(t.floor().clamp(-100_000.0, 100_000.0) as i32);
     }
     best
@@ -118,7 +121,11 @@ impl ManeuverMemory {
     /// the robot is still at velocity 0 on a later recovery turn, recovery
     /// ends and stuck detection starts over. Radar, gun and fire are left as
     /// the maneuver chose them.
-    pub fn recover(&mut self, obs: &Observation, mut action: Action) -> Action {
+    pub fn recover(
+        &mut self,
+        obs: &Observation,
+        mut action: Action,
+    ) -> Action {
         if self.recovery_left > 0 {
             if obs.velocity == 0 {
                 self.recovery_left = 0; // still stuck: abort

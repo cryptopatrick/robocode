@@ -8,11 +8,10 @@
 
 use super::memory::ManeuverMemory;
 use super::{
-    bearing_to, fire_filter, gun_aim, radar_lock, Maneuver,
-    RiskParams,
+    Maneuver, RiskParams, bearing_to, fire_filter, gun_aim, radar_lock,
 };
 use crate::strategy::{Action, Observation};
-use crate::units::{angle_diff, Angle, Power};
+use crate::units::{Angle, Power, angle_diff};
 
 /// Within this many pixels of a waypoint, the next one is chosen.
 const WAYPOINT_REACHED: i32 = 20;
@@ -132,14 +131,13 @@ pub fn defensive(
     p: &RiskParams,
 ) -> Action {
     let Some(t) = obs.target else {
-        return Action {
-            turn_radar: Some(lock(obs)),
-            ..Action::default()
-        };
+        return Action { turn_radar: Some(lock(obs)), ..Action::default() };
     };
     // Side-on: whichever of bearing +/- 900 needs the smaller body turn.
-    let left = angle_diff(Angle((t.bearing.0 - 900).rem_euclid(3600)), obs.heading);
-    let right = angle_diff(Angle((t.bearing.0 + 900).rem_euclid(3600)), obs.heading);
+    let left =
+        angle_diff(Angle((t.bearing.0 - 900).rem_euclid(3600)), obs.heading);
+    let right =
+        angle_diff(Angle((t.bearing.0 + 900).rem_euclid(3600)), obs.heading);
     let turn_body = if right.abs() <= left.abs() { right } else { left };
     let aim = gun_aim(obs);
     let fire = if aim.abs() <= p.aim_tolerance {
@@ -168,8 +166,7 @@ pub fn evade(
     }
     let dir = mem.evade_dir as i32;
     let turn_body = obs.target.map(|t| {
-        let heading =
-            Angle((t.bearing.0 + 900 * dir).rem_euclid(3600));
+        let heading = Angle((t.bearing.0 + 900 * dir).rem_euclid(3600));
         angle_diff(heading, obs.heading)
     });
     Action {
@@ -187,10 +184,7 @@ pub fn attack(
     p: &RiskParams,
 ) -> Action {
     let Some(t) = obs.target else {
-        return Action {
-            turn_radar: Some(lock(obs)),
-            ..Action::default()
-        };
+        return Action { turn_radar: Some(lock(obs)), ..Action::default() };
     };
     let aim = gun_aim(obs);
     let fire = if aim.abs() <= p.aim_tolerance {

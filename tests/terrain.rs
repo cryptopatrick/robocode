@@ -209,7 +209,8 @@ fn urban_4x3_is_unchanged_from_0_5_0() {
         (475.0, 345.0, 120.0, 80.0),
         (475.0, 460.0, 60.0, 50.0),
     ];
-    let got: Vec<_> = Terrain::urban(800.0, 600.0).buildings.iter().map(dims).collect();
+    let got: Vec<_> =
+        Terrain::urban(800.0, 600.0).buildings.iter().map(dims).collect();
     assert_eq!(got, expected);
 }
 
@@ -225,7 +226,13 @@ fn every_ratio_map_keeps_spawns_clear() {
                     && s.position.x <= g.max.x
                     && s.position.y >= g.min.y
                     && s.position.y <= g.max.y;
-                assert!(!inside, "{}: spawn {:?} blocked by {:?}", ratio.name(), s.position, b);
+                assert!(
+                    !inside,
+                    "{}: spawn {:?} blocked by {:?}",
+                    ratio.name(),
+                    s.position,
+                    b
+                );
             }
         }
     }
@@ -237,7 +244,10 @@ fn every_ratio_map_is_inside_and_40px_from_walls() {
         let (w, h) = ratio.size();
         for b in &Terrain::urban_for(ratio).buildings {
             assert!(
-                b.min.x >= 40.0 && b.min.y >= 40.0 && b.max.x <= w - 40.0 && b.max.y <= h - 40.0,
+                b.min.x >= 40.0
+                    && b.min.y >= 40.0
+                    && b.max.x <= w - 40.0
+                    && b.max.y <= h - 40.0,
                 "{}: {:?}",
                 ratio.name(),
                 b
@@ -290,13 +300,15 @@ fn non_ratio_sizes_keep_the_0_5_0_filter() {
         (575.0, 545.0, 120.0, 80.0),
         (575.0, 660.0, 60.0, 50.0),
     ];
-    let got: Vec<_> = Terrain::urban(1000.0, 1000.0).buildings.iter().map(dims).collect();
+    let got: Vec<_> =
+        Terrain::urban(1000.0, 1000.0).buildings.iter().map(dims).collect();
     assert_eq!(got, big);
     let small = [
         (200.0, 170.0, 60.0, 60.0),
         (300.0, 170.0, 50.0, 50.0),
         (245.0, 160.0, 70.0, 60.0),
     ];
-    let got: Vec<_> = Terrain::urban(400.0, 400.0).buildings.iter().map(dims).collect();
+    let got: Vec<_> =
+        Terrain::urban(400.0, 400.0).buildings.iter().map(dims).collect();
     assert_eq!(got, small);
 }

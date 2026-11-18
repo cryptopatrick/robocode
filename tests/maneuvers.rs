@@ -1,5 +1,5 @@
 use robocode::strategy::maneuver::memory::ManeuverMemory;
-use robocode::strategy::maneuver::{fire_filter, Intent, Maneuver, Risk};
+use robocode::strategy::maneuver::{Intent, Maneuver, Risk, fire_filter};
 use robocode::strategy::{Observation, TargetInfo};
 use robocode::units::{Angle, Energy, GunHeat, Power};
 
@@ -157,8 +157,8 @@ fn fresh_stale_fresh_does_not_detect() {
 
 // ---- the five maneuvers ----
 
-use robocode::strategy::maneuver::{bearing_to, moves};
 use robocode::strategy::Action;
+use robocode::strategy::maneuver::{bearing_to, moves};
 use robocode::units::angle_diff;
 
 const ALL: [Maneuver; 5] = [
@@ -298,12 +298,9 @@ fn run_with_velocity(
 
 #[test]
 fn stuck_robot_backs_off_and_turns() {
-    for m in [
-        Maneuver::Search,
-        Maneuver::Patrol,
-        Maneuver::Attack,
-        Maneuver::Evade,
-    ] {
+    for m in
+        [Maneuver::Search, Maneuver::Patrol, Maneuver::Attack, Maneuver::Evade]
+    {
         let mut mem = ManeuverMemory::new(5);
         for _ in 0..3 {
             let a = run_with_velocity(m, &mut mem, 0);

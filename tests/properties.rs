@@ -621,8 +621,7 @@ fn no_maneuver_fires_without_a_fresh_affordable_target() {
                     mem.turns_in_maneuver = turns;
                     let a = m.run(&obs, &mut mem, &risk.params());
                     if let Some(p) = a.fire {
-                        let fresh =
-                            obs.target.is_some_and(|t| t.age == 0);
+                        let fresh = obs.target.is_some_and(|t| t.age == 0);
                         if !fresh || p.0 >= obs.energy.0 {
                             return TestResult::failed();
                         }
