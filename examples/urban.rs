@@ -9,7 +9,7 @@ use robocode::{Battlefield, roster};
 fn main() {
     let (width, height) = (800.0, 600.0);
     let robots = vec![
-        roster::built_in("SafeShooter").expect("built-in robot"),
+        roster::built_in("Circler").expect("built-in robot"),
         roster::built_in("Spinner").expect("built-in robot"),
     ];
     let config = BattleConfig {

@@ -21,7 +21,7 @@ interface Props {
 }
 
 export default function NewBattle({ names, onRun, sizeOf = ratioSize, ratios = RATIOS }: Props) {
-  const [robots, setRobots] = useState<string[]>(['SafeShooter', 'Spinner']);
+  const [robots, setRobots] = useState<string[]>(['Tactician', 'Circler']);
   const [arena, setArena] = useState(ratios[0]);
   const [maxTurns, setMaxTurns] = useState(5000);
   const [urban, setUrban] = useState(false);

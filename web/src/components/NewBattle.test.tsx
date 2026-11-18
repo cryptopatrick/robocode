@@ -19,4 +19,11 @@ describe('NewBattle ratio picker', () => {
     fireEvent.click(screen.getByText('Run battle'));
     expect(onRun).toHaveBeenCalledWith(expect.objectContaining({ width: 1067, height: 600 }));
   });
+
+  it('defaults to Tactician against Circler', () => {
+    const onRun = vi.fn();
+    render(<NewBattle names={['Tactician', 'Circler', 'Spinner']} onRun={onRun} sizeOf={sizeOf} ratios={Object.keys(sizes)} />);
+    fireEvent.click(screen.getByText('Run battle'));
+    expect(onRun).toHaveBeenCalledWith(expect.objectContaining({ robots: ['Tactician', 'Circler'] }));
+  });
 });
