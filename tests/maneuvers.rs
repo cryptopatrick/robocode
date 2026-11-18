@@ -436,3 +436,52 @@ fn defensive_respects_the_wall_guard() {
     let a = Maneuver::Defensive.run(&o, &mut mem, &Risk::Normal.params());
     assert_eq!(a.ahead, Some(0), "backed into the bottom wall");
 }
+
+/// Unit direction of travel (x, y) for an Action from `o`, with y down.
+fn travel(o: &Observation, a: &Action) -> (f64, f64) {
+    let h = (o.heading.0 + a.turn_body.unwrap_or(0)) as f64;
+    let rad = h / 10.0 * std::f64::consts::PI / 180.0;
+    let s = a.ahead.unwrap_or(0).signum() as f64;
+    (rad.sin() * s, -rad.cos() * s)
+}
+
+#[test]
+fn evade_coin_sides_travel_in_opposite_directions() {
+    let o = with_target(0, 300, 50_000, 0, 0);
+    let mut by_dir = std::collections::HashMap::new();
+    for seed in 1..50 {
+        let mut mem = ManeuverMemory::new(seed);
+        let a = moves::evade(&o, &mut mem, &Risk::Normal.params());
+        by_dir.entry(mem.evade_dir).or_insert(travel(&o, &a));
+    }
+    let (p, n) = (by_dir[&1], by_dir[&-1]);
+    let dot = p.0 * n.0 + p.1 * n.1;
+    assert!(dot < -0.99, "both coin sides travel the same way: {p:?} {n:?}");
+}
+
+#[test]
+fn evade_near_a_wall_takes_the_side_with_room() {
+    // 40 px below the top wall, heading east, target due east: the side
+    // heading north has 10 px of room, so every coin result goes south.
+    let o = Observation {
+        y: 40,
+        heading: Angle(900),
+        ..with_target(900, 300, 50_000, 0, 0)
+    };
+    for seed in 1..50 {
+        let mut mem = ManeuverMemory::new(seed);
+        let a = Maneuver::Evade.run(&o, &mut mem, &Risk::Normal.params());
+        let (_, dy) = travel(&o, &a);
+        assert!(dy > 0.99, "seed {seed} evaded toward the wall");
+        assert!(a.ahead.is_some_and(|x| x != 0), "seed {seed} idles");
+    }
+    // The same 40 px above the bottom wall: every coin result goes north.
+    let o = Observation { y: 560, ..o };
+    for seed in 1..50 {
+        let mut mem = ManeuverMemory::new(seed);
+        let a = Maneuver::Evade.run(&o, &mut mem, &Risk::Normal.params());
+        let (_, dy) = travel(&o, &a);
+        assert!(dy < -0.99, "seed {seed} evaded toward the wall");
+        assert!(a.ahead.is_some_and(|x| x != 0), "seed {seed} idles");
+    }
+}

@@ -6,7 +6,7 @@
 //! spreads a large turn over several turns. Gun and radar turns are clamped
 //! to the engine's per-turn limits.
 
-use super::memory::ManeuverMemory;
+use super::memory::{ManeuverMemory, wall_room};
 use super::{
     Maneuver, RiskParams, bearing_to, fire_filter, gun_aim, radar_lock,
 };
@@ -156,8 +156,13 @@ pub fn defensive(
     }
 }
 
+/// Least wall room in pixels for an Evade side to be taken.
+const EVADE_MIN_ROOM: i32 = 30;
+
 /// Evade reads `turns_in_maneuver == 0` to detect entry; the caller owns
-/// that counter.
+/// that counter. On entry a coin picks a side, bearing +90 or -90 degrees,
+/// and the robot drives forward that way. When the chosen side has less
+/// than [`EVADE_MIN_ROOM`] of wall room, the other side is taken.
 pub fn evade(
     obs: &Observation,
     mem: &mut ManeuverMemory,
@@ -166,14 +171,21 @@ pub fn evade(
     if mem.turns_in_maneuver == 0 {
         mem.evade_dir = if mem.next_bit() { 1 } else { -1 };
     }
-    let dir = mem.evade_dir as i32;
     let turn_body = obs.target.map(|t| {
-        let heading = Angle((t.bearing.0 + 900 * dir).rem_euclid(3600));
-        angle_diff(heading, obs.heading)
+        let side =
+            |dir: i32| Angle((t.bearing.0 + 900 * dir).rem_euclid(3600));
+        let room = |dir: i32| {
+            wall_room(&Observation { heading: side(dir), ..*obs }, 1, 0)
+        };
+        let dir = mem.evade_dir as i32;
+        if room(dir) < EVADE_MIN_ROOM && room(-dir) > room(dir) {
+            mem.evade_dir = -mem.evade_dir;
+        }
+        angle_diff(side(mem.evade_dir as i32), obs.heading)
     });
     Action {
         fire: None,
-        ahead: Some(100 * dir.signum()),
+        ahead: Some(100),
         turn_body,
         turn_gun: Some(gun_aim(obs)),
         turn_radar: Some(lock(obs)),
