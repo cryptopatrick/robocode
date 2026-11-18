@@ -275,7 +275,6 @@ mod tactician {
     fn choose_table() {
         use Maneuver::*;
         let n = Risk::Normal;
-        let p = n.params(); // reserve 20000, evade 12, stale 20
         let fresh = Some(target(0, 300, 0));
         let aged = Some(target(0, 300, 5));
         let stale = Some(target(0, 300, 25));
@@ -315,6 +314,51 @@ mod tactician {
                 with(50_000, stale),
                 n,
                 Search,
+            ),
+            (
+                "search swaps to patrol at 150",
+                Search,
+                150,
+                false,
+                with(50_000, None),
+                n,
+                Patrol,
+            ),
+            (
+                "search holds before 150",
+                Search,
+                149,
+                false,
+                with(50_000, None),
+                n,
+                Search,
+            ),
+            (
+                "patrol holds before 150",
+                Patrol,
+                149,
+                false,
+                with(50_000, None),
+                n,
+                Patrol,
+            ),
+            (
+                "patrol swaps to search at 150",
+                Patrol,
+                150,
+                false,
+                with(50_000, None),
+                n,
+                Search,
+            ),
+            (
+                "search at 150 sees a fresh target",
+                Search,
+                150,
+                false,
+                with(50_000, fresh),
+                n,
+                Attack,
             ),
             (
                 "defensive when low",
@@ -402,7 +446,6 @@ mod tactician {
             let got = choose(cur, turns, shot, &o, &risk.params(), risk);
             assert_eq!(got, want, "{what}");
         }
-        let _ = p;
     }
 
     #[test]
@@ -457,6 +500,30 @@ mod tactician {
             }
         }
         assert!(seen, "Tactician never saw SafeShooter in 1500 turns");
+    }
+
+    #[test]
+    fn tactician_does_not_wall_bash() {
+        let robots = vec![
+            boxed(Tactician::default()),
+            roster::built_in("SafeShooter").unwrap(),
+        ];
+        let mut b = Battle::new(
+            BattleConfig::default(),
+            &roster::spawns(2, 800.0, 600.0),
+            robots,
+        );
+        b.set_terrain(Terrain::urban(800.0, 600.0));
+        // Sum the damage of each wall hit, at the velocity of that turn.
+        let mut damage = 0.0;
+        for _ in 0..500 {
+            let ev = b.step();
+            let hit = ev.wall_collisions.iter().any(|w| w.robot_id == 0);
+            if let (true, Some((o, _))) = (hit, b.last_decision(0)) {
+                damage += robocode::rules::wall_hit_damage(o.velocity as f64 / 10.0);
+            }
+        }
+        assert!(damage < 10.0, "Tactician took {damage} wall damage in 500 turns");
     }
 
     #[test]

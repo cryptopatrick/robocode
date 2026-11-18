@@ -15,10 +15,39 @@ const COLLISION_DISTANCE: i32 = 40;
 pub const STUCK_TURNS: u8 = 3;
 /// Turns a recovery lasts.
 pub const RECOVERY_TURNS: u8 = 10;
-/// Distance in pixels backed off per recovery turn.
-pub const RECOVERY_BACKOFF: i32 = -60;
+/// Distance in pixels of the one back-off command.
+pub const RECOVERY_BACKOFF: i32 = 60;
 /// Body turn in decidegrees (90 degrees) per recovery turn.
 pub const RECOVERY_TURN: i32 = 900;
+
+/// Pixels kept between the robot and a wall when backing off.
+const BACKOFF_CLEARANCE: i32 = 20;
+
+/// How far the robot can drive in direction `dir` (1 forward, -1 backward)
+/// while turning by `turn` decidegrees, up to [`RECOVERY_BACKOFF`], without
+/// reaching a wall. The body swings during the back-off, so the least room
+/// over the start, middle and end headings is used.
+fn backoff_room(obs: &Observation, dir: i32, turn: i32) -> i32 {
+    let room = |pos: i32, size: i32, d: f64| -> f64 {
+        if d > 1e-9 {
+            ((size - BACKOFF_CLEARANCE - pos) as f64) / d
+        } else if d < -1e-9 {
+            ((pos - BACKOFF_CLEARANCE) as f64) / -d
+        } else {
+            f64::INFINITY
+        }
+    };
+    let mut best = RECOVERY_BACKOFF;
+    for k in 0..=2 {
+        let h = obs.heading.0 + turn * k / 2;
+        let rad = (h as f64) / 10.0 * std::f64::consts::PI / 180.0;
+        let (dx, dy) = (rad.sin() * dir as f64, -rad.cos() * dir as f64);
+        let t = room(obs.x, obs.field_width, dx)
+            .min(room(obs.y, obs.field_height, dy));
+        best = best.min(t.floor().max(0.0) as i32);
+    }
+    best
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ManeuverMemory {
@@ -30,14 +59,12 @@ pub struct ManeuverMemory {
     pub evade_dir: i8,
     pub turns_in_maneuver: u32,
     pub rng: u64,
-    /// Whether the previous Action commanded a non-zero move.
-    pub last_moved: bool,
+    /// Sign of the previous Action's `ahead` (0 = none or zero).
+    pub last_ahead: i8,
     /// Consecutive turns at velocity 0 after a move command.
     pub stuck_turns: u8,
     /// Recovery turns still to run.
     pub recovery_left: u8,
-    /// Body turn of the current recovery (sign chosen once per recovery).
-    pub recovery_turn: i32,
 }
 
 impl ManeuverMemory {
@@ -51,10 +78,9 @@ impl ManeuverMemory {
             evade_dir: 1,
             turns_in_maneuver: 0,
             rng: if seed == 0 { DEFAULT_SEED } else { seed },
-            last_moved: false,
+            last_ahead: 0,
             stuck_turns: 0,
             recovery_left: 0,
-            recovery_turn: 0,
         }
     }
 
@@ -68,37 +94,51 @@ impl ManeuverMemory {
         x & 1 == 1
     }
 
-    /// Stuck recovery, built only from the observation's velocity. Replaces
-    /// the movement of `action` with a back-off and a turn while recovering;
-    /// radar, gun and fire are left as the maneuver chose them.
+    /// Stuck recovery, built only from the observation's velocity.
+    ///
+    /// When the previous move command was followed by 3 turns at velocity 0,
+    /// the first recovery turn issues one back-off against the direction it
+    /// was stuck in plus a 90 degree turn. For the rest of the recovery the
+    /// movement is left to the engine, so the pending commands finish. If
+    /// the robot is still at velocity 0 on a later recovery turn, recovery
+    /// ends and stuck detection starts over. Radar, gun and fire are left as
+    /// the maneuver chose them.
     pub fn recover(&mut self, obs: &Observation, mut action: Action) -> Action {
-        if self.recovery_left == 0 {
-            if self.last_moved && obs.velocity == 0 {
-                self.stuck_turns = self.stuck_turns.saturating_add(1);
+        if self.recovery_left > 0 {
+            if obs.velocity == 0 {
+                self.recovery_left = 0; // still stuck: abort
+                self.stuck_turns = 0;
             } else {
-                self.stuck_turns = 0;
-            }
-            if self.stuck_turns >= STUCK_TURNS {
-                self.stuck_turns = 0;
-                self.recovery_left = RECOVERY_TURNS;
-                self.recovery_turn =
-                    if self.next_bit() { RECOVERY_TURN } else { -RECOVERY_TURN };
+                self.recovery_left -= 1;
+                action.ahead = None;
+                action.turn_body = None;
+                return action;
             }
         }
-        if self.recovery_left > 0 {
-            self.recovery_left -= 1;
-            action.ahead = Some(RECOVERY_BACKOFF);
-            action.turn_body = Some(self.recovery_turn);
-            self.last_moved = false;
+        if self.last_ahead != 0 && obs.velocity == 0 {
+            self.stuck_turns = self.stuck_turns.saturating_add(1);
         } else {
-            self.last_moved = action.ahead.is_some_and(|a| a != 0);
+            self.stuck_turns = 0;
+        }
+        if self.stuck_turns >= STUCK_TURNS {
+            self.stuck_turns = 0;
+            self.recovery_left = RECOVERY_TURNS - 1;
+            let sign = if self.next_bit() { 1 } else { -1 };
+            let back = -self.last_ahead as i32;
+            let turn = sign * RECOVERY_TURN;
+            action.ahead = Some(back * backoff_room(obs, back, turn));
+            action.turn_body = Some(turn);
+            self.last_ahead = -self.last_ahead;
+        } else {
+            self.last_ahead = action.ahead.map_or(0, |a| a.signum() as i8);
         }
         action
     }
 
-    /// Forget stuck state (for maneuvers that deliberately stand still).
+    /// Forget stuck state (for maneuvers that deliberately stand still, and
+    /// on entering Evade).
     pub fn clear_stuck(&mut self) {
-        self.last_moved = false;
+        self.last_ahead = 0;
         self.stuck_turns = 0;
         self.recovery_left = 0;
     }

@@ -298,7 +298,12 @@ fn run_with_velocity(
 
 #[test]
 fn stuck_robot_backs_off_and_turns() {
-    for m in [Maneuver::Search, Maneuver::Patrol, Maneuver::Attack, Maneuver::Evade] {
+    for m in [
+        Maneuver::Search,
+        Maneuver::Patrol,
+        Maneuver::Attack,
+        Maneuver::Evade,
+    ] {
         let mut mem = ManeuverMemory::new(5);
         for _ in 0..3 {
             let a = run_with_velocity(m, &mut mem, 0);
@@ -307,15 +312,47 @@ fn stuck_robot_backs_off_and_turns() {
         let a = run_with_velocity(m, &mut mem, 0);
         assert_eq!(a.ahead, Some(-60), "{m:?}");
         assert_eq!(a.turn_body.map(i32::abs), Some(900), "{m:?}");
-        // The recovery lasts 10 turns in the same direction, then ends.
-        let sign = a.turn_body;
+        // The rest of the recovery leaves movement to the engine.
         for _ in 0..9 {
-            let a = run_with_velocity(m, &mut mem, 0);
-            assert_eq!((a.ahead, a.turn_body), (Some(-60), sign));
+            let a = run_with_velocity(m, &mut mem, 50);
+            assert_eq!((a.ahead, a.turn_body), (None, None), "{m:?}");
         }
-        let a = run_with_velocity(m, &mut mem, 0);
-        assert_ne!(a.ahead, Some(-60), "{m:?} recovery ended");
+        let a = run_with_velocity(m, &mut mem, 50);
+        assert!(a.ahead != Some(-60), "{m:?} recovery ended");
     }
+}
+
+fn stuck_action(ahead: i32) -> Action {
+    Action { ahead: Some(ahead), ..Action::default() }
+}
+
+fn still() -> Observation {
+    Observation { velocity: 0, ..obs() }
+}
+
+#[test]
+fn stuck_while_reversing_backs_off_forward() {
+    let mut mem = ManeuverMemory::new(5);
+    for _ in 0..3 {
+        mem.recover(&still(), stuck_action(-100));
+    }
+    let a = mem.recover(&still(), stuck_action(-100));
+    assert_eq!(a.ahead, Some(60));
+}
+
+#[test]
+fn recovery_aborts_when_still_stuck() {
+    let mut mem = ManeuverMemory::new(5);
+    for _ in 0..3 {
+        mem.recover(&still(), stuck_action(100));
+    }
+    let a = mem.recover(&still(), stuck_action(100));
+    assert_eq!(a.ahead, Some(-60));
+    // Still at velocity 0 on the next turn: recovery ends, the maneuver's
+    // own movement returns, and detection starts over.
+    let a = mem.recover(&still(), stuck_action(100));
+    assert_eq!(a.ahead, Some(100));
+    assert_eq!(mem.recovery_left, 0);
 }
 
 #[test]

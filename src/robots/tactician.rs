@@ -99,6 +99,9 @@ impl Strategy for Tactician {
         );
         if next != self.current {
             self.mem.turns_in_maneuver = 0;
+            if next == Maneuver::Evade {
+                self.mem.clear_stuck();
+            }
             self.current = next;
         }
         let action = next.run(obs, &mut self.mem, &params);
