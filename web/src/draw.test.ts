@@ -44,7 +44,7 @@ describe('labelX', () => {
   });
 });
 
-import { drawArena } from './draw';
+import { drawArena, ROBOT_COLORS } from './draw';
 import type { Recording } from './recording';
 
 describe('canvas fits each ratio', () => {
@@ -147,5 +147,84 @@ describe('intent label', () => {
     } as unknown as Recording;
     drawArena(ctx, rec, 0, { names: true, energy: true, scanArcs: false, effects: false } as never);
     expect(texts).toContain('ATTACK · normal');
+  });
+});
+
+describe('five tanks', () => {
+  type Rec = { k: string; args: unknown[]; fillStyle?: unknown; filter?: unknown };
+  const fakeImg = (name: string, w: number, h: number) => ({ name, naturalWidth: w, naturalHeight: h }) as unknown as HTMLImageElement;
+  const k2 = { hull: fakeImg('hull', 203, 332), turret: fakeImg('turret', 174, 313) };
+  const run = (robots: RobotSnapshot[], tanks: Parameters<typeof drawArena>[5], sprites: Parameters<typeof drawArena>[4] = {}) => {
+    const log: Rec[] = [];
+    const state: Record<string, unknown> = {};
+    const stack: Record<string, unknown>[] = [];
+    const ctx = new Proxy(state, {
+      get: (t, k: string) => {
+        if (k === 'save') return () => stack.push({ ...t });
+        if (k === 'restore') return () => { Object.assign(t, stack.pop()); };
+        if (k === 'measureText') return () => ({ width: 10 });
+        if (k in t) return t[k];
+        return (...args: unknown[]) => log.push({ k, args, fillStyle: t.fillStyle, filter: t.filter });
+      },
+      set: (t, k: string, v) => {
+        t[k] = v;
+        if (k === 'filter') log.push({ k: 'setFilter', args: [v], filter: v });
+        return true;
+      },
+    }) as unknown as CanvasRenderingContext2D;
+    const rec = {
+      battlefield: { width: 800, height: 600 },
+      robots: robots.map((_, i) => ({ id: i, name: `R${i}` })),
+      turns: [{ turn: 0, robots, bullets: [], events: { bullet_hits: [], robot_deaths: [] } }],
+    } as unknown as Recording;
+    drawArena(ctx, rec, 0, { names: false, energy: false, scanArcs: false, effects: false }, sprites, tanks);
+    return log;
+  };
+  const at = (i: number, alive = true): RobotSnapshot => ({ ...robot(80, alive), id: i, position: { x: 100 + i * 50, y: 100 } });
+  const k2Tanks = { leopard2a8: k2 };
+
+  it('draws hull then turret for the picked tank', () => {
+    // Robot 0 defaults to leopard2a8; its images are the fakes.
+    const log = run([at(0)], k2Tanks);
+    const imgs = log.filter((l) => l.k === 'drawImage').map((l) => l.args[0]);
+    expect(imgs).toEqual([k2.hull, k2.turret]);
+  });
+
+  it('muzzle cap uses the team colour', () => {
+    const log = run([at(0)], k2Tanks);
+    const turretAt = log.findIndex((l) => l.k === 'drawImage' && l.args[0] === k2.turret);
+    const cap = log.slice(turretAt).find((l) => l.k === 'fillRect' && l.fillStyle === ROBOT_COLORS[0]);
+    expect(cap).toBeDefined();
+    expect(cap!.args.slice(2)).toEqual([4, 3]);
+  });
+
+  it('same_tank_twice_keeps_both_muzzle_colours', () => {
+    const both = { k2 };
+    const log = run([at(0), at(1)], { leopard2a8: both.k2, abrams: both.k2 });
+    const fills = log.filter((l) => l.k === 'fillRect' && (l.fillStyle === ROBOT_COLORS[0] || l.fillStyle === ROBOT_COLORS[1])).map((l) => l.fillStyle);
+    expect(fills).toEqual([ROBOT_COLORS[0], ROBOT_COLORS[1]]);
+  });
+
+  it('dead tank is grey with no muzzle colour', () => {
+    const log = run([at(0, false)], k2Tanks);
+    expect(log.some((l) => l.k === 'setFilter' && l.filter === 'grayscale(1)')).toBe(true);
+    expect(log.filter((l) => l.k === 'drawImage')).toHaveLength(2);
+    expect(log.some((l) => l.k === 'fillRect' && l.fillStyle === ROBOT_COLORS[0])).toBe(false);
+  });
+
+  it('falls_back_to_plain_tank_before_images_load', () => {
+    let log: Rec[] = [];
+    expect(() => (log = run([at(0)], {}))).not.toThrow();
+    expect(log.some((l) => l.k === 'roundRect')).toBe(true);
+    expect(log.some((l) => l.k === 'drawImage')).toBe(false);
+  });
+
+  it('user sprites still win', () => {
+    const body = fakeImg('body', 36, 36);
+    const log = run([at(0)], k2Tanks, { body });
+    const imgs = log.filter((l) => l.k === 'drawImage').map((l) => l.args[0]);
+    expect(imgs).toContain(body);
+    expect(imgs).not.toContain(k2.hull);
+    expect(imgs).not.toContain(k2.turret);
   });
 });
