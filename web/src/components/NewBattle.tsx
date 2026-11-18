@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { RATIOS, ratioSize } from '../wasm';
+import { TANKS, TANK_IDS, defaultTank, type TankId } from '../tanks/defs';
 
 export interface BattleSetup {
   robots: string[];
+  /** One full tank id per robot, same order as `robots`. */
+  tanks: TankId[];
   width: number;
   height: number;
   maxTurns: number;
@@ -22,9 +25,12 @@ interface Props {
 
 export default function NewBattle({ names, onRun, sizeOf = ratioSize, ratios = RATIOS }: Props) {
   const [robots, setRobots] = useState<string[]>(['Tactician', 'Circler']);
+  const [tanks, setTanks] = useState<TankId[]>([defaultTank(0), defaultTank(1)]);
   const [arena, setArena] = useState(ratios[0]);
   const [maxTurns, setMaxTurns] = useState(5000);
   const [urban, setUrban] = useState(false);
+
+  const setTank = (i: number, id: TankId) => setTanks(tanks.map((t, j) => (j === i ? id : t)));
 
   const setRobot = (i: number, name: string) => setRobots(robots.map((r, j) => (j === i ? name : r)));
 
@@ -34,7 +40,7 @@ export default function NewBattle({ names, onRun, sizeOf = ratioSize, ratios = R
       onSubmit={(e) => {
         e.preventDefault();
         const [width, height] = sizeOf(arena);
-        onRun({ robots, width, height, maxTurns, urban });
+        onRun({ robots, tanks, width, height, maxTurns, urban });
       }}
     >
       {robots.map((r, i) => (
@@ -46,12 +52,27 @@ export default function NewBattle({ names, onRun, sizeOf = ratioSize, ratios = R
                 <option key={n}>{n}</option>
               ))}
             </select>
+            <select
+              className={field}
+              aria-label={`Tank for robot ${i + 1}`}
+              value={tanks[i]}
+              onChange={(e) => setTank(i, e.target.value as TankId)}
+            >
+              {TANK_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {TANKS[id].name}
+                </option>
+              ))}
+            </select>
             {robots.length > 2 && (
               <button
                 type="button"
                 className="rounded px-1.5 text-slate-500 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
                 aria-label={`Remove robot ${i + 1}`}
-                onClick={() => setRobots(robots.filter((_, j) => j !== i))}
+                onClick={() => {
+                  setRobots(robots.filter((_, j) => j !== i));
+                  setTanks(tanks.filter((_, j) => j !== i));
+                }}
               >
                 ×
               </button>
@@ -63,7 +84,10 @@ export default function NewBattle({ names, onRun, sizeOf = ratioSize, ratios = R
         <button
           type="button"
           className="rounded-md border border-dashed border-slate-400 px-3 py-1 text-sm text-slate-600 hover:border-slate-700 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
-          onClick={() => setRobots([...robots, names[0] ?? 'SittingDuck'])}
+          onClick={() => {
+            setRobots([...robots, names[0] ?? 'SittingDuck']);
+            setTanks([...tanks, defaultTank(robots.length)]);
+          }}
         >
           Add robot
         </button>

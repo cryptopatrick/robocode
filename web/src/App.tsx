@@ -83,7 +83,7 @@ export default function App() {
   const run = useCallback(
     (setup: BattleSetup) => {
       setError(null);
-      send({ type: 'start', robots: setup.robots, width: setup.width, height: setup.height, maxTurns: setup.maxTurns, urban: setup.urban, tanks: [], tps: liveTps.current });
+      send({ type: 'start', robots: setup.robots, width: setup.width, height: setup.height, maxTurns: setup.maxTurns, urban: setup.urban, tanks: setup.tanks, tps: liveTps.current });
     },
     [send],
   );
@@ -106,7 +106,7 @@ export default function App() {
     loadEngine()
       .then(() => {
         setNames(robotNames());
-        if (!fromUrl && !streamUrl) run({ robots: ['SafeShooter', 'Spinner'], width: 800, height: 600, maxTurns: 5000, urban: false });
+        if (!fromUrl && !streamUrl) run({ robots: ['SafeShooter', 'Spinner'], tanks: [], width: 800, height: 600, maxTurns: 5000, urban: false });
       })
       .catch((e: unknown) => setError(`Could not load the battle engine: ${e instanceof Error ? e.message : String(e)}`));
   }, [run, show, streamUrl]);
