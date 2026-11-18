@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ROBOT_COLORS } from '../draw';
 import type { Recording } from '../recording';
-import { BUILDING_HEIGHT, HULL_HEIGHT, terrainBoxes, tankPose } from '../scene';
+import { BUILDING_HEIGHT, cameraFor, HULL_HEIGHT, terrainBoxes, tankPose } from '../scene';
 
 const BACKGROUND = 0x0b1624;
 const GROUND = 0x22395a;
@@ -97,8 +97,13 @@ function build(container: HTMLElement, rec: Recording): Built {
   const bulletMaterial = material(BULLET);
 
   const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 1, 5000);
-  camera.position.set(0, Math.max(width, height) * 0.9, Math.max(width, height) * 0.55);
-  camera.lookAt(0, 0, 0);
+  {
+    const view = cameraFor(width, height, camera.aspect);
+    camera.fov = view.fov;
+    camera.position.set(...view.position);
+    camera.lookAt(...view.target);
+    camera.updateProjectionMatrix();
+  }
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;

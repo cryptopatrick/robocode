@@ -149,6 +149,7 @@ pub struct StrategyRobot<S: Strategy> {
     target: Option<(ScannedRobotEvent, u64)>,
     scanned_this_turn: bool,
     decision: Option<(Observation, Action)>,
+    intent: Option<crate::strategy::maneuver::Intent>,
 }
 
 impl<S: Strategy> StrategyRobot<S> {
@@ -160,6 +161,7 @@ impl<S: Strategy> StrategyRobot<S> {
             target: None,
             scanned_this_turn: false,
             decision: None,
+            intent: None,
         }
     }
 }
@@ -205,11 +207,16 @@ impl<S: Strategy> Robot for StrategyRobot<S> {
         let action = self.strategy.decide(&obs);
         *cmd = commands_for(&action);
         self.decision = Some((obs, action));
+        self.intent = self.strategy.intent();
         self.scanned_this_turn = false;
     }
 
     fn last_decision(&self) -> Option<(Observation, Action)> {
         self.decision
+    }
+
+    fn last_intent(&self) -> Option<crate::strategy::maneuver::Intent> {
+        self.intent
     }
 }
 
@@ -887,6 +894,14 @@ impl Battle {
     /// it acted then and is a fixed-point strategy robot.
     pub fn last_decision(&self, i: usize) -> Option<(Observation, Action)> {
         if self.acted[i] { self.robots[i].last_decision() } else { None }
+    }
+
+    /// The maneuver and risk robot `i` reported in the most recent step.
+    pub fn last_intent(
+        &self,
+        i: usize,
+    ) -> Option<crate::strategy::maneuver::Intent> {
+        if self.acted[i] { self.robots[i].last_intent() } else { None }
     }
 
     /// Robot `i`'s name in this battle (numbered if several share it).

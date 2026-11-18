@@ -1,7 +1,7 @@
 // Draws one turn of a recording onto a canvas. The look is RoboVerus's own:
 // an ink-blue plotting table with instrument-style robots.
 import { scanArc } from './geometry';
-import type { Recording, RobotSnapshot } from './recording';
+import type { Decision, Recording, RobotSnapshot } from './recording';
 import type { Sprites } from './sprites';
 
 export interface ViewOptions {
@@ -40,6 +40,13 @@ export function labelX(x: number, width: number, textWidth: number): number {
 export function labelY(y: number, height: number): number {
   const below = y + BODY / 2 + 14;
   return below > height - 4 ? y - BODY / 2 - 6 : below;
+}
+
+const LINE = 12;
+
+/** "ATTACK · normal", or '' when the robot reports no intent. */
+export function intentLabel(d: Decision | null | undefined): string {
+  return d?.intent ? `${d.intent.maneuver.toUpperCase()} · ${d.intent.risk}` : '';
 }
 
 function labelFor(r: RobotSnapshot, name: string, view: ViewOptions): string {
@@ -169,8 +176,20 @@ export function drawArena(
   if (view.scanArcs) {
     snap.robots.forEach((r, i) => {
       if (!r.alive || turn === 0) return;
-      const { start, sweep } = scanArc(prev.robots[i].radar_heading, r.radar_heading);
       const color = ROBOT_COLORS[i % ROBOT_COLORS.length];
+      if (r.beam) {
+        // Recorded beam (v2): absolute arena coordinates, drawn as is.
+        if (r.beam.length < 3) return;
+        ctx.save();
+        ctx.fillStyle = `${color}12`;
+        ctx.beginPath();
+        r.beam.forEach(([bx, by], k) => (k === 0 ? ctx.moveTo(bx, by) : ctx.lineTo(bx, by)));
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
+      const { start, sweep } = scanArc(prev.robots[i].radar_heading, r.radar_heading);
       ctx.save();
       ctx.translate(r.position.x, r.position.y);
       if (Math.abs(sweep) < rad(0.5)) {
@@ -234,7 +253,19 @@ export function drawArena(
     ctx.fillStyle = LABEL;
     snap.robots.forEach((r, i) => {
       const text = labelFor(r, rec.robots[i]?.name ?? `Robot ${i}`, view);
-      if (text) ctx.fillText(text, labelX(r.position.x, w, ctx.measureText(text).width), labelY(r.position.y, h));
+      const intent = r.alive ? intentLabel(rec.decisions?.[turn]?.[i]) : '';
+      // With an intent line, leave room for it: it goes under the name, or
+      // the pair moves above the robot near the bottom edge.
+      const base = labelY(r.position.y, h - (intent ? LINE : 0));
+      const above = base < r.position.y;
+      if (text) {
+        ctx.fillText(text, labelX(r.position.x, w, ctx.measureText(text).width), above && intent ? base - LINE : base);
+      }
+      if (intent) {
+        ctx.font = '10px ui-monospace, monospace';
+        ctx.fillText(intent, labelX(r.position.x, w, ctx.measureText(intent).width), text && !above ? base + LINE : base);
+        ctx.font = '11px system-ui, sans-serif';
+      }
     });
   }
 }

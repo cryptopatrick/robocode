@@ -4,7 +4,7 @@
 use robocode::physics::{BattleConfig, BattleState, BulletState, RobotState};
 use robocode::rules::ROBOT_RADIUS;
 use robocode::terrain::Terrain;
-use robocode::{Point, Rect};
+use robocode::{Point, Ratio, Rect};
 
 fn robot_at(x: f64, y: f64) -> RobotState {
     let mut robot = RobotState::new(0, Point::new(x, y));
@@ -190,4 +190,125 @@ fn every_arena_size_in_the_viewer_fits_its_urban_map() {
             }
         }
     }
+}
+
+fn dims(r: &Rect) -> (f64, f64, f64, f64) {
+    (r.min.x, r.min.y, r.max.x - r.min.x, r.max.y - r.min.y)
+}
+
+#[test]
+fn urban_4x3_is_unchanged_from_0_5_0() {
+    let expected = [
+        (200.0, 60.0, 120.0, 80.0),
+        (200.0, 170.0, 60.0, 60.0),
+        (300.0, 170.0, 50.0, 50.0),
+        (445.0, 60.0, 150.0, 70.0),
+        (445.0, 160.0, 70.0, 60.0),
+        (60.0, 345.0, 90.0, 120.0),
+        (190.0, 390.0, 110.0, 50.0),
+        (475.0, 345.0, 120.0, 80.0),
+        (475.0, 460.0, 60.0, 50.0),
+    ];
+    let got: Vec<_> =
+        Terrain::urban(800.0, 600.0).buildings.iter().map(dims).collect();
+    assert_eq!(got, expected);
+}
+
+#[test]
+fn every_ratio_map_keeps_spawns_clear() {
+    for ratio in Ratio::ALL {
+        let (w, h) = ratio.size();
+        let t = Terrain::urban_for(ratio);
+        for s in robocode::roster::spawns(4, w, h) {
+            for b in &t.buildings {
+                let g = b.grow(ROBOT_RADIUS);
+                let inside = s.position.x >= g.min.x
+                    && s.position.x <= g.max.x
+                    && s.position.y >= g.min.y
+                    && s.position.y <= g.max.y;
+                assert!(
+                    !inside,
+                    "{}: spawn {:?} blocked by {:?}",
+                    ratio.name(),
+                    s.position,
+                    b
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn every_ratio_map_is_inside_and_40px_from_walls() {
+    for ratio in Ratio::ALL {
+        let (w, h) = ratio.size();
+        for b in &Terrain::urban_for(ratio).buildings {
+            assert!(
+                b.min.x >= 40.0
+                    && b.min.y >= 40.0
+                    && b.max.x <= w - 40.0
+                    && b.max.y <= h - 40.0,
+                "{}: {:?}",
+                ratio.name(),
+                b
+            );
+        }
+    }
+}
+
+#[test]
+fn ratio_maps_keep_roads_clear() {
+    for ratio in Ratio::ALL {
+        let t = Terrain::urban_for(ratio);
+        assert_eq!(t.roads.len(), 2);
+        for b in &t.buildings {
+            for r in &t.roads {
+                let apart = b.max.x <= r.min.x
+                    || b.min.x >= r.max.x
+                    || b.max.y <= r.min.y
+                    || b.min.y >= r.max.y;
+                assert!(apart, "{}: {:?} meets road {:?}", ratio.name(), b, r);
+            }
+        }
+    }
+}
+
+#[test]
+fn wide_ratios_have_at_least_as_many_buildings() {
+    assert!(Terrain::urban_for(Ratio::R2x1).buildings.len() >= 9);
+    assert!(Terrain::urban_for(Ratio::R16x9).buildings.len() >= 9);
+}
+
+#[test]
+fn urban_dispatches_on_ratio_sizes() {
+    for ratio in Ratio::ALL {
+        let (w, h) = ratio.size();
+        assert_eq!(Terrain::urban(w, h), Terrain::urban_for(ratio));
+    }
+}
+
+#[test]
+fn non_ratio_sizes_keep_the_0_5_0_filter() {
+    let big = [
+        (200.0, 60.0, 120.0, 80.0),
+        (200.0, 170.0, 60.0, 60.0),
+        (300.0, 170.0, 50.0, 50.0),
+        (545.0, 60.0, 150.0, 70.0),
+        (545.0, 160.0, 70.0, 60.0),
+        (60.0, 545.0, 90.0, 120.0),
+        (190.0, 590.0, 110.0, 50.0),
+        (575.0, 545.0, 120.0, 80.0),
+        (575.0, 660.0, 60.0, 50.0),
+    ];
+    let got: Vec<_> =
+        Terrain::urban(1000.0, 1000.0).buildings.iter().map(dims).collect();
+    assert_eq!(got, big);
+    let small = [
+        (200.0, 170.0, 60.0, 60.0),
+        (300.0, 170.0, 50.0, 50.0),
+        (245.0, 160.0, 70.0, 60.0),
+    ];
+    let got: Vec<_> =
+        Terrain::urban(400.0, 400.0).buildings.iter().map(dims).collect();
+    assert_eq!(got, small);
 }

@@ -37,8 +37,16 @@ describe('parseRecording', () => {
     expect(() => parseRecording('[1,2]')).toThrow('Not a RoboVerus recording');
   });
 
-  it('rejects a future version', () => {
-    expect(() => parseRecording(JSON.stringify({ ...minimal, version: 2 }))).toThrow('Unsupported recording version 2');
+  it('reads version 2', () => {
+    expect(parseRecording(JSON.stringify({ ...minimal, version: 2 })).version).toBe(2);
+  });
+
+  it('still reads version 1', () => {
+    expect(parseRecording(JSON.stringify({ ...minimal, version: 1 })).version).toBe(1);
+  });
+
+  it('rejects version 3', () => {
+    expect(() => parseRecording(JSON.stringify({ ...minimal, version: 3 }))).toThrow('Unsupported recording version 3');
   });
 
   it('rejects mismatched turns and decisions', () => {

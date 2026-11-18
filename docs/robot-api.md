@@ -126,6 +126,29 @@ If several robots share a name, the battle numbers them like classic RoboCode: `
 
 `robocode::strategy` is the fixed-point, Verus-friendly way to write a robot: a single `decide(&Observation) -> Action`. `SafeShooter` is written this way, and Verus proves it never fires unsafely; see the RoboVerus guide in `guide/`. To put a strategy into a battle, wrap it with `runner::boxed(strategy)`. That uses `StrategyRobot`, which builds the strategy's `Observation` from the API events: the nearest robot scanned, how many turns ago, and the gun heat after cooling.
 
+## Intent and the maneuver library
+
+`robocode::strategy::maneuver` is a small library for strategies that act in named modes.
+
+- `Strategy::intent(&self) -> Option<Intent>` lets a strategy report what it is doing. The default is `None`. An `Intent` is a `Maneuver` plus a `Risk`. The recording stores it per turn, and the viewer shows it.
+- **Maneuvers:** `Search` (orbit and sweep to find a target), `Patrol` (follow the centre roads), `Defensive` (keep away when energy is low), `Evade` (dodge after a detected shot: a seeded coin picks bearing +90° or −90°, and the robot drives forward that way, taking the other side when the chosen one has less than 30 px of wall room) and `Attack` (close in, lock the radar, aim and fire). Every maneuver turns the radar.
+- **Risk profiles** set the numbers a maneuver uses. `RiskParams` has `reserve`, `engage_distance`, `aim_tolerance`, `shot_power`, `keep_clear`, `evade_turns` and `stale_after`:
+
+  | | reserve | engage distance | aim tolerance | shot power | keep clear | evade turns | stale after |
+  |---|---|---|---|---|---|---|---|
+  | `Cautious` | 40 | 450 px | 2.0° | 1.0 | 80 px | 20 | 10 |
+  | `Normal` | 20 | 300 px | 4.0° | 2.0 | 50 px | 12 | 20 |
+  | `Aggressive` | 5 | 150 px | 8.0° | 3.0 | 25 px | 6 | 30 |
+
+- **Fire filter:** every maneuver fires through `fire_filter`, which allows a shot only at a fresh target (`age == 0`) and with a power strictly below the robot's own energy.
+- **Stuck recovery and wall guard:** every maneuver, Defensive included, has its commanded move clipped to the room left along the current heading, so the robot stays 30 px from a wall. A robot that sits at velocity 0 after a move command backs off once and turns away; Defensive, which stands still on purpose, is exempt from this recovery.
+- **`keep_clear`** is the Patrol waypoint inset: the route's outer waypoints sit `keep_clear + 40` px in from the wall. It does not set the wall guard's margin, which is a fixed 30 px.
+- **Tactician** picks the maneuver each turn: Evade on a detected shot (Aggressive ignores shots above its reserve); otherwise it keeps a maneuver for 8 turns; then Search if the target is stale or missing (alternating with Patrol every 150 turns when nothing is seen), Defensive below the reserve, Attack on a fresh target, else Patrol.
+
+### Shot detection
+
+A robot cannot see bullets, only robots. `ManeuverMemory::observe` infers a shot when the target's energy falls by 0.1 to 3.0 between two **consecutive fresh scans**, and the fall is not explained by our own hit, a wall stop or a collision at close range. **The energy drop is the only bullet information.** Because of that it has false flinches: energy also drops when the target is hit by someone else's bullet or loses energy to a ram not covered by the filters, and the robot then evades a shot that was never fired. That is a known limit, not a bug.
+
 ## Samples
 
 | Robot | Written with | Behaviour |
@@ -134,3 +157,4 @@ If several robots share a name, the battle numbers them like classic RoboCode: `
 | `SafeShooter` | `Strategy` (Verus-proved) | Fires only when the safety spec holds |
 | `Spinner` | `Strategy` | Drives in circles, fires on scan |
 | `SittingDuck` | `Strategy` | Does nothing |
+| `Tactician` | `Strategy` with `Intent` | Picks a maneuver each turn by priority with hysteresis, uses Search/Patrol when no target is seen, and has stuck recovery and a wall guard |

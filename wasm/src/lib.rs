@@ -1,7 +1,7 @@
 //! Runs `robocode` battles for the browser battle viewer.
 //!
 //! A battle is simulated to the end and returned as a JSON **recording**
-//! (format `roboverus-recording`, version 1); see [`robocode::recording`].
+//! (format `roboverus-recording`, version 2); see [`robocode::recording`].
 
 use robocode::Battlefield;
 use robocode::live::{LiveSession, Pacer};
@@ -13,7 +13,7 @@ use robocode::terrain::Terrain;
 use wasm_bindgen::prelude::*;
 
 /// Robots that can be picked in the browser.
-pub const ROBOT_NAMES: [&str; 4] = roster::BUILT_IN;
+pub const ROBOT_NAMES: [&str; roster::BUILT_IN.len()] = roster::BUILT_IN;
 
 /// What to battle.
 #[derive(Debug, Clone, PartialEq)]
@@ -208,4 +208,17 @@ pub fn run_battle(
 ) -> Result<String, JsError> {
     record_battle(&spec_from_csv(robots_csv, width, height, max_turns, urban))
         .map_err(|e| JsError::new(&e))
+}
+
+/// The `[width, height]` of a battlefield ratio ("4:3", "2:1", "16:9" or
+/// "1:1"), so the page never keeps its own table of sizes.
+pub fn ratio_size(name: &str) -> Result<Vec<f64>, String> {
+    let (w, h) = name.parse::<robocode::Ratio>()?.size();
+    Ok(vec![w, h])
+}
+
+/// JS entry point for [`ratio_size`]; throws a JS `Error` on an unknown ratio.
+#[wasm_bindgen(js_name = ratio_size)]
+pub fn ratio_size_js(name: &str) -> Result<Vec<f64>, JsError> {
+    ratio_size(name).map_err(|e| JsError::new(&e))
 }

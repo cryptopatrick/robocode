@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RATIOS, ratioSize } from '../wasm';
 
 export interface BattleSetup {
   robots: string[];
@@ -8,23 +9,20 @@ export interface BattleSetup {
   urban: boolean;
 }
 
-const ARENAS = [
-  { label: '400 × 400', width: 400, height: 400 },
-  { label: '800 × 600', width: 800, height: 600 },
-  { label: '1000 × 1000', width: 1000, height: 1000 },
-];
-
 const field =
   'rounded-md border border-slate-300 bg-white px-2 py-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-600';
 
 interface Props {
   names: string[];
   onRun: (setup: BattleSetup) => void;
+  /** Sizes come from the engine; tests pass a stub. */
+  sizeOf?: (ratio: string) => [number, number];
+  ratios?: readonly string[];
 }
 
-export default function NewBattle({ names, onRun }: Props) {
-  const [robots, setRobots] = useState<string[]>(['SafeShooter', 'Spinner']);
-  const [arena, setArena] = useState(1);
+export default function NewBattle({ names, onRun, sizeOf = ratioSize, ratios = RATIOS }: Props) {
+  const [robots, setRobots] = useState<string[]>(['Tactician', 'Circler']);
+  const [arena, setArena] = useState(ratios[0]);
   const [maxTurns, setMaxTurns] = useState(5000);
   const [urban, setUrban] = useState(false);
 
@@ -35,7 +33,8 @@ export default function NewBattle({ names, onRun }: Props) {
       className="flex flex-wrap items-end gap-3"
       onSubmit={(e) => {
         e.preventDefault();
-        onRun({ robots, width: ARENAS[arena].width, height: ARENAS[arena].height, maxTurns, urban });
+        const [width, height] = sizeOf(arena);
+        onRun({ robots, width, height, maxTurns, urban });
       }}
     >
       {robots.map((r, i) => (
@@ -70,13 +69,16 @@ export default function NewBattle({ names, onRun }: Props) {
         </button>
       )}
       <label className="flex flex-col gap-1 text-xs text-slate-600">
-        Arena
-        <select className={field} value={arena} onChange={(e) => setArena(Number(e.target.value))}>
-          {ARENAS.map((a, i) => (
-            <option key={a.label} value={i}>
-              {a.label}
-            </option>
-          ))}
+        Ratio
+        <select className={field} value={arena} onChange={(e) => setArena(e.target.value)}>
+          {ratios.map((r) => {
+            const [w, h] = sizeOf(r);
+            return (
+              <option key={r} value={r}>
+                {`${r} · ${w} × ${h}`}
+              </option>
+            );
+          })}
         </select>
       </label>
       <label className="flex items-center gap-2 text-xs text-slate-600">

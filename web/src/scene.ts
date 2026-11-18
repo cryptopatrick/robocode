@@ -69,3 +69,53 @@ export function terrainBoxes(rec: Recording): {
     roads: (rec.terrain?.roads ?? []).map(toBox),
   };
 }
+
+/** Vertical field of view of the 3D camera, in degrees. */
+export const CAMERA_FOV = 40;
+/** Direction from the arena centre towards the camera (not normalised). */
+const CAMERA_TILT: [number, number, number] = [0, 0.9, 0.55];
+/** Spare room around the arena, as a factor on the fitted distance. */
+const CAMERA_MARGIN = 1.05;
+
+/**
+ * Where to put the 3D camera so all four walls of a `width` x `height` arena
+ * are in view at the given canvas aspect (width / height). The camera looks at
+ * the arena centre from a fixed tilt; the distance is the smallest at which
+ * every floor corner fits the vertical and the horizontal field of view.
+ */
+export function cameraFor(
+  width: number,
+  height: number,
+  aspect: number,
+): { position: [number, number, number]; target: [number, number, number]; fov: number } {
+  const len = Math.hypot(...CAMERA_TILT);
+  const dir = CAMERA_TILT.map((c) => c / len) as [number, number, number];
+  // Camera right = up x back, normalised; up = back x right.
+  const rl = Math.hypot(dir[2], dir[0]);
+  const right: [number, number, number] = [dir[2] / rl, 0, -dir[0] / rl];
+  const up: [number, number, number] = [
+    dir[1] * right[2] - dir[2] * right[1],
+    dir[2] * right[0] - dir[0] * right[2],
+    dir[0] * right[1] - dir[1] * right[0],
+  ];
+  const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const tanY = Math.tan((CAMERA_FOV * Math.PI) / 360);
+  const tanX = tanY * aspect;
+  let distance = 0;
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const p = [(sx * width) / 2, 0, (sz * height) / 2];
+      const need = Math.max(
+        dot(p, dir) + Math.abs(dot(p, right)) / tanX,
+        dot(p, dir) + Math.abs(dot(p, up)) / tanY,
+      );
+      distance = Math.max(distance, need);
+    }
+  }
+  distance *= CAMERA_MARGIN;
+  return {
+    position: [dir[0] * distance, dir[1] * distance, dir[2] * distance],
+    target: [0, 0, 0],
+    fov: CAMERA_FOV,
+  };
+}

@@ -1,5 +1,5 @@
 // Types and parser for battle recordings produced by the `robocode-wasm` crate
-// (format "roboverus-recording", version 1). Units in snapshots are the
+// (format "roboverus-recording", versions 1 and 2). Units in snapshots are the
 // engine's: pixels and degrees. Units in decisions are fixed-point: milli-units
 // for energy/heat/power and decidegrees for angles.
 
@@ -18,6 +18,8 @@ export interface RobotSnapshot {
   gun_heat: number;
   alive: boolean;
   radius: number;
+  /** Recording v2, battles with buildings: the radar's visible polygon in arena pixels. */
+  beam?: [number, number][];
 }
 
 export interface BulletSnapshot {
@@ -57,11 +59,13 @@ export interface Decision {
   turn_body: number | null;
   turn_gun: number | null;
   turn_radar: number | null;
+  /** Strategies that report one (Tactician): the maneuver and risk this turn. */
+  intent?: { maneuver: string; risk: string };
 }
 
 export interface Recording {
   format: 'roboverus-recording';
-  version: 1;
+  version: 1 | 2;
   robots: { id: number; name: string }[];
   battlefield: { width: number; height: number };
   /** Map objects as [x, y, width, height]. Absent in an empty arena. */
@@ -86,7 +90,7 @@ export function parseRecording(text: string): Recording {
   if (rec.format !== 'roboverus-recording') {
     throw new Error('Not a RoboVerus recording');
   }
-  if (rec.version !== 1) {
+  if (rec.version !== 1 && rec.version !== 2) {
     throw new Error(`Unsupported recording version ${String(rec.version)}`);
   }
   if (

@@ -41,6 +41,9 @@ enum Command {
         /// Battlefield size.
         #[arg(long, default_value = "800x600")]
         arena: String,
+        /// Battlefield ratio at a height of 600: 4:3, 2:1, 16:9 or 1:1.
+        #[arg(long, value_name = "RATIO", conflicts_with = "arena")]
+        ratio: Option<String>,
         /// Turn limit (per round).
         #[arg(long, default_value_t = 5000)]
         turns: u64,
@@ -139,6 +142,7 @@ fn main() -> ExitCode {
             robot,
             vs,
             arena,
+            ratio,
             turns,
             rounds,
             output,
@@ -170,6 +174,7 @@ fn main() -> ExitCode {
                         robot,
                         vs,
                         arena,
+                        ratio,
                         turns,
                         rounds,
                         live,
@@ -209,5 +214,46 @@ fn main() -> ExitCode {
             eprintln!("error: {}", f.message);
             ExitCode::from(f.code)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn size_of(argv: &[&str]) -> Result<(f64, f64), String> {
+        let cli = Cli::try_parse_from(argv).map_err(|e| e.to_string())?;
+        match cli.command {
+            Command::Battle { arena, ratio, .. } => {
+                battle::battlefield_size(&arena, ratio.as_deref())
+                    .map_err(|f| f.message)
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn ratio_sets_the_arena() {
+        let size = size_of(&[
+            "robocode", "battle", "--ratio", "16:9", "a.rs", "--vs", "b.rs",
+        ]);
+        assert_eq!(size, Ok((1067.0, 600.0)));
+    }
+
+    #[test]
+    fn ratio_conflicts_with_arena() {
+        let r = size_of(&[
+            "robocode", "battle", "--ratio", "2:1", "--arena", "800x600",
+            "a.rs",
+        ]);
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn a_bad_ratio_is_a_usage_error() {
+        assert!(
+            size_of(&["robocode", "battle", "--ratio", "3:2", "a.rs"])
+                .is_err()
+        );
     }
 }

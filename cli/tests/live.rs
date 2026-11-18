@@ -111,7 +111,7 @@ fn frames_arrive_while_the_battle_runs_and_pause_stops_them() {
     let rx = subscribe(port);
     let (_, header) = rx.recv_timeout(Duration::from_secs(60)).unwrap();
     assert!(
-        header.starts_with(r#"{"format":"roboverus-recording","version":1"#),
+        header.starts_with(r#"{"format":"roboverus-recording","version":2"#),
         "{header}"
     );
 

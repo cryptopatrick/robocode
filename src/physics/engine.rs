@@ -1,15 +1,16 @@
-use crate::geometry::Rect;
 use crate::geometry::{
-    Battlefield, Point, angle_to_point, distance_squared,
+    Battlefield, Point, angle_to_point, distance_squared, line_of_sight,
     normalize_relative_angle,
 };
+use crate::geometry::{Ratio, Rect};
 use crate::physics::bullet::BulletState;
 use crate::physics::events::{
     BulletFired, BulletHitBullet, BulletHitObstacle, BulletImpact,
     BulletMissed, RobotCollision, ScannedRobot, TurnEvents, WallCollision,
 };
+use crate::physics::radar::radar_beam;
 use crate::physics::robot::{RobotId, RobotState, TurretMode};
-use crate::physics::snapshot::TurnSnapshot;
+use crate::physics::snapshot::{RobotSnapshot, TurnSnapshot};
 use crate::rules::{self, EPSILON};
 use crate::terrain::Terrain;
 
@@ -22,7 +23,7 @@ pub struct BattleConfig {
 impl Default for BattleConfig {
     fn default() -> Self {
         Self {
-            battlefield: Battlefield::new(800.0, 600.0),
+            battlefield: Battlefield::from_ratio(Ratio::R4x3),
             gun_cooling_rate: rules::GUN_COOLING_RATE,
         }
     }
@@ -123,7 +124,17 @@ impl BattleState {
             battle_id: battle_id.into(),
             turn: self.turn,
             config: (&self.config).into(),
-            robots: self.robots.iter().map(Into::into).collect(),
+            robots: self
+                .robots
+                .iter()
+                .map(|r| {
+                    let mut snap = RobotSnapshot::from(r);
+                    if !self.terrain.buildings.is_empty() {
+                        snap.beam = Some(r.beam.clone());
+                    }
+                    snap
+                })
+                .collect(),
             bullets: self.bullets.iter().map(Into::into).collect(),
             events: events.into(),
         }
@@ -330,15 +341,31 @@ impl BattleState {
     /// Radar scan: each living robot detects every other living robot within
     /// [`rules::RADAR_SCAN_RADIUS`] whose body overlaps the arc its radar swept
     /// this turn. Simplification of Java's arc/bounding-box test: the body is
-    /// treated as a circle of the robot's radius.
+    /// treated as a circle of the robot's radius. Centre-line rule: the scan
+    /// also needs a clear line of sight between the two robots' centres, so any
+    /// building touching that segment (even a grazed corner) blocks it.
     fn scan(&mut self, events: &mut TurnEvents) {
+        let with_beams = !self.terrain.buildings.is_empty();
+        let mut beams = Vec::new();
         for a in &self.robots {
             if !a.alive {
+                if with_beams {
+                    beams.push(Vec::new());
+                }
                 continue;
             }
             let sweep = normalize_relative_angle(
                 a.radar_heading - a.last_radar_heading,
             );
+            if with_beams {
+                beams.push(radar_beam(
+                    a.position,
+                    a.last_radar_heading,
+                    sweep,
+                    &self.terrain.buildings,
+                    &self.config.battlefield,
+                ));
+            }
             for b in &self.robots {
                 if b.id == a.id || !b.alive {
                     continue;
@@ -355,7 +382,13 @@ impl BattleState {
                 };
                 let rel =
                     normalize_relative_angle(bearing - a.last_radar_heading);
-                if arc_overlaps(sweep, rel, half_width) {
+                if arc_overlaps(sweep, rel, half_width)
+                    && line_of_sight(
+                        a.position,
+                        b.position,
+                        &self.terrain.buildings,
+                    )
+                {
                     events.scans.push(ScannedRobot {
                         scanner: a.id,
                         target: b.id,
@@ -369,6 +402,9 @@ impl BattleState {
             }
         }
         events.scans.sort_by_key(|s| (s.scanner, s.target));
+        for (robot, beam) in self.robots.iter_mut().zip(beams) {
+            robot.beam = beam;
+        }
     }
 
     fn process_deaths(&mut self, events: &mut TurnEvents) {

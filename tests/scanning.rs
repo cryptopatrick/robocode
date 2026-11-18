@@ -1,5 +1,5 @@
 use robocode::physics::{BattleConfig, BattleState, RobotState};
-use robocode::{Battlefield, Point};
+use robocode::{Battlefield, Point, Rect, line_of_sight};
 
 fn big_field() -> BattleConfig {
     BattleConfig {
@@ -88,4 +88,65 @@ fn dead_robots_neither_scan_nor_are_scanned() {
     let alive = RobotState::new(1, a.translate(20.0, 200.0));
     let mut battle = BattleState::new(big_field(), vec![scanner, alive]);
     assert!(battle.step().scans.is_empty());
+}
+
+fn angle_to_point(from: Point, to: Point) -> f64 {
+    (to.x - from.x).atan2(from.y - to.y).to_degrees().rem_euclid(360.0)
+}
+
+/// Both robots sweep their radar (20 deg, centred on the bearing) across the
+/// other; returns the (a sees b, b sees a) pair.
+fn mutual_scan(a: Point, b: Point, buildings: Vec<Rect>) -> (bool, bool) {
+    let mut ra = RobotState::new(0, a);
+    ra.radar_heading = (angle_to_point(a, b) - 10.0).rem_euclid(360.0);
+    ra.set_turn_radar_right(20.0);
+    let mut rb = RobotState::new(1, b);
+    rb.radar_heading = (angle_to_point(b, a) - 10.0).rem_euclid(360.0);
+    rb.set_turn_radar_right(20.0);
+    let mut battle = BattleState::new(big_field(), vec![ra, rb]);
+    battle.terrain.buildings = buildings;
+    let scans = battle.step().scans;
+    (
+        scans.iter().any(|s| (s.scanner, s.target) == (0, 1)),
+        scans.iter().any(|s| (s.scanner, s.target) == (1, 0)),
+    )
+}
+
+#[test]
+fn building_between_blocks_both_scans() {
+    let (a, b) = (Point::new(200.0, 300.0), Point::new(600.0, 300.0));
+    let wall = vec![Rect::new(380.0, 280.0, 40.0, 40.0)];
+    assert_eq!(mutual_scan(a, b, wall), (false, false));
+    assert_eq!(mutual_scan(a, b, vec![]), (true, true));
+}
+
+#[test]
+fn diagonal_through_a_building_is_blocked() {
+    let (a, b) = (Point::new(100.0, 100.0), Point::new(500.0, 500.0));
+    let corner = Rect::new(300.0, 300.0, 50.0, 50.0);
+    assert_eq!(mutual_scan(a, b, vec![corner]), (false, false));
+    assert!(!line_of_sight(a, b, &[corner]));
+    assert!(line_of_sight(a, b, &[]));
+}
+
+#[test]
+fn building_off_the_line_does_not_block() {
+    let (a, b) = (Point::new(100.0, 100.0), Point::new(500.0, 500.0));
+    let off = Rect::new(330.0, 270.0, 50.0, 50.0);
+    assert!(line_of_sight(a, b, &[off]));
+    assert_eq!(mutual_scan(a, b, vec![off]), (true, true));
+}
+
+#[test]
+fn grazing_a_corner_is_blocked() {
+    // The line y = x touches each rectangle only at the single point (300,300):
+    // one has its bottom-left corner there, the other its top-right corner.
+    let (a, b) = (Point::new(100.0, 100.0), Point::new(500.0, 500.0));
+    for corner in [
+        Rect::new(300.0, 250.0, 50.0, 50.0),
+        Rect::new(250.0, 300.0, 50.0, 50.0),
+    ] {
+        assert!(!line_of_sight(a, b, &[corner]), "{corner:?}");
+        assert_eq!(mutual_scan(a, b, vec![corner]), (false, false));
+    }
 }

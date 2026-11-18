@@ -38,7 +38,7 @@ fn record_matches_v1_shape() {
         robots,
     );
     let json = recording::record(battle, 5000);
-    assert!(json.starts_with(r#"{"format":"roboverus-recording","version":1,"robots":[{"id":0,"name":"SafeShooter"}"#));
+    assert!(json.starts_with(r#"{"format":"roboverus-recording","version":2,"robots":[{"id":0,"name":"SafeShooter"}"#));
     assert!(json.contains(r#""battlefield":{"width":800,"height":600}"#));
     assert!(json.contains(r#""outcome":{"winner":0,"turns":364"#));
 }
