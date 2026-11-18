@@ -286,3 +286,53 @@ fn every_maneuver_turns_the_radar() {
         }
     }
 }
+
+fn run_with_velocity(
+    m: Maneuver,
+    mem: &mut ManeuverMemory,
+    velocity: i32,
+) -> Action {
+    let o = Observation { velocity, ..with_target(0, 500, 50_000, 0, 0) };
+    m.run(&o, mem, &Risk::Normal.params())
+}
+
+#[test]
+fn stuck_robot_backs_off_and_turns() {
+    for m in [Maneuver::Search, Maneuver::Patrol, Maneuver::Attack, Maneuver::Evade] {
+        let mut mem = ManeuverMemory::new(5);
+        for _ in 0..3 {
+            let a = run_with_velocity(m, &mut mem, 0);
+            assert_ne!(a.ahead, Some(-60), "{m:?} not stuck yet");
+        }
+        let a = run_with_velocity(m, &mut mem, 0);
+        assert_eq!(a.ahead, Some(-60), "{m:?}");
+        assert_eq!(a.turn_body.map(i32::abs), Some(900), "{m:?}");
+        // The recovery lasts 10 turns in the same direction, then ends.
+        let sign = a.turn_body;
+        for _ in 0..9 {
+            let a = run_with_velocity(m, &mut mem, 0);
+            assert_eq!((a.ahead, a.turn_body), (Some(-60), sign));
+        }
+        let a = run_with_velocity(m, &mut mem, 0);
+        assert_ne!(a.ahead, Some(-60), "{m:?} recovery ended");
+    }
+}
+
+#[test]
+fn moving_robot_is_not_stuck() {
+    let mut mem = ManeuverMemory::new(5);
+    for _ in 0..50 {
+        let a = run_with_velocity(Maneuver::Patrol, &mut mem, 80);
+        assert_ne!(a.ahead, Some(-60));
+    }
+    assert_eq!(mem.recovery_left, 0);
+}
+
+#[test]
+fn defensive_is_exempt_from_recovery() {
+    let mut mem = ManeuverMemory::new(5);
+    for _ in 0..30 {
+        let a = run_with_velocity(Maneuver::Defensive, &mut mem, 0);
+        assert_ne!(a.ahead, Some(-60));
+    }
+}

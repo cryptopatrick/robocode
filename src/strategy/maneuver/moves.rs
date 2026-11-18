@@ -26,12 +26,19 @@ impl Maneuver {
         mem: &mut ManeuverMemory,
         p: &RiskParams,
     ) -> Action {
-        match self {
+        let action = match self {
             Maneuver::Search => search(obs, mem, p),
             Maneuver::Patrol => patrol(obs, mem, p),
             Maneuver::Defensive => defensive(obs, mem, p),
             Maneuver::Evade => evade(obs, mem, p),
             Maneuver::Attack => attack(obs, mem, p),
+        };
+        // Defensive stands still on purpose, so it is exempt from recovery.
+        if self == Maneuver::Defensive {
+            mem.clear_stuck();
+            action
+        } else {
+            mem.recover(obs, action)
         }
     }
 }

@@ -8,12 +8,16 @@ use crate::strategy::{Action, Observation, Strategy};
 /// Turns a maneuver is kept before a lower-priority rule may replace it.
 const HOLD_TURNS: u32 = 8;
 
+/// Turns in Search (or Patrol) with nothing seen before the other is tried.
+const SEARCH_SWAP_TURNS: u32 = 150;
+
 /// The maneuver for this turn.
 ///
 /// 1. Evade if a shot was detected (Aggressive ignores it above its reserve);
 ///    Evade may interrupt at any time.
 /// 2. Keep `current` for its first 8 turns (an Evade lasts `evade_turns`).
-/// 3. Search if the target is stale or missing.
+/// 3. Search if the target is stale or missing; after 150 turns of that,
+///    Patrol, and back to Search after 150 more.
 /// 4. Defensive if energy is below the reserve.
 /// 5. Attack if the target was scanned this turn.
 /// 6. Patrol.
@@ -34,9 +38,21 @@ pub fn choose(
     if turns_in < hold {
         return current;
     }
+    let lost = obs.target.is_none_or(|t| t.age > p.stale_after);
+    if lost {
+        // Search is a fixed orbit and may never find a hidden opponent, so
+        // with nothing seen it alternates with Patrol (spec section 4).
+        return match current {
+            Maneuver::Search if turns_in >= SEARCH_SWAP_TURNS => {
+                Maneuver::Patrol
+            }
+            Maneuver::Patrol if turns_in < SEARCH_SWAP_TURNS => {
+                Maneuver::Patrol
+            }
+            _ => Maneuver::Search,
+        };
+    }
     match obs.target {
-        None => Maneuver::Search,
-        Some(t) if t.age > p.stale_after => Maneuver::Search,
         _ if low => Maneuver::Defensive,
         Some(t) if t.age == 0 => Maneuver::Attack,
         _ => Maneuver::Patrol,

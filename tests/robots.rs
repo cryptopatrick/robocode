@@ -309,7 +309,7 @@ mod tactician {
             ),
             (
                 "search when stale",
-                Patrol,
+                Attack,
                 20,
                 false,
                 with(50_000, stale),
@@ -432,6 +432,31 @@ mod tactician {
         );
         b.set_terrain(Terrain::urban(800.0, 600.0));
         b
+    }
+
+    #[test]
+    fn tactician_finds_a_hidden_opponent() {
+        let robots = vec![
+            boxed(Tactician::default()),
+            roster::built_in("SafeShooter").unwrap(),
+        ];
+        let mut b = Battle::new(
+            BattleConfig::default(),
+            &roster::spawns(2, 800.0, 600.0),
+            robots,
+        );
+        b.set_terrain(Terrain::urban(800.0, 600.0));
+        let mut seen = false;
+        for _ in 0..1500 {
+            b.step();
+            if let Some((o, _)) = b.last_decision(0) {
+                if o.target.is_some_and(|t| t.age == 0) {
+                    seen = true;
+                    break;
+                }
+            }
+        }
+        assert!(seen, "Tactician never saw SafeShooter in 1500 turns");
     }
 
     #[test]
