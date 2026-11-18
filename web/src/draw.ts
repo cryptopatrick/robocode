@@ -3,7 +3,7 @@
 import { scanArc } from './geometry';
 import type { Decision, Recording, RobotSnapshot } from './recording';
 import type { Sprites } from './sprites';
-import { TANKS, defaultTank, type TankId } from './tanks/defs';
+import { TANKS, tankFor, type TankId } from './tanks/defs';
 import type { TankImages } from './tanks/images';
 
 export interface ViewOptions {
@@ -306,8 +306,7 @@ export function drawArena(
 
   // Dead robots first so living ones draw on top.
   const order = snap.robots.map((r, i) => [r, i] as const).sort(([a], [b]) => Number(a.alive) - Number(b.alive));
-  // Task 4 switches defaultTank(i) to tankFor(rec, i).
-  for (const [r, i] of order) drawRobot(ctx, r, ROBOT_COLORS[i % ROBOT_COLORS.length], sprites, defaultTank(i), tanks);
+  for (const [r, i] of order) drawRobot(ctx, r, ROBOT_COLORS[i % ROBOT_COLORS.length], sprites, tankFor(rec, i), tanks);
 
   ctx.fillStyle = STEEL;
   for (const b of snap.bullets) {

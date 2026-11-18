@@ -112,6 +112,12 @@ export function defaultTank(i: number): TankId {
   return DEFAULT_TANKS[((i % DEFAULT_TANKS.length) + DEFAULT_TANKS.length) % DEFAULT_TANKS.length]
 }
 
+/** The tank robot `i` drives in a recording; falls back to the slot default. */
+export function tankFor(rec: { tanks?: string[] }, i: number): TankId {
+  const id = rec.tanks?.[i]
+  return id !== undefined && isTankId(id) ? id : defaultTank(i)
+}
+
 export function isTankId(s: string): s is TankId {
   return (TANK_IDS as string[]).includes(s)
 }

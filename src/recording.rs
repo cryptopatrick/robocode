@@ -129,6 +129,16 @@ fn robots_and_field(battle: &Battle) -> String {
         r#"],"battlefield":{{"width":{},"height":{}}}"#,
         field.width, field.height
     );
+    if !battle.tanks().is_empty() {
+        let tanks: Vec<String> = battle
+            .tanks()
+            .iter()
+            .map(|t| {
+                format!("\"{}\"", t.replace('\\', "\\\\").replace('"', "\\\""))
+            })
+            .collect();
+        let _ = write!(out, r#","tanks":[{}]"#, tanks.join(","));
+    }
     let terrain = &battle.state().terrain;
     if !terrain.buildings.is_empty() || !terrain.roads.is_empty() {
         let rects = |rects: &[crate::geometry::Rect]| {

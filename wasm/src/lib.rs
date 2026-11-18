@@ -24,6 +24,8 @@ pub struct BattleSpec {
     pub max_turns: u64,
     /// The fixed urban map (buildings and roads) instead of an empty arena.
     pub urban: bool,
+    /// Tank id per robot; empty means none picked (decoration only).
+    pub tanks: Vec<String>,
 }
 
 /// Builds the battle described by `spec`, checking it like the viewer does.
@@ -53,6 +55,7 @@ fn build_battle(spec: &BattleSpec) -> Result<Battle, String> {
     if spec.urban {
         battle.set_terrain(Terrain::urban(spec.width, spec.height));
     }
+    battle.set_tanks(spec.tanks.clone());
     Ok(battle)
 }
 
@@ -67,13 +70,17 @@ fn spec_from_csv(
     height: f64,
     max_turns: u32,
     urban: bool,
+    tanks_csv: &str,
 ) -> BattleSpec {
-    BattleSpec {
-        robots: robots_csv
-            .split(',')
+    let list = |csv: &str| -> Vec<String> {
+        csv.split(',')
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
-            .collect(),
+            .collect()
+    };
+    BattleSpec {
+        robots: list(robots_csv),
+        tanks: list(tanks_csv),
         width,
         height,
         max_turns: max_turns as u64,
@@ -97,8 +104,9 @@ impl LiveBattle {
         height: f64,
         max_turns: u32,
         urban: bool,
+        tanks_csv: &str,
     ) -> Result<LiveBattle, JsError> {
-        Self::create(robots_csv, width, height, max_turns, urban)
+        Self::create(robots_csv, width, height, max_turns, urban, tanks_csv)
             .map_err(|e| JsError::new(&e))
     }
 
@@ -140,8 +148,11 @@ impl LiveBattle {
         height: f64,
         max_turns: u32,
         urban: bool,
+        tanks_csv: &str,
     ) -> Result<LiveBattle, String> {
-        let spec = spec_from_csv(robots_csv, width, height, max_turns, urban);
+        let spec = spec_from_csv(
+            robots_csv, width, height, max_turns, urban, tanks_csv,
+        );
         Ok(LiveBattle {
             session: LiveSession::new(build_battle(&spec)?, spec.max_turns),
         })
@@ -196,7 +207,22 @@ pub fn robot_names() -> String {
     format!("[{}]", quoted.join(","))
 }
 
-/// Runs a battle; `robots_csv` is a comma-separated list of robot names.
+/// Native twin of [`run_battle`] (errors as strings).
+pub fn run_battle_native(
+    robots_csv: &str,
+    width: f64,
+    height: f64,
+    max_turns: u32,
+    urban: bool,
+    tanks_csv: &str,
+) -> Result<String, String> {
+    record_battle(&spec_from_csv(
+        robots_csv, width, height, max_turns, urban, tanks_csv,
+    ))
+}
+
+/// Runs a battle; `robots_csv` is a comma-separated list of robot names and
+/// `tanks_csv` one of tank ids (empty for none).
 /// Throws a JS `Error` with a readable message if the setup is invalid.
 #[wasm_bindgen]
 pub fn run_battle(
@@ -205,8 +231,9 @@ pub fn run_battle(
     height: f64,
     max_turns: u32,
     urban: bool,
+    tanks_csv: &str,
 ) -> Result<String, JsError> {
-    record_battle(&spec_from_csv(robots_csv, width, height, max_turns, urban))
+    run_battle_native(robots_csv, width, height, max_turns, urban, tanks_csv)
         .map_err(|e| JsError::new(&e))
 }
 

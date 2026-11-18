@@ -70,6 +70,8 @@ export interface Recording {
   battlefield: { width: number; height: number };
   /** Map objects as [x, y, width, height]. Absent in an empty arena. */
   terrain?: { buildings: Rect[]; roads: Rect[] };
+  /** Tank id per robot, when the battle picked them. Unknown ids fall back to the slot default. */
+  tanks?: string[];
   turns: TurnSnapshot[];
   decisions: (Decision | null)[][];
   outcome: { winner: number | null; turns: number; energies: number[] };

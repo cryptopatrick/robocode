@@ -83,7 +83,7 @@ export default function App() {
   const run = useCallback(
     (setup: BattleSetup) => {
       setError(null);
-      send({ type: 'start', robots: setup.robots, width: setup.width, height: setup.height, maxTurns: setup.maxTurns, urban: setup.urban, tps: liveTps.current });
+      send({ type: 'start', robots: setup.robots, width: setup.width, height: setup.height, maxTurns: setup.maxTurns, urban: setup.urban, tanks: [], tps: liveTps.current });
     },
     [send],
   );

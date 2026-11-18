@@ -264,6 +264,8 @@ pub struct Battle {
     skip_streak: Vec<u32>,
     skip_unreported: Vec<u32>,
     skipped: Vec<u32>,
+    /// Tank ids shown per robot (decoration for viewers; physics never reads them).
+    tanks: Vec<String>,
 }
 
 /// Robocode's score, as Java's `RobotStatistics` computes it.
@@ -396,6 +398,7 @@ impl Battle {
             skip_streak: vec![0; n],
             skip_unreported: vec![0; n],
             skipped: vec![0; n],
+            tanks: Vec::new(),
         }
     }
 
@@ -792,6 +795,16 @@ impl Battle {
     /// Map objects for this battle. The default is an empty arena.
     pub fn set_terrain(&mut self, terrain: crate::terrain::Terrain) {
         self.state.terrain = terrain;
+    }
+
+    /// Tank ids shown per robot (decoration for viewers; physics never reads them).
+    pub fn set_tanks(&mut self, tanks: Vec<String>) {
+        self.tanks = tanks;
+    }
+
+    /// Tank ids per robot, empty if none were picked.
+    pub fn tanks(&self) -> &[String] {
+        &self.tanks
     }
 
     pub fn set_time_budget(&mut self, budget: Option<std::time::Duration>) {

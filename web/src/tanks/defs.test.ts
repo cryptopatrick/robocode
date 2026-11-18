@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_TANKS, TANKS, TANK_IDS, defaultTank, isTankId } from './defs'
+import { DEFAULT_TANKS, TANKS, TANK_IDS, defaultTank, isTankId, tankFor } from './defs'
 
 describe('tank defs', () => {
   it('ids are the five tanks', () => {
@@ -37,5 +37,18 @@ describe('tank defs', () => {
   it('isTankId rejects unknown', () => {
     expect(isTankId('t34')).toBe(false)
     expect(isTankId('k2')).toBe(true)
+  })
+})
+
+describe('tankFor', () => {
+  it('tank_for_handles_short_and_long_lists', () => {
+    const rec = { tanks: ['k2'] }
+    expect([0, 1, 2].map((i) => tankFor(rec, i))).toEqual(['k2', 'abrams', 'k2'])
+    const long = { tanks: ['k2', 'k2', 'k2', 'k2', 'k2'] }
+    expect([0, 1].map((i) => tankFor(long, i))).toEqual(['k2', 'k2'])
+    expect(tankFor({}, 3)).toBe('leclerc')
+  })
+  it('tank_for_unknown_id_falls_back', () => {
+    expect(tankFor({ tanks: ['t34'] }, 0)).toBe(defaultTank(0))
   })
 })
