@@ -373,3 +373,52 @@ fn defensive_is_exempt_from_recovery() {
         assert_ne!(a.ahead, Some(-60));
     }
 }
+
+#[test]
+fn wall_guard_clips_ahead_near_wall() {
+    use robocode::strategy::maneuver::memory::wall_guard;
+    // Heading east (900), 100 px from the right wall of an 800 px field.
+    let o = Observation { x: 700, heading: Angle(900), ..obs() };
+    let a = wall_guard(&o, stuck_action(200));
+    assert_eq!(a.ahead, Some(70)); // 800 - 30 - 700
+    // Driving backward clips against the left side instead: plenty of room.
+    assert_eq!(wall_guard(&o, stuck_action(-200)).ahead, Some(-200));
+    // Already past the margin: a command into the wall becomes zero.
+    let o = Observation { x: 790, ..o };
+    assert_eq!(wall_guard(&o, stuck_action(50)).ahead, Some(0));
+    // No command, no change.
+    assert_eq!(wall_guard(&o, Action::default()).ahead, None);
+}
+
+#[test]
+fn recovery_backs_off_away_from_wall() {
+    // Heading east, close to the right wall, stuck while driving backward:
+    // the opposite direction (forward) would hit the wall, so it backs off
+    // backward by the room it has, and never emits Some(0).
+    let o = Observation { x: 745, velocity: 0, heading: Angle(900), ..obs() };
+    let mut mem = ManeuverMemory::new(5);
+    for _ in 0..3 {
+        mem.recover(&o, stuck_action(100));
+    }
+    let a = mem.recover(&o, stuck_action(100));
+    // Stuck forward: back off backward (-60 is within the room behind).
+    assert_eq!(a.ahead, Some(-60));
+    // Stuck while reversing near the wall behind it: goes forward instead.
+    let o = Observation { x: 45, velocity: 0, heading: Angle(900), ..obs() };
+    let mut mem = ManeuverMemory::new(5);
+    for _ in 0..3 {
+        mem.recover(&o, stuck_action(-100));
+    }
+    let a = mem.recover(&o, stuck_action(-100));
+    assert_eq!(a.ahead, Some(60));
+    // Wall right behind and a short way ahead: only the turn remains.
+    let o = Observation { x: 35, velocity: 0, heading: Angle(900), ..obs() };
+    let mut mem = ManeuverMemory::new(5);
+    let narrow = Observation { field_width: 70, ..o };
+    for _ in 0..3 {
+        mem.recover(&narrow, stuck_action(-100));
+    }
+    let a = mem.recover(&narrow, stuck_action(-100));
+    assert_ne!(a.ahead, Some(0));
+    assert!(a.turn_body.is_some());
+}

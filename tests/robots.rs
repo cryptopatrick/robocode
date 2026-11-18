@@ -514,16 +514,21 @@ mod tactician {
             robots,
         );
         b.set_terrain(Terrain::urban(800.0, 600.0));
-        // Sum the damage of each wall hit, at the velocity of that turn.
-        let mut damage = 0.0;
-        for _ in 0..500 {
+        // Count Tactician's wall-collision events turn by turn.
+        let mut hits = 0;
+        let mut first_500 = 0;
+        for turn in 0..2000 {
             let ev = b.step();
-            let hit = ev.wall_collisions.iter().any(|w| w.robot_id == 0);
-            if let (true, Some((o, _))) = (hit, b.last_decision(0)) {
-                damage += robocode::rules::wall_hit_damage(o.velocity as f64 / 10.0);
+            hits += ev.wall_collisions.iter().filter(|w| w.robot_id == 0).count();
+            if turn == 499 {
+                first_500 = hits;
+            }
+            if !ev.robot_deaths.is_empty() {
+                break;
             }
         }
-        assert!(damage < 10.0, "Tactician took {damage} wall damage in 500 turns");
+        assert!(first_500 <= 3, "{first_500} wall hits in the first 500 turns");
+        assert!(hits <= 8, "{hits} wall hits in the battle");
     }
 
     #[test]

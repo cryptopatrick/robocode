@@ -20,33 +20,48 @@ pub const RECOVERY_BACKOFF: i32 = 60;
 /// Body turn in decidegrees (90 degrees) per recovery turn.
 pub const RECOVERY_TURN: i32 = 900;
 
-/// Pixels kept between the robot and a wall when backing off.
-const BACKOFF_CLEARANCE: i32 = 20;
+/// Pixels kept between the robot's centre and a wall. The robot's radius is
+/// 18, and the engine can carry a robot a few pixels past a commanded
+/// distance while it brakes, so a smaller margin still ends in the wall.
+pub const WALL_CLEARANCE: i32 = 30;
+/// Least room in pixels for a recovery back-off to be worth issuing.
+const MIN_BACKOFF: i32 = 10;
 
 /// How far the robot can drive in direction `dir` (1 forward, -1 backward)
-/// while turning by `turn` decidegrees, up to [`RECOVERY_BACKOFF`], without
-/// reaching a wall. The body swings during the back-off, so the least room
-/// over the start, middle and end headings is used.
-fn backoff_room(obs: &Observation, dir: i32, turn: i32) -> i32 {
+/// while turning by `turn` decidegrees before it comes within
+/// [`WALL_CLEARANCE`] of a wall (negative when already inside). The body
+/// swings while driving, so the least room over the start, middle and end
+/// headings is used.
+pub fn wall_room(obs: &Observation, dir: i32, turn: i32) -> i32 {
     let room = |pos: i32, size: i32, d: f64| -> f64 {
         if d > 1e-9 {
-            ((size - BACKOFF_CLEARANCE - pos) as f64) / d
+            ((size - WALL_CLEARANCE - pos) as f64) / d
         } else if d < -1e-9 {
-            ((pos - BACKOFF_CLEARANCE) as f64) / -d
+            ((pos - WALL_CLEARANCE) as f64) / -d
         } else {
             f64::INFINITY
         }
     };
-    let mut best = RECOVERY_BACKOFF;
+    let mut best = i32::MAX;
     for k in 0..=2 {
         let h = obs.heading.0 + turn * k / 2;
         let rad = (h as f64) / 10.0 * std::f64::consts::PI / 180.0;
         let (dx, dy) = (rad.sin() * dir as f64, -rad.cos() * dir as f64);
         let t = room(obs.x, obs.field_width, dx)
             .min(room(obs.y, obs.field_height, dy));
-        best = best.min(t.floor().max(0.0) as i32);
+        best = best.min(t.floor().clamp(-100_000.0, 100_000.0) as i32);
     }
     best
+}
+
+/// Clips a commanded `ahead` to the room left before a wall along the
+/// current heading. A command into a wall becomes `Some(0)`.
+pub fn wall_guard(obs: &Observation, mut action: Action) -> Action {
+    if let Some(a) = action.ahead.filter(|a| *a != 0) {
+        let room = wall_room(obs, a.signum(), 0).max(0);
+        action.ahead = Some(a.signum() * a.abs().min(room));
+    }
+    action
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -124,11 +139,22 @@ impl ManeuverMemory {
             self.stuck_turns = 0;
             self.recovery_left = RECOVERY_TURNS - 1;
             let sign = if self.next_bit() { 1 } else { -1 };
-            let back = -self.last_ahead as i32;
             let turn = sign * RECOVERY_TURN;
-            action.ahead = Some(back * backoff_room(obs, back, turn));
+            // Back off against the direction it was stuck in; if a wall is
+            // too close that way, the other way; if both, only turn.
+            let mut back = -(self.last_ahead as i32);
+            if wall_room(obs, back, turn) < MIN_BACKOFF {
+                back = -back;
+            }
+            let room = wall_room(obs, back, turn);
+            if room >= MIN_BACKOFF {
+                action.ahead = Some(back * room.min(RECOVERY_BACKOFF));
+                self.last_ahead = back as i8;
+            } else {
+                action.ahead = None;
+                self.last_ahead = 0;
+            }
             action.turn_body = Some(turn);
-            self.last_ahead = -self.last_ahead;
         } else {
             self.last_ahead = action.ahead.map_or(0, |a| a.signum() as i8);
         }

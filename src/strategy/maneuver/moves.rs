@@ -38,7 +38,7 @@ impl Maneuver {
             mem.clear_stuck();
             action
         } else {
-            mem.recover(obs, action)
+            mem.recover(obs, super::memory::wall_guard(obs, action))
         }
     }
 }
