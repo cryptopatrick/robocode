@@ -95,10 +95,14 @@ function drawTank(ctx: CanvasRenderingContext2D, r: RobotSnapshot, color: string
   ctx.drawImage(imgs.hull, (-def.art.hull.w * s) / 2, (-def.art.hull.h * s) / 2, def.art.hull.w * s, def.art.hull.h * s);
   ctx.restore();
 
-  // Turret: pivot sits pivotY ahead of the centre along the hull, then turns with the gun.
+  // Turret: pivots about the turret ring centre (pivotX off the hull axis, pivotY ahead), then turns with the gun.
+  const ringX = (def.art.hull.pivotX - def.art.hull.w / 2) * s;
+  const toRing = () => {
+    ctx.rotate(rad(r.heading));
+    ctx.translate(ringX, -def.pivotY);
+  };
   ctx.save();
-  ctx.rotate(rad(r.heading));
-  ctx.translate(0, -def.pivotY);
+  toRing();
   ctx.rotate(rad(r.gun_heading - r.heading));
   const t = def.art.turret;
   ctx.drawImage(imgs.turret, -t.pivotX * s, -t.pivotY * s, t.w * s, t.h * s);
@@ -106,8 +110,7 @@ function drawTank(ctx: CanvasRenderingContext2D, r: RobotSnapshot, color: string
 
   // Radar dish at the turret pivot.
   ctx.save();
-  ctx.rotate(rad(r.heading));
-  ctx.translate(0, -def.pivotY);
+  toRing();
   ctx.rotate(rad(r.radar_heading - r.heading));
   ctx.strokeStyle = r.alive ? color : WRECK;
   ctx.lineWidth = 2.5;
@@ -119,9 +122,11 @@ function drawTank(ctx: CanvasRenderingContext2D, r: RobotSnapshot, color: string
   // Muzzle cap: the only place the team colour appears.
   if (r.alive) {
     ctx.save();
-    ctx.rotate(rad(r.gun_heading));
+    toRing();
+    ctx.rotate(rad(r.gun_heading - r.heading));
+    ctx.translate(0, -(def.barrelReach - def.pivotY));
     ctx.fillStyle = color;
-    ctx.fillRect(-MUZZLE_W / 2, -def.barrelReach, MUZZLE_W, MUZZLE_H);
+    ctx.fillRect(-MUZZLE_W / 2, 0, MUZZLE_W, MUZZLE_H);
     ctx.restore();
   }
   ctx.restore();

@@ -45,6 +45,7 @@ describe('labelX', () => {
 });
 
 import { drawArena, ROBOT_COLORS } from './draw';
+import { TANKS } from './tanks/defs';
 import type { Recording } from './recording';
 
 describe('canvas fits each ratio', () => {
@@ -226,5 +227,27 @@ describe('five tanks', () => {
     expect(imgs).toContain(body);
     expect(imgs).not.toContain(k2.hull);
     expect(imgs).not.toContain(k2.turret);
+  });
+
+  it('turret and muzzle sit on the turret ring', () => {
+    const def = TANKS.abrams;
+    const ringX = (def.art.hull.pivotX - def.art.hull.w / 2) * def.scale;
+    expect(Math.abs(ringX)).toBeGreaterThan(0.5);
+    const abrams = { hull: fakeImg('hull', 1, 1), turret: fakeImg('turret', 1, 1) };
+    const r = { ...at(1), heading: 0, gun_heading: 90 };
+    const log = run([at(0), r], { abrams });
+    const ops = log.filter((l) => l.k === 'translate' || l.k === 'rotate' || l.k === 'drawImage' || l.k === 'fillRect');
+    const start = ops.findIndex((l) => l.k === 'translate' && l.args[0] === r.position.x);
+    const mine = ops.slice(start);
+    const turretAt = mine.findIndex((l) => l.k === 'drawImage' && l.args[0] === abrams.turret);
+    const ring = mine.slice(0, turretAt).filter((l) => l.k === 'translate').pop()!;
+    expect(ring.args[0]).toBeCloseTo(ringX);
+    expect(ring.args[1]).toBeCloseTo(-def.pivotY);
+    const capAt = mine.findIndex((l) => l.k === 'fillRect' && l.args[2] === 4);
+    const capMove = mine.slice(0, capAt).filter((l) => l.k === 'translate').pop()!;
+    expect(capMove.args[0]).toBeCloseTo(0);
+    expect(capMove.args[1]).toBeCloseTo(-(def.barrelReach - def.pivotY));
+    const gunTurn = mine.slice(0, capAt).filter((l) => l.k === 'rotate').pop()!;
+    expect(gunTurn.args[0]).toBeCloseTo(Math.PI / 2);
   });
 });
