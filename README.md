@@ -20,7 +20,10 @@
 - **Verifiable strategies** (`robocode::strategy`): robots written as a single fixed-point `decide(&Observation) -> Action`, the same code whether Verus proves it or a battle runs it.
 - **Optional Verus support:** with `--features verus`, Verus checks the crate's specs. The sample robot `SafeShooter` is proved never to fire unless it has the energy, a cool gun and an aimed gun. Without the feature, no Verus crate is compiled.
 - **Battles and recordings:** run battles headless, and save turn-by-turn recordings for the browser viewer.
-- **Sample robots:** `SafeShooter`, `Circler`, `Spinner`, `SittingDuck`.
+- **Sample robots:** `SafeShooter`, `Circler`, `Spinner`, `SittingDuck`, `Tactician`.
+- **Tactician and the maneuver library** (`robocode::strategy::maneuver`): Tactician picks a maneuver each turn by priority with hysteresis, uses Search/Patrol when no target is seen, and has stuck recovery and a wall guard. Each maneuver runs at a risk level (cautious, normal, aggressive), and the viewer shows it.
+- **Radar blocked by buildings:** on the urban map, a building between two robots hides one from the other, and the viewer draws the beam as it is blocked.
+- **Battlefield ratios:** 4:3, 2:1, 16:9 or 1:1 at a height of 600, in the viewer and with `cargo robocode battle --ratio`.
 - **No dependencies** in the default build.
 
 ## Architecture
@@ -32,7 +35,7 @@
 | `runner` | Runs battles between robots; `boxed` turns a `Strategy` into a robot |
 | `strategy`, `units` | Fixed-point observations and actions for verifiable robots |
 | `robots` | Sample robots |
-| `recording`, `roster` | Battle recordings (format v1) and the built-in robot list |
+| `recording`, `roster` | Battle recordings (format v2; v1 still opens) and the built-in robot list |
 
 The engine uses `f64` and follows the Java original. Verifiable strategies see the world in whole-number units (milli-energy, decidegrees, pixels), so the `decide` that Verus proves is exactly the code that fights. The runner converts between the two, rounding in the safe direction.
 
@@ -40,7 +43,7 @@ The engine uses `f64` and follows the Java original. Verifiable strategies see t
 
 ```toml
 [dependencies]
-robocode = "0.5"
+robocode = "0.6"
 ```
 
 ```rust

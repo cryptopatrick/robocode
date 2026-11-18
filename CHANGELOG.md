@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.6.0 - 2026-11-18
+ - **Buildings block the radar** (centre-line rule): a robot is scanned only if the line between the two robot centres touches no building. This changes urban battles. On urban maps SafeShooter often never sees its opponent and so never fires. Open-arena battles are unchanged: a 0.5.0 open-arena recording is identical apart from `"version"`. New public `line_of_sight` and `physics::radar::radar_beam`.
+ - **Radar beam** drawn as it is blocked: the 2D viewer shows the polygon the radar swept and could see, cut off at buildings. The 3D view does not draw it yet.
+ - **Recording format version 2** (viewers read 1 and 2): adds `beam` to each robot in urban battles only, and an optional `intent` (`{"maneuver","risk"}`) in `decisions`. Urban recordings are about 61% larger because of the beam. Intent adds about 4% when Tactician plays. Open-arena recordings without intent are the same as version 1 apart from `"version"`.
+ - **Battlefield ratios** 4:3 (800 x 600), 2:1 (1200 x 600), 16:9 (1067 x 600) and 1:1 (600 x 600), each with its own urban map. Pick one in the viewer's New battle, or with `cargo robocode battle --ratio`.
+ - **Tactician**, the fifth built-in robot (with SafeShooter, Circler, Spinner and SittingDuck): it picks a maneuver each turn by priority with hysteresis, uses Search/Patrol when no target is seen, and has stuck recovery and a wall guard.
+ - **Maneuver library** (`robocode::strategy::maneuver`): `Maneuver` (search, patrol, defensive, evade, attack), `Risk` profiles (cautious, normal, aggressive), `Intent`, a fire filter, and shot detection from the target's energy drop. The library includes stuck recovery and a 30 px wall guard. Shot detection is a heuristic: the energy drop is the only bullet information, so it causes false flinches (see `docs/robot-api.md`).
+ - Viewer: each robot's maneuver shows in its label and in the robot panel.
+ - *Breaking* New public `Strategy::intent` hook (default `None`) and new public fields for the beam in the engine's snapshots.
+ - Release metadata test; CI builds the fuzz targets.
+
 ## v0.5.0 - 2026-11-12
  - *Breaking* New public field `TurnEvents::bullet_hit_obstacles` and new `BulletHitObstacle` type; `BattleState` and `EventSnapshot` gained fields.
  - **Urban arena** (opt-in): a fixed map of buildings and roads. Buildings stop tanks at their face (no damage) and absorb bullets, raising the new `BulletHitObstacle` event (`TurnEvents::bullet_hit_obstacles`). Roads are display only. Buildings do not block radar. Set with `runner::Battle::set_terrain(terrain::Terrain::urban(w, h))`. Recordings gain an optional `terrain` header key; battles without buildings are unchanged.
