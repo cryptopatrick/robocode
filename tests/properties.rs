@@ -498,6 +498,7 @@ fn scanned_centres_lie_inside_the_beam() {
     QuickCheck::new()
         .tests(n)
         .max_tests(n * 10)
+        .min_tests_passed(n)
         .quickcheck(prop as fn(ScanCase) -> TestResult);
 }
 
@@ -561,6 +562,7 @@ fn scan_line_of_sight_matches_shared_function() {
     QuickCheck::new()
         .tests(n)
         .max_tests(n * 10)
+        .min_tests_passed(n)
         .quickcheck(prop as fn(ScanCase) -> TestResult);
 }
 
