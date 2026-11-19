@@ -239,12 +239,15 @@ export function createTank3D(id: TankId, teamColor: number): Tank3D {
     return { side, pads, wheels }
   })
 
-  function setTrackDistance(d: number) {
+  /** `distance` is battlefield px driven; the track is built in file units (px / k). */
+  function setTrackDistance(distance: number) {
+    const d = distance / k
     for (const { side, pads, wheels } of sides) {
       pads.forEach((pad, i) => {
-        const s = (i / PAD_COUNT) * perimeter + d
+        // Driving forward, the ground run moves backwards relative to the hull.
+        const s = (i / PAD_COUNT) * perimeter - d
         const [x, y] = trackPoint(s, straight, r)
-        const [nx, ny] = trackPoint(s + 0.01, straight, r)
+        const [nx, ny] = trackPoint(s - 0.01, straight, r)
         pad.position.set(x, y + trackY, side * (width / 2 + 0.075))
         pad.rotation.z = Math.atan2(ny - y, nx - x)
       })

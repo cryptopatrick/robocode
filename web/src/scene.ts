@@ -134,3 +134,11 @@ export function cameraFor(
     fov: CAMERA_FOV,
   };
 }
+
+/**
+ * Identity of the 3D scene a recording needs: arena size, terrain, robots and
+ * tanks. Appending live frames leaves it unchanged, so the scene is not rebuilt.
+ */
+export function sceneKey(rec: Recording): string {
+  return JSON.stringify([rec.battlefield, rec.terrain ?? null, rec.robots, rec.tanks ?? null]);
+}

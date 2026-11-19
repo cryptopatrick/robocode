@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ROBOT_COLORS } from '../draw';
 import type { Recording } from '../recording';
-import { BUILDING_HEIGHT, cameraFor, drivenDistances, HULL_HEIGHT, terrainBoxes, tankPose } from '../scene';
+import { BUILDING_HEIGHT, cameraFor, drivenDistances, sceneKey, HULL_HEIGHT, terrainBoxes, tankPose } from '../scene';
 import { tankFor } from '../tanks/defs';
 import { createTank3D, type Tank3D } from '../tanks/models3d';
 
@@ -124,6 +124,7 @@ function build(container: HTMLElement, rec: Recording): Built {
 export default function ArenaScene3D({ recording, turn }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const built = useRef<Built | null>(null);
+  const key = sceneKey(recording);
   const dist = useMemo(() => drivenDistances(recording), [recording]);
   const latest = useRef({ recording, turn });
   latest.current = { recording, turn };
@@ -137,7 +138,9 @@ export default function ArenaScene3D({ recording, turn }: Props) {
       scene.dispose();
       built.current = null;
     };
-  }, [recording]);
+  // Rebuild only when the scene's contents change, not on every appended live frame.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   useEffect(() => {
     const b = built.current;

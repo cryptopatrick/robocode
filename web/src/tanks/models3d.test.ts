@@ -92,4 +92,35 @@ describe('procedural 3D tanks', () => {
     expect('gunSpeed' in t).toBe(false)
     expect('gun' in t).toBe(false)
   })
+
+  it('tracks follow the ground: pads run backwards at the driven distance, wheels roll forwards', () => {
+    for (const id of TANK_IDS) {
+      const t = createTank3D(id, 0xef5d79)
+      const ms = meshes(t.root)
+      const world = () => {
+        t.root.updateMatrixWorld(true)
+        return ms.map((m) => m.getWorldPosition(new THREE.Vector3()))
+      }
+      const spin = () => ms.map((m) => m.rotation.y)
+      t.setTrackDistance(0)
+      const p0 = world()
+      const r0 = spin()
+      const d = 1
+      t.setTrackDistance(d)
+      const p1 = world()
+      const r1 = spin()
+      // Of the meshes that moved (the track pads), the lowest is on the ground run.
+      let ground = -1
+      p0.forEach((p, i) => {
+        if (p.distanceTo(p1[i]) > 1e-9 && (ground < 0 || p.y < p0[ground].y)) ground = i
+      })
+      expect(ground, id).toBeGreaterThanOrEqual(0)
+      const dz = p1[ground].z - p0[ground].z
+      expect(Math.abs(dz + d) / d, `${id} ground pad dz ${dz}`).toBeLessThan(0.05)
+      // Wheels: spin by d / radius about the axle (file z), negative when driving forward.
+      const spun = ms.map((_, i) => r1[i] - r0[i]).filter((a) => Math.abs(a) > 1e-9)
+      expect(spun.length).toBeGreaterThan(0)
+      for (const a of spun) expect(a).toBeLessThan(0)
+    }
+  })
 })
