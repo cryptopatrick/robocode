@@ -24,6 +24,7 @@
 - **Tactician and the maneuver library** (`robocode::strategy::maneuver`): Tactician picks a maneuver each turn by priority with hysteresis, uses Search/Patrol when no target is seen, and has stuck recovery and a wall guard. Each maneuver runs at a risk level (cautious, normal, aggressive), and the viewer shows it.
 - **Radar blocked by buildings:** on the urban map, a building between two robots hides one from the other, and the viewer draws the beam as it is blocked.
 - **Battlefield ratios:** 4:3, 2:1, 16:9 or 1:1 at a height of 600, in the viewer and with `cargo robocode battle --ratio`.
+- **Five tanks:** pick a Leopard 2A8, Abrams, K2, Leclerc or Merkava for each robot; the viewer draws them in 2D and 3D, with the team colour on the muzzle.
 - **No dependencies** in the default build.
 
 ## Architecture
