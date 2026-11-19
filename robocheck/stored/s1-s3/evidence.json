@@ -1,13 +1,13 @@
 {
   "format": "robocheck-evidence",
   "version": 2,
-  "run_id": "c750af1e36aa-1794870672",
-  "created_at": "2026-11-16T23:11:12Z",
+  "run_id": "c750af1e36aa-1795095119",
+  "created_at": "2026-11-19T13:31:59Z",
   "candidate": {
     "path": "candidate.rs",
-    "sha256": "ce426cbbf87215189bb50e4ff93f023531bcf0dda37888a0d2232519d518fce4"
+    "sha256": "92ee09ffe8d54ea051c31ee9b2b9cb45da0c515069b9a9cfde9398326bc70de7"
   },
-  "artifact_hash": "812760cedacce827eca6dfea020e573869a8a2bfbbf18b90dc3d01a84212f067",
+  "artifact_hash": "20b02920adfe7ef55d808f7475573c67777c4e05de9084dc0bde29b03d074601",
   "spec_hash": "a3ad106ef5899b81643360b0ba599d616d056105a9a0d0c7691eac8b7f093f93",
   "validation": {
     "ok": true,
@@ -43,12 +43,12 @@
       "arena": "open",
       "status": "ok",
       "opponent": "Circler",
-      "turns": 215,
+      "turns": 125,
       "winner": "Circler",
-      "artifact_hash": "812760cedacce827eca6dfea020e573869a8a2bfbbf18b90dc3d01a84212f067",
+      "artifact_hash": "20b02920adfe7ef55d808f7475573c67777c4e05de9084dc0bde29b03d074601",
       "same_artifact": true,
       "recording_file": "recording-open.json",
-      "recording_sha256": "ecdfc56e73f08af8bf564e84b0b3836757d9efa585e9f739abe25c4554803ce8",
+      "recording_sha256": "0382987ddf27f2774c126da0ead2bbd12fd45916f2eb319ad5913c2c4dbd8440",
       "decisions_file": "decisions-open.jsonl",
       "error": null
     },
@@ -56,18 +56,18 @@
       "arena": "urban",
       "status": "ok",
       "opponent": "Circler",
-      "turns": 361,
+      "turns": 738,
       "winner": "Candidate",
-      "artifact_hash": "812760cedacce827eca6dfea020e573869a8a2bfbbf18b90dc3d01a84212f067",
+      "artifact_hash": "20b02920adfe7ef55d808f7475573c67777c4e05de9084dc0bde29b03d074601",
       "same_artifact": true,
       "recording_file": "recording-urban.json",
-      "recording_sha256": "186c9e02b4592f28be95939719b1bc8688a423e65200d76a24f360de6f55340e",
+      "recording_sha256": "bdfe8a2176e47d27f39ab90a00ab53000ed441836be7baad1978f57e91e55ec0",
       "decisions_file": "decisions-urban.jsonl",
       "error": null
     }
   ],
   "toolchain": {
-    "robocode": "0.5.0",
+    "robocode": "0.7.0",
     "verus": "0.2026.11.02.8bf68ee",
     "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
     "z3": "Z3 version 4.16.0 - 64 bit"

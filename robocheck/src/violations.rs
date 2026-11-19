@@ -42,6 +42,9 @@ struct Obs {
     field_width: i32,
     field_height: i32,
     target: Option<Tgt>,
+    /// Missing in decision logs written before bullet modes: those battles were arcade.
+    #[serde(default)]
+    bullet_mode: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -95,7 +98,11 @@ impl Rec {
                 velocity: t.velocity,
                 age: t.age,
             }),
-            bullet_mode: robocode::BulletMode::Arcade, // stored runs predate bullet modes
+            bullet_mode: o
+                .bullet_mode
+                .as_deref()
+                .and_then(|m| m.parse().ok())
+                .unwrap_or(robocode::BulletMode::Arcade),
         };
         let env = Surroundings {
             clearance_ahead: self.env.clearance_ahead,
@@ -207,5 +214,23 @@ mod tests {
     fn malformed_log_is_an_error() {
         assert!(find_violations("{not json", &rules()).is_err());
         assert!(find_violations("", &rules()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn logs_with_and_without_bullet_mode_both_parse() {
+        let old = line(1, 2_000, Some(3000), Some(100), 500);
+        let new = old
+            .replace(r#""age":0}}"#, r#""age":0},"bullet_mode":"realistic"}"#);
+        assert_ne!(old, new, "the new-style line must carry bullet_mode");
+        assert_eq!(
+            find_violations(&old, &rules()).unwrap(),
+            find_violations(&new, &rules()).unwrap()
+        );
+        let bad =
+            old.replace(r#""age":0}}"#, r#""age":0},"bullet_mode":"laser"}"#);
+        assert!(
+            find_violations(&bad, &rules()).is_ok(),
+            "an unknown mode falls back to arcade"
+        );
     }
 }

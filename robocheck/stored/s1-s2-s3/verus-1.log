@@ -1,47 +1,47 @@
 note: automatically chose triggers for this expression:
-  --> /Users/cp/wer/crt/robocode-robocheck-aggr/src/strategy/targeting.rs:13:16
+  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:13:16
    |
 13 |             && forall|j: int| 0 <= j < targets@.len() ==> targets@[i as int].distance <= targets@[j].distance,
    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 note:   trigger 1 of 1:
-  --> /Users/cp/wer/crt/robocode-robocheck-aggr/src/strategy/targeting.rs:13:90
+  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:13:90
    |
 13 |             && forall|j: int| 0 <= j < targets@.len() ==> targets@[i as int].distance <= targets@[j].distance,
    |                                                                                          ^^^^^^^^^^^
 
 note: automatically chose triggers for this expression:
-  --> /Users/cp/wer/crt/robocode-robocheck-aggr/src/strategy/targeting.rs:15:31
+  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:15:31
    |
 15 |         r matches Some(i) ==> forall|j: int| 0 <= j < i ==> targets@[j].distance > targets@[i as int].distance,
    |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 note:   trigger 1 of 1:
-  --> /Users/cp/wer/crt/robocode-robocheck-aggr/src/strategy/targeting.rs:15:61
+  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:15:61
    |
 15 |         r matches Some(i) ==> forall|j: int| 0 <= j < i ==> targets@[j].distance > targets@[i as int].distance,
    |                                                             ^^^^^^^^^^^
 
 note: automatically chose triggers for this expression:
-  --> /Users/cp/wer/crt/robocode-robocheck-aggr/src/strategy/targeting.rs:29:13
+  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:29:13
    |
 29 |             forall|j: int| 0 <= j < i ==> targets@[best as int].distance <= targets@[j].distance,
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 note:   trigger 1 of 1:
-  --> /Users/cp/wer/crt/robocode-robocheck-aggr/src/strategy/targeting.rs:29:77
+  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:29:77
    |
 29 |             forall|j: int| 0 <= j < i ==> targets@[best as int].distance <= targets@[j].distance,
    |                                                                             ^^^^^^^^^^^
 
 note: automatically chose triggers for this expression:
-  --> /Users/cp/wer/crt/robocode-robocheck-aggr/src/strategy/targeting.rs:30:13
+  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:30:13
    |
 30 |             forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 note:   trigger 1 of 1:
-  --> /Users/cp/wer/crt/robocode-robocheck-aggr/src/strategy/targeting.rs:30:46
+  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:30:46
    |
 30 |             forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
    |                                              ^^^^^^^^^^^
@@ -59,12 +59,22 @@ note: Verus printed one or more automatically chosen quantifier triggers
       (Note: triggers are used by the underlying SMT theorem prover to instantiate quantifiers;
       the theorem prover instantiates a quantifier whenever some expression matches the
       pattern specified by one of the quantifier's triggers.)
-  --> /Users/cp/wer/crt/robocode-robocheck-aggr/src/strategy/targeting.rs:30:13
+  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:30:13
    |
 30 |             forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    Checking robocheck-candidate-601bc4ae0ea1 v0.1.0 (/Users/cp/wer/crt/robocode-robocheck-aggr/target/robocheck/work/77b7e8d88749-1794870632/verify)
-verification results:: 1 verified, 0 errors
-verification results:: 0 verified, 0 errors
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.20s
+    Checking robocheck-candidate-752ea1b0594e v0.1.0 (/Users/cp/wer/crt/robocode/target/robocheck/work/77b7e8d88749-1795095068/verify)
+error: cannot use function `robocheck_candidate_752ea1b0594e::strategy::clamp_turn` which is ignored because it is either declared outside the verus! macro or it is marked as `external`
+  --> src/strategy.rs:50:29
+   |
+50 |             turn_gun = Some(clamp_turn(d, MAX_GUN_TURN));
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+53 |                 radar = clamp_turn(2 * angle_diff(t.bearing, obs.radar_heading), MAX_RADAR_TURN);
+   |                         ------------------------------------------------------------------------
+   |
+   = help: the following declaration may resolve this error:
+           assume_specification [crate::strategy::clamp_turn] (_0: i32, _1: i32) -> i32;
+
+error: could not compile `robocheck-candidate-752ea1b0594e` (lib) due to 1 previous error

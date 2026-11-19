@@ -41,11 +41,10 @@ fn main() {
         std::process::exit(2);
     };
     let (w, h) = (800.0, 600.0);
-    // Pinned to arcade: RoboCheck runs and stored recordings predate bullet
-    // modes, and a recording without a "bullets" field is read as arcade.
+    // Realistic bullets, robocode's default; the recording header says so.
     let config = BattleConfig {
         battlefield: Battlefield::new(w, h),
-        bullet_mode: robocode::BulletMode::Arcade,
+        bullet_mode: robocode::BulletMode::Realistic,
         ..BattleConfig::default()
     };
     let terrain = if urban { Terrain::urban(w, h) } else { Terrain::default() };

@@ -60,7 +60,10 @@ manifest = {
 json.dump(manifest, open(os.path.join(out, "manifest.json"), "w"), indent=2)
 print(f"total cost: ${manifest['cost_usd']}")
 PY
-cp "$dest/README.md" "$stage/out/" 2>/dev/null || true
+# Keep the files this script does not make (README, the stored cheat refusals).
+for keep in README.md cheats.json; do
+  cp "$dest/$keep" "$stage/out/" 2>/dev/null || true
+done
 rm -rf "$dest"
 mv "$stage/out" "$dest"
 echo "stored runs written to $dest"

@@ -48,7 +48,7 @@ impl DecisionRecord {
         let mut s = String::new();
         let _ = write!(
             s,
-            r#"{{"turn":{},"obs":{{"turn":{},"energy":{},"gun_heat":{},"heading":{},"gun_heading":{},"radar_heading":{},"velocity":{},"x":{},"y":{},"field_width":{},"field_height":{},"target":{}}},"env":{{"clearance_ahead":{},"clearance_behind":{}}},"action":{{"fire":{},"ahead":{},"turn_body":{},"turn_gun":{},"turn_radar":{}}}}}"#,
+            r#"{{"turn":{},"obs":{{"turn":{},"energy":{},"gun_heat":{},"heading":{},"gun_heading":{},"radar_heading":{},"velocity":{},"x":{},"y":{},"field_width":{},"field_height":{},"target":{},"bullet_mode":"{}"}},"env":{{"clearance_ahead":{},"clearance_behind":{}}},"action":{{"fire":{},"ahead":{},"turn_body":{},"turn_gun":{},"turn_radar":{}}}}}"#,
             self.turn,
             o.turn,
             o.energy.0,
@@ -62,6 +62,7 @@ impl DecisionRecord {
             o.field_width,
             o.field_height,
             target,
+            o.bullet_mode.name(),
             self.env.clearance_ahead,
             self.env.clearance_behind,
             opt(a.fire.map(|p| p.0)),

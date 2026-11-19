@@ -38,8 +38,39 @@ use robocode::units::{MAX_POWER, MIN_POWER, spec_angle_diff};
         r.fire matches Some(p) ==> ((obs.target matches Some(t) && t.age == 0) && aimed(*obs)), // S2
 ))]
 pub fn decide(obs: &Observation, around: &Surroundings) -> Action {
-let mut fire = None; let mut turn_gun = None; let mut turn_body = None; let mut turn_radar = Some(MAX_RADAR_TURN); match obs.target { Some(t) => { let d = angle_diff(t.bearing, obs.gun_heading); turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d }); turn_body = Some(angle_diff(t.bearing, obs.heading)); if t.age == 0 { let o = 2 * angle_diff(t.bearing, obs.radar_heading); turn_radar = Some(if o > MAX_RADAR_TURN { MAX_RADAR_TURN } else if o < -MAX_RADAR_TURN { -MAX_RADAR_TURN } else { o }); if obs.gun_heat.0 == 0 && -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE { if obs.energy.0 > 3000 { fire = Some(Power(3000)); } else if obs.energy.0 > 100 { fire = Some(Power(obs.energy.0 - 1)); } } } } None => {} } Action { fire, ahead: Some(100), turn_body, turn_gun, turn_radar }
+    let mut fire = None;
+    let mut turn_gun = None;
+    let mut turn_body = None;
+    match obs.target {
+        Some(t) => {
+            let d = angle_diff(t.bearing, obs.gun_heading);
+            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });
+            turn_body = Some(angle_diff(t.bearing, obs.heading));
+            if obs.gun_heat.0 == 0 && t.age == 0 && is_aimed(obs) && obs.energy.0 > 100 {
+                if obs.energy.0 > 3000 {
+                    fire = Some(Power(3000));
+                } else {
+                    fire = Some(Power(obs.energy.0 - 1));
+                }
+            }
+        }
+        None => {}
+    }
+    Action { fire, ahead: Some(1000), turn_body, turn_gun, turn_radar: Some(MAX_RADAR_TURN) }
 }
 
 // ---- candidate helpers below (untrusted) ----
-
+#[cfg_attr(feature = "verus", verus_verify)]
+#[cfg_attr(feature = "verus", verus_spec(r =>
+    requires well_formed(*obs),
+    ensures r == aimed(*obs),
+))]
+fn is_aimed(obs: &Observation) -> bool {
+    match obs.target {
+        Some(t) => {
+            let d = angle_diff(t.bearing, obs.gun_heading);
+            -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE
+        }
+        None => false,
+    }
+}
