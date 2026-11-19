@@ -1,7 +1,7 @@
 // Loads the WebAssembly engine built by `npm run wasm` into ./pkg.
 import init, { ratio_size, robot_names, run_battle } from './pkg/robocode_wasm.js';
 import type { TankId } from './tanks/defs';
-import { parseRecording, type Recording } from './recording';
+import { parseRecording, type BulletMode, type Recording } from './recording';
 
 let ready: Promise<unknown> | null = null;
 
@@ -16,8 +16,8 @@ export function robotNames(): string[] {
 }
 
 /** Runs a whole battle. Throws an Error with a readable message on bad input. */
-export function runBattle(robots: string[], width: number, height: number, maxTurns: number, urban = false, tanks: TankId[] = []): Recording {
-  return parseRecording(run_battle(robots.join(','), width, height, maxTurns, urban, tanks.join(',')));
+export function runBattle(robots: string[], width: number, height: number, maxTurns: number, urban = false, tanks: TankId[] = [], bullets: BulletMode = 'realistic'): Recording {
+  return parseRecording(run_battle(robots.join(','), width, height, maxTurns, urban, tanks.join(','), bullets));
 }
 
 /** The battlefield ratios the engine offers, in picker order. */

@@ -105,6 +105,7 @@ fn is_well_formed_rejects_out_of_range() {
         field_width: 100_000,
         field_height: 0,
         target: None,
+        bullet_mode: robocode::BulletMode::Arcade,
     };
     assert!(is_well_formed(&ok));
     assert!(!is_well_formed(&Observation { heading: Angle(3600), ..ok }));

@@ -30,8 +30,47 @@ fn temp_dir(name: &str) -> PathBuf {
     dir
 }
 
+/// Stops a live server on every path, panics included. A plain SIGKILL on
+/// the CLI would orphan its battle child, so ask with SIGINT first (the CLI
+/// then stops the battle), and only force-kill if it does not exit.
+struct LiveServer(Child);
+
+impl std::ops::Deref for LiveServer {
+    type Target = Child;
+    fn deref(&self) -> &Child {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for LiveServer {
+    fn deref_mut(&mut self) -> &mut Child {
+        &mut self.0
+    }
+}
+
+impl Drop for LiveServer {
+    fn drop(&mut self) {
+        if let Ok(Some(_)) = self.0.try_wait() {
+            return;
+        }
+        #[cfg(unix)]
+        let _ = Command::new("kill")
+            .args(["-INT", &self.0.id().to_string()])
+            .status();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < deadline {
+            if let Ok(Some(_)) = self.0.try_wait() {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
 /// Starts a live battle and returns the child and the server port.
-fn start(dir: &PathBuf, tps: &str) -> (Child, u16) {
+fn start(dir: &PathBuf, tps: &str) -> (LiveServer, u16) {
     let mut child = Command::new(exe())
         .args(["battle", "bot.rs", "--live", "--tps", tps, "--no-open"])
         .current_dir(dir)
@@ -40,7 +79,9 @@ fn start(dir: &PathBuf, tps: &str) -> (Child, u16) {
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
-    let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+    let stdout = child.stdout.take().unwrap();
+    let child = LiveServer(child);
+    let mut lines = BufReader::new(stdout).lines();
     let line = lines
         .by_ref()
         .map(|l| l.unwrap())
@@ -107,7 +148,7 @@ fn turn_of(frame: &str) -> u64 {
 #[test]
 fn frames_arrive_while_the_battle_runs_and_pause_stops_them() {
     let dir = temp_dir("pace");
-    let (mut child, port) = start(&dir, "30");
+    let (child, port) = start(&dir, "30");
     let rx = subscribe(port);
     let (_, header) = rx.recv_timeout(Duration::from_secs(60)).unwrap();
     assert!(
@@ -145,8 +186,7 @@ fn frames_arrive_while_the_battle_runs_and_pause_stops_them() {
     assert!(rx.try_recv().is_err(), "a step is one turn");
     assert!(turn_of(&stepped) > last);
 
-    child.kill().unwrap();
-    let _ = child.wait();
+    drop(child);
 }
 
 #[test]
@@ -164,7 +204,7 @@ fn finished_live_battle_records_the_same_battle() {
         String::from_utf8_lossy(&plain.stderr)
     );
 
-    let (mut child, port) = start(&dir, "max");
+    let (child, port) = start(&dir, "max");
     let rx = subscribe(port);
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
@@ -178,8 +218,7 @@ fn finished_live_battle_records_the_same_battle() {
     let (head, body) = request(port, "GET", "/battle.json", "");
     assert!(head.contains("200"), "{head}");
     assert_eq!(body, std::fs::read_to_string(dir.join("plain.json")).unwrap());
-    child.kill().unwrap();
-    let _ = child.wait();
+    drop(child);
 }
 
 #[test]

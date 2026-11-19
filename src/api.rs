@@ -59,6 +59,8 @@ pub struct Status {
     pub battlefield_height: f64,
     /// Gun heat removed per turn.
     pub gun_cooling_rate: f64,
+    /// How fast this battle's bullets fly.
+    pub bullet_mode: crate::rules::BulletMode,
 }
 
 /// Your radar swept over another robot.

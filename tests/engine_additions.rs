@@ -5,7 +5,7 @@ use robocode::api::Commands;
 use robocode::physics::{BattleConfig, BattleState, RobotState};
 
 fn solo(robot: RobotState) -> BattleState {
-    BattleState::new(BattleConfig::default(), vec![robot])
+    BattleState::new(arcade(), vec![robot])
 }
 
 // ---- Task 1: max velocity and max turn rate ------------------------------
@@ -166,7 +166,13 @@ fn commands_set_turret_mode_and_flags() {
 
 // ---- Task 3: robot-robot collisions -------------------------------------
 
+use robocode::BulletMode;
 use robocode::physics::{RobotCollision, TurnEvents};
+
+/// Pinned to arcade: these tests assume classic Robocode bullet speed.
+fn arcade() -> BattleConfig {
+    BattleConfig { bullet_mode: BulletMode::Arcade, ..BattleConfig::default() }
+}
 
 /// A drives right (heading 90) toward B, which sits still 40 px away.
 fn ram() -> BattleState {
@@ -174,7 +180,7 @@ fn ram() -> BattleState {
     a.heading = 90.0;
     a.set_ahead(100.0);
     let b = RobotState::new(1, Point::new(440.0, 300.0));
-    BattleState::new(BattleConfig::default(), vec![a, b])
+    BattleState::new(arcade(), vec![a, b])
 }
 
 fn step_until_collision(b: &mut BattleState) -> TurnEvents {
@@ -221,7 +227,7 @@ fn reversing_into_a_robot_is_also_at_fault() {
     a.heading = 270.0; // facing left, B is behind (to the right)
     a.set_ahead(-100.0);
     let b = RobotState::new(1, Point::new(440.0, 300.0));
-    let mut bs = BattleState::new(BattleConfig::default(), vec![a, b]);
+    let mut bs = BattleState::new(arcade(), vec![a, b]);
     let e = step_until_collision(&mut bs);
     assert!(e.robot_collisions.iter().any(|c| c.robot_id == 0 && c.at_fault));
 }
@@ -255,7 +261,7 @@ fn duel_of_bullets() -> BattleState {
     let mut b = RobotState::new(1, Point::new(400.0, 100.0));
     b.gun_heading = 180.0;
     b.set_fire(3.0);
-    BattleState::new(BattleConfig::default(), vec![a, b])
+    BattleState::new(arcade(), vec![a, b])
 }
 
 #[test]
@@ -286,7 +292,7 @@ fn parallel_bullets_do_not_collide() {
     a.set_fire(1.0);
     let mut b = RobotState::new(1, Point::new(500.0, 500.0));
     b.set_fire(1.0);
-    let mut bs = BattleState::new(BattleConfig::default(), vec![a, b]);
+    let mut bs = BattleState::new(arcade(), vec![a, b]);
     let (mut misses, mut collisions) = (0, 0);
     for _ in 0..40 {
         let e = bs.step();

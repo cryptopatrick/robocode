@@ -18,6 +18,7 @@ use crate::terrain::Terrain;
 pub struct BattleConfig {
     pub battlefield: Battlefield,
     pub gun_cooling_rate: f64,
+    pub bullet_mode: rules::BulletMode,
 }
 
 impl Default for BattleConfig {
@@ -25,6 +26,7 @@ impl Default for BattleConfig {
         Self {
             battlefield: Battlefield::from_ratio(Ratio::R4x3),
             gun_cooling_rate: rules::GUN_COOLING_RATE,
+            bullet_mode: rules::BulletMode::default(),
         }
     }
 }
@@ -172,7 +174,12 @@ impl BattleState {
             if let Some((robot_id, position, heading, power)) = fire_request {
                 let bullet_id = self.next_bullet_id();
                 let bullet = BulletState::new(
-                    bullet_id, robot_id, position, heading, power,
+                    bullet_id,
+                    robot_id,
+                    position,
+                    heading,
+                    power,
+                    self.config.bullet_mode,
                 );
                 self.bullets.push(bullet);
                 events.bullet_fired.push(BulletFired {
@@ -187,6 +194,14 @@ impl BattleState {
     fn apply_bullets(&mut self, events: &mut TurnEvents) {
         for bullet in self.bullets.iter_mut().filter(|b| b.alive) {
             bullet.advance();
+        }
+        // Realistic bullets cross up to 300 px a turn, so they stop at the
+        // first thing on their path. Arcade keeps Robocode's order (buildings,
+        // bullets, then robots at the bullet's end point), which the 0.5.0
+        // fixture and the snapshots pin byte for byte.
+        if self.config.bullet_mode == rules::BulletMode::Realistic {
+            self.apply_bullets_earliest_contact(events);
+            return;
         }
 
         // Buildings absorb bullets on the path they cross this turn.
@@ -277,6 +292,154 @@ impl BattleState {
                     bullet_id: bullet.id,
                     power: bullet.power,
                 });
+            }
+        }
+
+        self.bullets.retain(|b| b.alive);
+    }
+
+    /// Realistic mode: each bullet's outcome this turn is whatever it meets
+    /// first along `previous_position -> position`: a building, a robot
+    /// circle (`robot.radius + BULLET_RADIUS`, as in arcade; never its
+    /// owner) or another bullet's path. On a tie the robot wins. Leaving the
+    /// field is checked last.
+    fn apply_bullets_earliest_contact(&mut self, events: &mut TurnEvents) {
+        #[derive(Clone, Copy)]
+        enum Contact {
+            Building,
+            Robot(usize),
+        }
+        // Earliest building or robot contact per bullet, as a path fraction.
+        let mut first: Vec<Option<(f64, Contact)>> =
+            Vec::with_capacity(self.bullets.len());
+        for bullet in &self.bullets {
+            if !bullet.alive {
+                first.push(None);
+                continue;
+            }
+            let (from, to) = (bullet.previous_position, bullet.position);
+            let building = self
+                .terrain
+                .buildings
+                .iter()
+                .filter_map(|b| b.first_contact(from, to))
+                .min_by(f64::total_cmp);
+            let robot = self
+                .robots
+                .iter()
+                .enumerate()
+                .filter(|(_, r)| r.alive && r.id != bullet.owner_id)
+                .filter_map(|(i, r)| {
+                    segment_circle_contact(
+                        from,
+                        to,
+                        r.position,
+                        // The same hit radius as arcade's end-point check.
+                        r.radius + rules::BULLET_RADIUS,
+                    )
+                    .map(|t| (t, i))
+                })
+                .min_by(|a, b| a.0.total_cmp(&b.0));
+            first.push(match (building, robot) {
+                (Some(tb), Some((tr, i))) if tr <= tb => {
+                    Some((tr, Contact::Robot(i)))
+                }
+                (Some(tb), _) => Some((tb, Contact::Building)),
+                (None, Some((tr, i))) => Some((tr, Contact::Robot(i))),
+                (None, None) => None,
+            });
+        }
+        let limit =
+            |c: &Option<(f64, Contact)>| c.map_or(f64::INFINITY, |c| c.0);
+
+        // Bullet on bullet, when both paths cross before either bullet meets
+        // a building or a robot (a robot wins a tie).
+        for i in 0..self.bullets.len() {
+            for j in (i + 1)..self.bullets.len() {
+                let (a, b) = (&self.bullets[i], &self.bullets[j]);
+                if !(a.alive && b.alive) {
+                    continue;
+                }
+                let Some((ta, tb)) = segment_intersection(
+                    a.previous_position,
+                    a.position,
+                    b.previous_position,
+                    b.position,
+                ) else {
+                    continue;
+                };
+                if ta >= limit(&first[i]) || tb >= limit(&first[j]) {
+                    continue;
+                }
+                events.bullet_hit_bullets.push(BulletHitBullet {
+                    bullet_id: a.id,
+                    owner: a.owner_id,
+                    power: a.power,
+                    other_bullet_id: b.id,
+                    other_owner: b.owner_id,
+                    other_power: b.power,
+                });
+                for k in [i, j] {
+                    let t = if k == i { ta } else { tb };
+                    let bullet = &mut self.bullets[k];
+                    bullet.position =
+                        lerp(bullet.previous_position, bullet.position, t);
+                    bullet.alive = false;
+                }
+            }
+        }
+
+        for (k, contact) in first.into_iter().enumerate() {
+            let bullet = &mut self.bullets[k];
+            if !bullet.alive {
+                continue;
+            }
+            match contact {
+                Some((t, Contact::Robot(i))) => {
+                    bullet.position =
+                        lerp(bullet.previous_position, bullet.position, t);
+                    bullet.alive = false;
+                    let robot = &mut self.robots[i];
+                    apply_bullet_damage(robot, bullet.power);
+                    events.bullet_hits.push(BulletImpact {
+                        shooter: bullet.owner_id,
+                        victim: robot.id,
+                        bullet_id: bullet.id,
+                        power: bullet.power,
+                    });
+                    if let Some(shooter) = self
+                        .robots
+                        .iter_mut()
+                        .find(|r| r.id == bullet.owner_id && r.alive)
+                    {
+                        shooter.energy +=
+                            rules::bullet_hit_bonus(bullet.power);
+                    }
+                }
+                Some((t, Contact::Building)) => {
+                    bullet.position =
+                        lerp(bullet.previous_position, bullet.position, t);
+                    bullet.alive = false;
+                    events.bullet_hit_obstacles.push(BulletHitObstacle {
+                        bullet_id: bullet.id,
+                        owner: bullet.owner_id,
+                        power: bullet.power,
+                        position: bullet.position,
+                    });
+                }
+                None => {
+                    if !is_within_field(
+                        bullet.position,
+                        self.config.battlefield,
+                    ) {
+                        bullet.alive = false;
+                        events.bullet_misses.push(BulletMissed {
+                            shooter: bullet.owner_id,
+                            bullet_id: bullet.id,
+                            power: bullet.power,
+                        });
+                    }
+                }
             }
         }
 
@@ -597,6 +760,57 @@ fn arc_overlaps(sweep: f64, rel: f64, half_width: f64) -> bool {
     [rel - 360.0, rel, rel + 360.0]
         .iter()
         .any(|r| r + half_width >= lo && r - half_width <= hi)
+}
+
+fn lerp(a: Point, b: Point, t: f64) -> Point {
+    Point::new(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+}
+
+/// First fraction `t` in `[0, 1]` at which the segment `from -> to` is within
+/// `radius` of `center` (0 when it starts inside).
+fn segment_circle_contact(
+    from: Point,
+    to: Point,
+    center: Point,
+    radius: f64,
+) -> Option<f64> {
+    let (dx, dy) = (to.x - from.x, to.y - from.y);
+    let (fx, fy) = (from.x - center.x, from.y - center.y);
+    let c = fx * fx + fy * fy - radius * radius;
+    if c <= 0.0 {
+        return Some(0.0);
+    }
+    let a = dx * dx + dy * dy;
+    if a <= EPSILON {
+        return None;
+    }
+    let b = 2.0 * (fx * dx + fy * dy);
+    let disc = b * b - 4.0 * a * c;
+    if disc < 0.0 {
+        return None;
+    }
+    let t = (-b - disc.sqrt()) / (2.0 * a);
+    (0.0..=1.0).contains(&t).then_some(t)
+}
+
+/// Where two segments cross, as fractions along each; `None` if they don't
+/// (parallel segments count as not crossing).
+fn segment_intersection(
+    p1: Point,
+    p2: Point,
+    q1: Point,
+    q2: Point,
+) -> Option<(f64, f64)> {
+    let r = (p2.x - p1.x, p2.y - p1.y);
+    let s = (q2.x - q1.x, q2.y - q1.y);
+    let denom = r.0 * s.1 - r.1 * s.0;
+    if denom.abs() <= EPSILON {
+        return None;
+    }
+    let qp = (q1.x - p1.x, q1.y - p1.y);
+    let t = (qp.0 * s.1 - qp.1 * s.0) / denom;
+    let u = (qp.0 * r.1 - qp.1 * r.0) / denom;
+    ((0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u)).then_some((t, u))
 }
 
 /// Whether segments p1–p2 and q1–q2 intersect (touching counts, like Java's

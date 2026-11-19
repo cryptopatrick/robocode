@@ -259,3 +259,80 @@ describe('five tanks', () => {
     expect(gunTurn.args[0]).toBeCloseTo(Math.PI / 2);
   });
 });
+
+describe('shot look', () => {
+  type Call = { k: string; args: number[]; strokeStyle: unknown; fillStyle: unknown };
+  const run = (turn: number, effects = true) => {
+    const calls: Call[] = [];
+    const noop = () => undefined;
+    const ctx = new Proxy({} as Record<string, unknown>, {
+      get: (t, k: string) => {
+        if (k === 'measureText') return () => ({ width: 10 });
+        if (['arc', 'moveTo', 'lineTo', 'stroke', 'fill'].includes(k))
+          return (...a: number[]) => calls.push({ k, args: a, strokeStyle: t.strokeStyle, fillStyle: t.fillStyle });
+        return k in t ? t[k] : noop;
+      },
+      set: (t, k: string, v) => ((t[k] = v), true),
+    }) as unknown as CanvasRenderingContext2D;
+    const shooter = { ...robot(90), id: 0, position: { x: 100, y: 300 }, gun_heading: 90 };
+    const victim = { ...robot(90), id: 1, position: { x: 700, y: 300 } };
+    const b = (x: number) => ({ id: 4, owner_id: 0, position: { x, y: 300 }, heading: 90, power: 1, speed: 300, alive: true });
+    const ev = (over: object = {}) => ({ bullet_fired: [], bullet_hits: [], wall_collisions: [], robot_collisions: [], robot_deaths: [], ...over });
+    const rec = {
+      battlefield: { width: 800, height: 600 },
+      robots: [{ id: 0, name: 'A' }, { id: 1, name: 'B' }],
+      turns: [
+        { turn: 0, robots: [shooter, victim], bullets: [], events: ev() },
+        { turn: 1, robots: [shooter, victim], bullets: [b(150)], events: ev() },
+        { turn: 2, robots: [shooter, victim], bullets: [b(450)], events: ev() },
+        { turn: 3, robots: [shooter, victim], bullets: [], events: ev({ bullet_hits: [{ shooter: 0, victim: 1, bullet_id: 4, power: 1 }] }) },
+        ...[4, 5, 6, 7].map((t) => ({ turn: t, robots: [shooter, victim], bullets: [], events: ev() })),
+      ],
+    } as unknown as Recording;
+    drawArena(ctx, rec, turn, { names: false, energy: false, scanArcs: false, effects });
+    return calls;
+  };
+  /** Segments stroked in `color`: each moveTo then lineTo before that stroke. */
+  const lines = (calls: Call[], color: string) => {
+    const out: number[][] = [];
+    let path: number[] = [];
+    for (const c of calls) {
+      if (c.k === 'moveTo') path = [c.args[0], c.args[1]];
+      if (c.k === 'lineTo') path.push(c.args[0], c.args[1]);
+      if (c.k === 'stroke' && c.strokeStyle === color && path.length === 4) out.push(path);
+    }
+    return out;
+  };
+  const CORE = '#fff6c8';
+  const GLOW = 'rgba(255,200,80,0.35)';
+
+  it('draws the tracer from the previous recorded position', () => {
+    const calls = run(2);
+    expect(lines(calls, CORE)).toEqual([[150, 300, 450, 300]]);
+    expect(lines(calls, GLOW)).toEqual([[150, 300, 450, 300]]);
+  });
+
+  it('starts the tracer at the muzzle on the first turn, with a muzzle flash', () => {
+    const calls = run(1);
+    const reach = 20; // no tank images loaded: the plain tank's muzzle
+    const [seg] = lines(calls, CORE);
+    expect(seg[0]).toBeCloseTo(100 + reach);
+    expect(seg.slice(1)).toEqual([300, 150, 300]);
+    expect(calls.some((c) => c.k === 'arc' && c.args[2] === 6 && Math.abs(c.args[0] - (100 + reach)) < 1e-9)).toBe(true);
+  });
+
+  it('keeps only the tracer core with effects off', () => {
+    const calls = run(2, false);
+    expect(lines(calls, CORE)).toHaveLength(1);
+    expect(lines(calls, GLOW)).toHaveLength(0);
+  });
+
+  const flash = (calls: Call[]) => calls.filter((c) => c.k === 'fill' && String(c.fillStyle).startsWith('rgba(255, 240, 190'));
+  it('flashes the impact on the hit turn and fades it out after 4 turns', () => {
+    expect(flash(run(2))).toHaveLength(0);
+    expect(flash(run(3))).toHaveLength(1);
+    expect(flash(run(6))).toHaveLength(1);
+    expect(flash(run(7))).toHaveLength(0);
+    expect(flash(run(3, false))).toHaveLength(0);
+  });
+});

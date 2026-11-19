@@ -1,3 +1,4 @@
+use robocode::BulletMode;
 use robocode_wasm::{BattleSpec, record_battle};
 use serde_json::Value;
 
@@ -9,6 +10,8 @@ fn spec(robots: &[&str]) -> BattleSpec {
         max_turns: 5000,
         urban: false,
         tanks: vec![],
+        // Arcade: the fingerprint and live-stream tests predate bullet modes.
+        bullets: BulletMode::Arcade,
     }
 }
 
@@ -114,9 +117,14 @@ fn fnv1a(s: &str) -> u64 {
 #[test]
 fn recording_fingerprint_is_unchanged() {
     let json = record_battle(&spec(&["SafeShooter", "Spinner"])).unwrap();
-    // Open arena: identical to 0.5.0 apart from `"version"`, so hash it as v1
-    // and the fingerprint stays the 0.5.0 one.
-    let as_v1 = json.replacen(r#""version":2"#, r#""version":1"#, 1);
+    // Open arena: identical to 0.5.0 apart from `"version"` and the
+    // `"bullets"` header field (always written since bullet modes), so hash
+    // it as v1 without that field and the fingerprint stays the 0.5.0 one.
+    let as_v1 = json.replacen(r#""version":2"#, r#""version":1"#, 1).replacen(
+        r#","bullets":"arcade""#,
+        "",
+        1,
+    );
     assert_eq!((as_v1.len(), fnv1a(&as_v1)), (716_414, 0xa87d_8e29_504d_8bfd));
 }
 
@@ -134,6 +142,7 @@ fn live_battle_streams_the_same_battle() {
         5000,
         false,
         "",
+        "arcade",
     )
     .unwrap();
     let header: Value = serde_json::from_str(&live.header()).unwrap();
@@ -218,6 +227,7 @@ fn run_battle_passes_tanks() {
         10,
         false,
         "merkava,k2",
+        "",
     )
     .unwrap();
     assert!(json.contains(r#""tanks":["merkava","k2"]"#));
@@ -228,7 +238,28 @@ fn run_battle_passes_tanks() {
         10,
         false,
         "",
+        "",
     )
     .unwrap();
     assert!(!none.contains("\"tanks\""));
+}
+
+#[test]
+fn run_battle_passes_bullets() {
+    let run = |bullets: &str| {
+        robocode_wasm::run_battle_native(
+            "SafeShooter,Spinner",
+            800.0,
+            600.0,
+            10,
+            false,
+            "",
+            bullets,
+        )
+    };
+    assert!(run("arcade").unwrap().contains(r#""bullets":"arcade""#));
+    assert!(run("realistic").unwrap().contains(r#""bullets":"realistic""#));
+    // Empty means realistic.
+    assert!(run("").unwrap().contains(r#""bullets":"realistic""#));
+    assert!(run("laser").is_err());
 }

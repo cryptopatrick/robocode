@@ -132,3 +132,132 @@ describe('sceneKey', () => {
     expect(sceneKey({ ...base, terrain: undefined } as unknown as Recording)).not.toBe(k);
   });
 });
+
+import { bulletSegment, impactFlashes, muzzlePoint } from './scene';
+import { TANKS, tankFor } from './tanks/defs';
+
+describe('bullet segments', () => {
+  const shooter = (gun: number): RobotSnapshot => ({
+    id: 7, position: { x: 100, y: 200 }, heading: 0, gun_heading: gun, radar_heading: 0,
+    velocity: 0, energy: 90, gun_heat: 0, alive: true, radius: 18,
+  });
+  const bullet = (id: number, x: number, y: number) => ({ id, owner_id: 7, position: { x, y }, heading: 90, power: 1, speed: 300, alive: true });
+  const ev = { bullet_fired: [], bullet_hits: [], wall_collisions: [], robot_collisions: [], robot_deaths: [] };
+  const rec = {
+    battlefield: { width: 800, height: 600 },
+    robots: [{ id: 7, name: 'A' }],
+    turns: [
+      { turn: 0, robots: [shooter(90)], bullets: [], events: ev },
+      { turn: 1, robots: [shooter(90)], bullets: [bullet(3, 150, 200)], events: ev },
+      { turn: 2, robots: [shooter(90)], bullets: [bullet(9, 140, 200), bullet(3, 450, 200)], events: ev },
+    ],
+  } as unknown as Recording;
+
+  it('puts the muzzle along the gun heading', () => {
+    const p = muzzlePoint(shooter(90), 20);
+    close(p.x, 120);
+    close(p.y, 200);
+    const n = muzzlePoint(shooter(0), 20);
+    close(n.x, 100);
+    close(n.y, 180);
+  });
+
+  it('runs from the same bullet id on the previous turn', () => {
+    const s = bulletSegment(rec, 2, 1);
+    expect(s.first).toBe(false);
+    expect(s.from).toEqual({ x: 150, y: 200 });
+    expect(s.to).toEqual({ x: 450, y: 200 });
+  });
+
+  it('runs from the muzzle on a bullet first turn', () => {
+    const reach = TANKS[tankFor(rec, 0)].barrelReach;
+    const s = bulletSegment(rec, 2, 0);
+    expect(s.first).toBe(true);
+    close(s.from.x, 100 + reach);
+    close(s.from.y, 200);
+    expect(s.to).toEqual({ x: 140, y: 200 });
+    // On turn 1 there is no earlier bullet; a custom reach (the plain tank) is used.
+    const plain = bulletSegment(rec, 1, 0, () => 20);
+    close(plain.from.x, 120);
+  });
+});
+
+describe('impact flash fallbacks', () => {
+  const mk = (id: number, x: number, y: number) => ({ id, position: { x, y }, heading: 0, gun_heading: 0, radar_heading: 0, velocity: 0, energy: 50, gun_heat: 0, alive: true, radius: 18 });
+  const ev = (over: object = {}) => ({ bullet_fired: [], bullet_hits: [], wall_collisions: [], robot_collisions: [], robot_deaths: [], ...over });
+  const hit = { bullet_hits: [{ shooter: 0, victim: 1, bullet_id: 5, power: 2 }] };
+  const robots = [mk(0, 400, 100), mk(1, 400, 300)];
+  const old = { id: 5, owner_id: 0, position: { x: 100, y: 300 }, heading: 90, power: 2, speed: 300, alive: true };
+  const mkRec = (turns: object[]) => ({ battlefield: { width: 800, height: 600 }, robots: [{ id: 0, name: 'S' }, { id: 1, name: 'V' }], turns }) as unknown as Recording;
+
+  it('ignores a sighting older than the previous turn', () => {
+    const rec = mkRec([
+      { turn: 0, robots, bullets: [old], events: ev() },
+      { turn: 1, robots, bullets: [], events: ev() },
+      { turn: 2, robots, bullets: [], events: ev(hit) },
+    ]);
+    const f = impactFlashes(rec, 2, 4);
+    close(f[0].x, 400);
+    close(f[0].y, 282);
+  });
+
+  it('faces the shooter when the bullet was fired and hit on the same turn', () => {
+    const rec = mkRec([
+      { turn: 0, robots, bullets: [], events: ev() },
+      { turn: 1, robots, bullets: [], events: ev(hit) },
+    ]);
+    const f = impactFlashes(rec, 1, 4);
+    close(f[0].x, 400);
+    close(f[0].y, 282);
+  });
+});
+
+describe('impact flashes', () => {
+  const victim = { id: 1, position: { x: 400, y: 300 }, heading: 0, gun_heading: 0, radar_heading: 0, velocity: 0, energy: 50, gun_heat: 0, alive: true, radius: 18 };
+  const ev = (over: object = {}) => ({ bullet_fired: [], bullet_hits: [], wall_collisions: [], robot_collisions: [], robot_deaths: [], ...over });
+  const turns = [
+    { turn: 0, robots: [victim], bullets: [], events: ev() },
+    { turn: 1, robots: [victim], bullets: [{ id: 5, owner_id: 0, position: { x: 100, y: 300 }, heading: 90, power: 2, speed: 300, alive: true }], events: ev() },
+    {
+      turn: 2, robots: [victim], bullets: [],
+      events: ev({
+        bullet_hits: [{ shooter: 0, victim: 1, bullet_id: 5, power: 2 }],
+        bullet_hit_obstacles: [{ bullet_id: 6, owner: 0, power: 1, position: { x: 50, y: 60 } }],
+      }),
+    },
+    ...[3, 4, 5, 6].map((t) => ({ turn: t, robots: [victim], bullets: [], events: ev() })),
+  ];
+  const rec = { battlefield: { width: 800, height: 600 }, robots: [{ id: 1, name: 'V' }], turns } as unknown as Recording;
+
+  it('flashes a robot hit on the victim edge facing the shot, and an obstacle hit where it struck', () => {
+    const f = impactFlashes(rec, 2, 4);
+    expect(f).toHaveLength(2);
+    expect(f[0]).toMatchObject({ age: 0, power: 2 });
+    close(f[0].x, 400 - 18);
+    close(f[0].y, 300);
+    expect(f[1]).toMatchObject({ x: 50, y: 60, age: 0, power: 1 });
+  });
+
+  it('ages and then drops the flash after the fade turns', () => {
+    expect(impactFlashes(rec, 5, 4).map((f) => f.age)).toEqual([3, 3]);
+    expect(impactFlashes(rec, 6, 4)).toHaveLength(0);
+  });
+});
+
+import { streakPose } from './scene';
+
+describe('3D streak', () => {
+  it('centres a streak between the two points, as long as the gap, pointing along it', () => {
+    const s = streakPose({ x: 100, y: 300 }, { x: 400, y: 300 }, 800, 600);
+    close(s.x, -150);
+    close(s.z, 0);
+    close(s.length, 300);
+    // Local +z turned by rotation y lands on world +x (east).
+    close(Math.sin(s.rotation), 1);
+    close(Math.cos(s.rotation), 0);
+  });
+  it('keeps a minimum length for a bullet that has not moved', () => {
+    const s = streakPose({ x: 10, y: 10 }, { x: 10, y: 10 }, 800, 600);
+    expect(s.length).toBeGreaterThan(0);
+  });
+});

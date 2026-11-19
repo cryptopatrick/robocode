@@ -1,18 +1,20 @@
+use robocode::BulletMode;
 use robocode::physics::BattleConfig;
 use robocode::recording::{self, RecordingBuilder};
 use robocode::roster;
 use robocode::runner::Battle;
+
+/// Pinned to arcade: these tests assume classic Robocode bullet speed.
+fn arcade() -> BattleConfig {
+    BattleConfig { bullet_mode: BulletMode::Arcade, ..BattleConfig::default() }
+}
 
 fn duel() -> Battle {
     let robots = vec![
         roster::built_in("SafeShooter").unwrap(),
         roster::built_in("Spinner").unwrap(),
     ];
-    Battle::new(
-        BattleConfig::default(),
-        &roster::spawns(2, 800.0, 600.0),
-        robots,
-    )
+    Battle::new(arcade(), &roster::spawns(2, 800.0, 600.0), robots)
 }
 
 #[test]
@@ -39,7 +41,7 @@ fn header_is_a_v2_object() {
     let h = recording::header_json(&duel());
     assert_eq!(
         h,
-        r#"{"format":"roboverus-recording","version":2,"robots":[{"id":0,"name":"SafeShooter"},{"id":1,"name":"Spinner"}],"battlefield":{"width":800,"height":600}}"#
+        r#"{"format":"roboverus-recording","version":2,"robots":[{"id":0,"name":"SafeShooter"},{"id":1,"name":"Spinner"}],"battlefield":{"width":800,"height":600},"bullets":"arcade"}"#
     );
 }
 
@@ -64,11 +66,8 @@ fn urban_battle(a: &str, b: &str) -> Battle {
     use robocode::terrain::Terrain;
     let robots =
         vec![roster::built_in(a).unwrap(), roster::built_in(b).unwrap()];
-    let mut battle = Battle::new(
-        BattleConfig::default(),
-        &roster::spawns(2, 800.0, 600.0),
-        robots,
-    );
+    let mut battle =
+        Battle::new(arcade(), &roster::spawns(2, 800.0, 600.0), robots);
     battle.set_terrain(Terrain::urban(800.0, 600.0));
     battle
 }
@@ -104,15 +103,19 @@ fn open_arena_frames_have_no_beam() {
         roster::built_in("SafeShooter").unwrap(),
         roster::built_in("Circler").unwrap(),
     ];
-    let battle = Battle::new(
-        BattleConfig::default(),
-        &roster::spawns(2, 800.0, 600.0),
-        robots,
-    );
+    let battle =
+        Battle::new(arcade(), &roster::spawns(2, 800.0, 600.0), robots);
     let json = recording::record(battle, 50);
     assert!(!json.contains("beam"));
     let fixture = include_str!("fixtures/open_arena_0_5_0.json");
-    assert_eq!(json.replacen(r#""version":2"#, r#""version":1"#, 1), fixture);
+    // The 0.5.0 fixture predates the "bullets" header field, which new
+    // recordings always write. Compare without it (and with the old version).
+    let json = json.replacen(r#""version":2"#, r#""version":1"#, 1).replacen(
+        r#","bullets":"arcade""#,
+        "",
+        1,
+    );
+    assert_eq!(json, fixture);
 }
 
 #[test]
@@ -201,4 +204,28 @@ fn live_header_carries_tanks() {
     assert!(
         recording::header_json(&battle).contains(r#""tanks":["k2","abrams"]"#)
     );
+}
+
+#[test]
+fn bullets_in_header() {
+    let json = recording::record(duel(), 5);
+    assert!(json.contains(r#""bullets":"arcade""#));
+    assert!(json.contains(r#""version":2"#));
+    let robots = vec![
+        roster::built_in("SafeShooter").unwrap(),
+        roster::built_in("Spinner").unwrap(),
+    ];
+    let realistic = Battle::new(
+        BattleConfig::default(),
+        &roster::spawns(2, 800.0, 600.0),
+        robots,
+    );
+    assert!(
+        recording::record(realistic, 5).contains(r#""bullets":"realistic""#)
+    );
+}
+
+#[test]
+fn live_header_carries_bullets() {
+    assert!(recording::header_json(&duel()).contains(r#""bullets":"arcade""#));
 }

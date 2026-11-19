@@ -602,6 +602,7 @@ impl Arbitrary for ManeuverCase {
             field_width: w,
             field_height: h,
             target,
+            bullet_mode: robocode::BulletMode::Arcade,
         })
     }
 }

@@ -129,6 +129,7 @@ fn robots_and_field(battle: &Battle) -> String {
         r#"],"battlefield":{{"width":{},"height":{}}}"#,
         field.width, field.height
     );
+    let _ = write!(out, r#","bullets":"{}""#, battle.bullet_mode().name());
     if !battle.tanks().is_empty() {
         let tanks: Vec<String> = battle
             .tanks()

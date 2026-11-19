@@ -1,6 +1,7 @@
 // Pure mapping from battle snapshots to 3D poses. No three.js here, so it is
 // unit-tested without WebGL.
-import type { Recording, RobotSnapshot } from './recording';
+import type { Point, Recording, RobotSnapshot } from './recording';
+import { TANKS, tankFor } from './tanks/defs';
 
 /** Height of a building in the 3D view, in battlefield pixels. */
 export const BUILDING_HEIGHT = 28;
@@ -141,4 +142,94 @@ export function cameraFor(
  */
 export function sceneKey(rec: Recording): string {
   return JSON.stringify([rec.battlefield, rec.terrain ?? null, rec.robots, rec.tanks ?? null]);
+}
+
+/** The tip of a robot's gun: `reach` px from its centre along the gun heading. */
+export function muzzlePoint(r: RobotSnapshot, reach: number): Point {
+  const g = toRad(r.gun_heading);
+  return { x: r.position.x + Math.sin(g) * reach, y: r.position.y - Math.cos(g) * reach };
+}
+
+/** Barrel reach of robot `i`'s tank (its default when the recording names none). */
+const tankReach = (rec: Recording, i: number) => TANKS[tankFor(rec, i)].barrelReach;
+
+/**
+ * The path bullet `bulletIndex` of turn `turn` covered to get where it is:
+ * from the same bullet id on the previous turn, or, on its first turn, from
+ * its shooter's muzzle (`reachFor(robotIndex)` px out; the tank's barrel by
+ * default). `first` marks that first turn.
+ */
+export function bulletSegment(
+  rec: Recording,
+  turn: number,
+  bulletIndex: number,
+  reachFor: (robotIndex: number) => number = (i) => tankReach(rec, i),
+): { from: Point; to: Point; first: boolean } {
+  const snap = rec.turns[turn];
+  const b = snap.bullets[bulletIndex];
+  const before = turn > 0 ? rec.turns[turn - 1].bullets.find((p) => p.id === b.id) : undefined;
+  if (before) return { from: before.position, to: b.position, first: false };
+  const i = snap.robots.findIndex((r) => r.id === b.owner_id);
+  const from = i < 0 ? b.position : muzzlePoint(snap.robots[i], reachFor(i));
+  return { from, to: b.position, first: true };
+}
+
+/** Where bullet `id` was recorded on the turn before `turn`, if it was. */
+function lastSeen(rec: Recording, turn: number, id: number): Point | undefined {
+  return rec.turns[turn - 1]?.bullets.find((p) => p.id === id)?.position;
+}
+
+export interface ImpactFlash extends Point {
+  /** Turns since the hit (0 on the hit turn). */
+  age: number;
+  power: number;
+}
+
+/**
+ * Impact flashes alive at `turn`, from hits up to `turns - 1` turns old.
+ * A building hit flashes where it is recorded. A robot hit has no recorded
+ * position (the bullet is gone on the hit turn), so it flashes on the
+ * victim's edge facing the bullet's position on the previous turn, or the
+ * shooter when it was fired and hit on the same turn.
+ */
+export function impactFlashes(rec: Recording, turn: number, turns: number): ImpactFlash[] {
+  const out: ImpactFlash[] = [];
+  for (let k = Math.max(1, turn - turns + 1); k <= turn; k++) {
+    const at = rec.turns[k];
+    const age = turn - k;
+    for (const hit of at.events.bullet_hits ?? []) {
+      const v = at.robots.find((r) => r.id === hit.victim);
+      if (!v) continue;
+      let { x, y } = v.position;
+      // Fired and hit on the same turn: no recorded position, so face the shooter.
+      const from = lastSeen(rec, k, hit.bullet_id) ?? at.robots.find((r) => r.id === hit.shooter)?.position;
+      if (from) {
+        const d = Math.hypot(from.x - x, from.y - y);
+        const pull = Math.min(v.radius, d);
+        if (d > 0) {
+          x += ((from.x - x) / d) * pull;
+          y += ((from.y - y) / d) * pull;
+        }
+      }
+      out.push({ x, y, age, power: hit.power });
+    }
+    for (const hit of at.events.bullet_hit_obstacles ?? []) {
+      out.push({ x: hit.position.x, y: hit.position.y, age, power: hit.power });
+    }
+  }
+  return out;
+}
+
+/** Shortest 3D streak, so a bullet that has not moved still shows. */
+const MIN_STREAK = 2;
+
+/**
+ * Pose of a box streak (unit box along local z) from `from` to `to` in
+ * battlefield pixels: world centre, length, and rotation about the vertical.
+ */
+export function streakPose(from: Point, to: Point, width: number, height: number): { x: number; z: number; length: number; rotation: number } {
+  const c = worldPoint((from.x + to.x) / 2, (from.y + to.y) / 2, width, height);
+  const dx = to.x - from.x;
+  const dz = to.y - from.y;
+  return { x: c.x, z: c.z, length: Math.max(Math.hypot(dx, dz), MIN_STREAK), rotation: Math.atan2(dx, dz) };
 }

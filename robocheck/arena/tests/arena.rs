@@ -176,6 +176,7 @@ fn observation(r: &mut Lcg) -> Observation {
         field_width: 800,
         field_height: 600,
         target,
+        bullet_mode: robocode::BulletMode::Arcade,
     }
 }
 

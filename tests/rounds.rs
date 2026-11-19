@@ -1,11 +1,17 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use robocode::BulletMode;
 use robocode::api::{Commands, Robot, RoundEndedEvent, Status};
 use robocode::physics::BattleConfig;
 use robocode::robots::{SafeShooter, SittingDuck};
 use robocode::roster;
 use robocode::runner::{Battle, boxed};
+
+/// Pinned to arcade: these tests assume classic Robocode bullet speed.
+fn arcade() -> BattleConfig {
+    BattleConfig { bullet_mode: BulletMode::Arcade, ..BattleConfig::default() }
+}
 
 type Log = Rc<RefCell<Vec<String>>>;
 
@@ -59,11 +65,7 @@ fn duel(a_log: &Log, b_log: &Log) -> Battle {
         Box::new(Logged { inner: boxed(SafeShooter), log: a_log.clone() }),
         Box::new(Logged { inner: boxed(SittingDuck), log: b_log.clone() }),
     ];
-    Battle::new(
-        BattleConfig::default(),
-        &roster::spawns(2, 800.0, 600.0),
-        robots,
-    )
+    Battle::new(arcade(), &roster::spawns(2, 800.0, 600.0), robots)
 }
 
 #[test]

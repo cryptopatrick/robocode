@@ -93,6 +93,7 @@ Read-only facts at the start of the turn:
 - `heading`, `gun_heading`, `radar_heading`;
 - `distance_remaining`, `turn_remaining`, `gun_turn_remaining`, `radar_turn_remaining`;
 - `battlefield_width`, `battlefield_height`, `gun_cooling_rate`.
+- `bullet_mode`: `BulletMode::Realistic` (the default: every bullet flies 300 px per turn, whatever its power) or `BulletMode::Arcade` (Robocode's `20 - 3 * power`). Power still sets damage, gun heat, energy cost and hit bonus in both modes.
 
 If several robots share a name, the battle numbers them like classic RoboCode: `SittingDuck`, `SittingDuck (2)`, ….
 
@@ -124,7 +125,7 @@ If several robots share a name, the battle numbers them like classic RoboCode: `
 
 ## Robots with proofs
 
-`robocode::strategy` is the fixed-point, Verus-friendly way to write a robot: a single `decide(&Observation) -> Action`. `SafeShooter` is written this way, and Verus proves it never fires unsafely; see the RoboVerus guide in `guide/`. To put a strategy into a battle, wrap it with `runner::boxed(strategy)`. That uses `StrategyRobot`, which builds the strategy's `Observation` from the API events: the nearest robot scanned, how many turns ago, and the gun heat after cooling.
+`robocode::strategy` is the fixed-point, Verus-friendly way to write a robot: a single `decide(&Observation) -> Action`. `SafeShooter` is written this way, and Verus proves it never fires unsafely; see the RoboVerus guide in `guide/`. To put a strategy into a battle, wrap it with `runner::boxed(strategy)`. That uses `StrategyRobot`, which builds the strategy's `Observation` from the API events: the nearest robot scanned, how many turns ago, and the gun heat after cooling. `Observation.bullet_mode` tells the strategy which bullet mode the battle uses, and `Observation::bullet_speed_for(power)` gives the speed in px per turn of a bullet fired at that power, for leading a moving target.
 
 ## Intent and the maneuver library
 

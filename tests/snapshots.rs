@@ -3,17 +3,23 @@
 //! and what changed there. Review with `cargo insta review` (or
 //! `INSTA_UPDATE=always cargo test --test snapshots` to accept everything).
 
+use robocode::BulletMode;
 use robocode::physics::BattleConfig;
 use robocode::runner::Battle;
 use robocode::terrain::Terrain;
 use robocode::{Battlefield, roster};
+
+/// Pinned to arcade: these tests assume classic Robocode bullet speed.
+fn arcade() -> BattleConfig {
+    BattleConfig { bullet_mode: BulletMode::Arcade, ..BattleConfig::default() }
+}
 
 fn battle(names: &[&str], width: f64, height: f64, urban: bool) -> Battle {
     let robots =
         names.iter().map(|n| roster::built_in(n).expect("built-in")).collect();
     let config = BattleConfig {
         battlefield: Battlefield::new(width, height),
-        ..BattleConfig::default()
+        ..arcade()
     };
     let mut b = Battle::new(
         config,

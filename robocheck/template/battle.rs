@@ -41,7 +41,13 @@ fn main() {
         std::process::exit(2);
     };
     let (w, h) = (800.0, 600.0);
-    let config = BattleConfig { battlefield: Battlefield::new(w, h), ..BattleConfig::default() };
+    // Pinned to arcade: RoboCheck runs and stored recordings predate bullet
+    // modes, and a recording without a "bullets" field is read as arcade.
+    let config = BattleConfig {
+        battlefield: Battlefield::new(w, h),
+        bullet_mode: robocode::BulletMode::Arcade,
+        ..BattleConfig::default()
+    };
     let terrain = if urban { Terrain::urban(w, h) } else { Terrain::default() };
     let candidate = ArenaRobot::new("Candidate", decide, terrain.clone(), w, h);
     let log = candidate.log();

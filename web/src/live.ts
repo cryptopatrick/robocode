@@ -1,7 +1,7 @@
 // Live battles: a Web Worker steps the engine on a clock and posts frames; the
 // page appends them to a growing v1 recording and renders independently.
 import type { TankId } from './tanks/defs';
-import type { Decision, Recording, TurnSnapshot } from './recording';
+import type { BulletMode, Decision, Recording, TurnSnapshot } from './recording';
 
 /** One turn, as the engine streams it (`recording::Frame::to_json`). */
 export interface Frame {
@@ -10,7 +10,7 @@ export interface Frame {
 }
 
 /** The stream's first line (`recording::header_json`). */
-export type LiveHeader = Pick<Recording, 'format' | 'version' | 'robots' | 'battlefield' | 'tanks'>;
+export type LiveHeader = Pick<Recording, 'format' | 'version' | 'robots' | 'battlefield' | 'tanks' | 'bullets'>;
 
 function provisionalOutcome(turns: TurnSnapshot[]): Recording['outcome'] {
   const last = turns[turns.length - 1];
@@ -33,7 +33,7 @@ export function appendFrames(rec: Recording, frames: Frame[]): Recording {
 
 /** Messages to the engine worker. `tps: null` means as fast as possible. */
 export type ToWorker =
-  | { type: 'start'; robots: string[]; width: number; height: number; maxTurns: number; urban: boolean; tanks: TankId[]; tps: number | null }
+  | { type: 'start'; robots: string[]; width: number; height: number; maxTurns: number; urban: boolean; tanks: TankId[]; bullets: BulletMode; tps: number | null }
   | { type: 'pause' }
   | { type: 'resume' }
   | { type: 'step' }

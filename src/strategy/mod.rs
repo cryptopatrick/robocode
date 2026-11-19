@@ -8,6 +8,7 @@ use vstd::prelude::*;
 pub mod maneuver;
 pub mod targeting;
 
+use crate::rules::BulletMode;
 use crate::units::{Angle, Energy, GunHeat, Power};
 
 /// What a robot knows about the enemy it last scanned.
@@ -44,6 +45,16 @@ pub struct Observation {
     pub field_width: i32,
     pub field_height: i32,
     pub target: Option<TargetInfo>,
+    /// How fast this battle's bullets fly; see [`Observation::bullet_speed_for`].
+    pub bullet_mode: BulletMode,
+}
+
+impl Observation {
+    /// Speed in pixels per turn of a bullet fired at `power` in this battle,
+    /// for leading a moving target.
+    pub fn bullet_speed_for(&self, power: Power) -> f64 {
+        crate::rules::bullet_speed(power.to_f64(), self.bullet_mode)
+    }
 }
 
 /// The commands a strategy issues for one turn. `None` leaves the pending

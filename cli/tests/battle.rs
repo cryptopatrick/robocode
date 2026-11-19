@@ -300,3 +300,35 @@ fn urban_battle_records_the_city_and_plain_battle_does_not() {
     let plain = std::fs::read_to_string(dir.join("plain.json")).unwrap();
     assert!(!plain.contains("terrain"));
 }
+
+#[test]
+fn bullets_flag_picks_the_mode_and_defaults_to_realistic() {
+    let dir = temp_dir("bullets");
+    new_robot(&dir, "bot");
+    let run = |name: &str, extra: &[&str]| {
+        let mut args = vec!["battle", "bot.rs", "--output", name, "--no-open"];
+        args.extend_from_slice(extra);
+        let out = tool(&args, &dir);
+        assert!(out.status.success(), "{}", stderr(&out));
+        std::fs::read_to_string(dir.join(name)).unwrap()
+    };
+    assert!(run("default.json", &[]).contains(r#""bullets":"realistic""#));
+    assert!(
+        run("arcade.json", &["--bullets", "arcade"])
+            .contains(r#""bullets":"arcade""#)
+    );
+    assert!(
+        run("real.json", &["--bullets", "realistic"])
+            .contains(r#""bullets":"realistic""#)
+    );
+}
+
+#[test]
+fn bad_bullets_value_exits_2() {
+    let dir = temp_dir("bullets-bad");
+    new_robot(&dir, "bot");
+    let out =
+        tool(&["battle", "bot.rs", "--bullets", "laser", "--no-open"], &dir);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(stderr(&out).contains("laser"), "{}", stderr(&out));
+}

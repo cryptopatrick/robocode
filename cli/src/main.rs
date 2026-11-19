@@ -66,6 +66,9 @@ enum Command {
         /// Fight on the fixed urban map: buildings stop tanks and absorb bullets.
         #[arg(long)]
         urban: bool,
+        /// Bullet speed: "realistic" (fast, 300 px/turn) or "arcade" (classic Robocode: 20 - 3 x power).
+        #[arg(long, default_value = "realistic")]
+        bullets: String,
         /// Live speed: turns per second (1-1000) or "max".
         #[arg(long, default_value = "30")]
         tps: String,
@@ -150,6 +153,7 @@ fn main() -> ExitCode {
             verbose,
             live,
             urban,
+            bullets,
             tps,
             robocode_path,
         } => {
@@ -179,6 +183,7 @@ fn main() -> ExitCode {
                         rounds,
                         live,
                         urban,
+                        bullets,
                         output,
                         verbose,
                         robocode_path,
