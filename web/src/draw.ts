@@ -75,6 +75,8 @@ function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.stroke();
 }
 
+/** Radius of the team-colour dot on a tank's turret ring. */
+const TEAM_DOT = 3;
 const MUZZLE_W = 4;
 const MUZZLE_H = 3;
 
@@ -108,18 +110,16 @@ function drawTank(ctx: CanvasRenderingContext2D, r: RobotSnapshot, color: string
   ctx.drawImage(imgs.turret, -t.pivotX * s, -t.pivotY * s, t.w * s, t.h * s);
   ctx.restore();
 
-  // Radar dish at the turret pivot.
+  // Team marker: a small dot in the team colour on the turret ring.
   ctx.save();
   toRing();
-  ctx.rotate(rad(r.radar_heading - r.heading));
-  ctx.strokeStyle = r.alive ? color : WRECK;
-  ctx.lineWidth = 2.5;
+  ctx.fillStyle = r.alive ? color : WRECK;
   ctx.beginPath();
-  ctx.arc(0, 4, 9, rad(-140), rad(-40));
-  ctx.stroke();
+  ctx.arc(0, 0, TEAM_DOT, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 
-  // Muzzle cap, also in the team colour (as is the radar arc above).
+  // Muzzle cap, also in the team colour (as is the team dot above).
   if (r.alive) {
     ctx.save();
     toRing();

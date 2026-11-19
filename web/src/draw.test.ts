@@ -199,6 +199,14 @@ describe('five tanks', () => {
     expect(cap!.args.slice(2)).toEqual([4, 3]);
   });
 
+  it('team marker is a small full dot in the team colour', () => {
+    const log = run([at(0)], k2Tanks);
+    const dot = log.find((l) => l.k === 'arc' && l.args[2] === 3 && l.args[4] === Math.PI * 2);
+    expect(dot).toBeDefined();
+    const fill = log.slice(log.indexOf(dot!)).find((l) => l.k === 'fill');
+    expect(fill?.fillStyle).toBe(ROBOT_COLORS[0]);
+  });
+
   it('same_tank_twice_keeps_both_muzzle_colours', () => {
     const both = { k2 };
     const log = run([at(0), at(1)], { leopard2a8: both.k2, abrams: both.k2 });
