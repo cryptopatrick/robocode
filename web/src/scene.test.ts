@@ -182,6 +182,36 @@ describe('bullet segments', () => {
   });
 });
 
+describe('impact flash fallbacks', () => {
+  const mk = (id: number, x: number, y: number) => ({ id, position: { x, y }, heading: 0, gun_heading: 0, radar_heading: 0, velocity: 0, energy: 50, gun_heat: 0, alive: true, radius: 18 });
+  const ev = (over: object = {}) => ({ bullet_fired: [], bullet_hits: [], wall_collisions: [], robot_collisions: [], robot_deaths: [], ...over });
+  const hit = { bullet_hits: [{ shooter: 0, victim: 1, bullet_id: 5, power: 2 }] };
+  const robots = [mk(0, 400, 100), mk(1, 400, 300)];
+  const old = { id: 5, owner_id: 0, position: { x: 100, y: 300 }, heading: 90, power: 2, speed: 300, alive: true };
+  const mkRec = (turns: object[]) => ({ battlefield: { width: 800, height: 600 }, robots: [{ id: 0, name: 'S' }, { id: 1, name: 'V' }], turns }) as unknown as Recording;
+
+  it('ignores a sighting older than the previous turn', () => {
+    const rec = mkRec([
+      { turn: 0, robots, bullets: [old], events: ev() },
+      { turn: 1, robots, bullets: [], events: ev() },
+      { turn: 2, robots, bullets: [], events: ev(hit) },
+    ]);
+    const f = impactFlashes(rec, 2, 4);
+    close(f[0].x, 400);
+    close(f[0].y, 282);
+  });
+
+  it('faces the shooter when the bullet was fired and hit on the same turn', () => {
+    const rec = mkRec([
+      { turn: 0, robots, bullets: [], events: ev() },
+      { turn: 1, robots, bullets: [], events: ev(hit) },
+    ]);
+    const f = impactFlashes(rec, 1, 4);
+    close(f[0].x, 400);
+    close(f[0].y, 282);
+  });
+});
+
 describe('impact flashes', () => {
   const victim = { id: 1, position: { x: 400, y: 300 }, heading: 0, gun_heading: 0, radar_heading: 0, velocity: 0, energy: 50, gun_heat: 0, alive: true, radius: 18 };
   const ev = (over: object = {}) => ({ bullet_fired: [], bullet_hits: [], wall_collisions: [], robot_collisions: [], robot_deaths: [], ...over });

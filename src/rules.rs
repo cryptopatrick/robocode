@@ -50,15 +50,22 @@ use vstd::prelude::*;
 /// Bullet speed in realistic mode, in pixels per turn, whatever the power.
 pub const REALISTIC_BULLET_SPEED: f64 = 300.0;
 
-/// How fast bullets fly (see the PRD, "Bullet modes").
+/// How fast bullets fly (see `docs/robot-api.md`).
 #[cfg_attr(feature = "verus", verus_verify)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BulletMode {
     /// Fixed [`REALISTIC_BULLET_SPEED`]; a documented deviation from Robocode.
-    #[default]
     Realistic,
     /// Robocode-identical: `20 - 3 * power`.
     Arcade,
+}
+
+// Manual, not derived: Verus-verified types avoid derives.
+#[allow(clippy::derivable_impls)]
+impl Default for BulletMode {
+    fn default() -> Self {
+        BulletMode::Realistic
+    }
 }
 
 impl BulletMode {

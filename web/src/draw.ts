@@ -243,7 +243,8 @@ function drawShots(ctx: CanvasRenderingContext2D, rec: Recording, turn: number, 
     // Muzzle flashes: a bright disc on the fire turn, fading over the next.
     for (let k = Math.max(0, turn - MUZZLE_FLASH_TURNS + 1); k <= turn; k++) {
       const fade = 1 - (turn - k) / MUZZLE_FLASH_TURNS;
-      rec.turns[k].bullets.forEach((_, j) => {
+      rec.turns[k].bullets.forEach((b, j) => {
+        if (!b.alive) return;
         const s = bulletSegment(rec, k, j, reachFor);
         if (!s.first) return;
         ctx.fillStyle = `rgba(255, 250, 220, ${fade})`;

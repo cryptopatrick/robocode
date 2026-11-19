@@ -174,13 +174,9 @@ export function bulletSegment(
   return { from, to: b.position, first: true };
 }
 
-/** Where bullet `id` was last recorded before turn `turn`, if anywhere. */
+/** Where bullet `id` was recorded on the turn before `turn`, if it was. */
 function lastSeen(rec: Recording, turn: number, id: number): Point | undefined {
-  for (let k = turn - 1; k >= 0; k--) {
-    const b = rec.turns[k].bullets.find((p) => p.id === id);
-    if (b) return b.position;
-  }
-  return undefined;
+  return rec.turns[turn - 1]?.bullets.find((p) => p.id === id)?.position;
 }
 
 export interface ImpactFlash extends Point {
@@ -193,7 +189,8 @@ export interface ImpactFlash extends Point {
  * Impact flashes alive at `turn`, from hits up to `turns - 1` turns old.
  * A building hit flashes where it is recorded. A robot hit has no recorded
  * position (the bullet is gone on the hit turn), so it flashes on the
- * victim's edge facing the bullet's last recorded position.
+ * victim's edge facing the bullet's position on the previous turn, or the
+ * shooter when it was fired and hit on the same turn.
  */
 export function impactFlashes(rec: Recording, turn: number, turns: number): ImpactFlash[] {
   const out: ImpactFlash[] = [];
@@ -204,7 +201,8 @@ export function impactFlashes(rec: Recording, turn: number, turns: number): Impa
       const v = at.robots.find((r) => r.id === hit.victim);
       if (!v) continue;
       let { x, y } = v.position;
-      const from = lastSeen(rec, k, hit.bullet_id);
+      // Fired and hit on the same turn: no recorded position, so face the shooter.
+      const from = lastSeen(rec, k, hit.bullet_id) ?? at.robots.find((r) => r.id === hit.shooter)?.position;
       if (from) {
         const d = Math.hypot(from.x - x, from.y - y);
         const pull = Math.min(v.radius, d);
