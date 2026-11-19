@@ -95,6 +95,7 @@ impl Rec {
                 velocity: t.velocity,
                 age: t.age,
             }),
+            bullet_mode: robocode::BulletMode::Arcade, // stored runs predate bullet modes
         };
         let env = Surroundings {
             clearance_ahead: self.env.clearance_ahead,

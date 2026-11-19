@@ -31,6 +31,7 @@ fn obs() -> Observation {
         field_width: 800,
         field_height: 600,
         target: Some(target(0, 300, 0)),
+        bullet_mode: robocode::BulletMode::Arcade,
     }
 }
 
@@ -226,6 +227,7 @@ fn status() -> Status {
         battlefield_width: 800.0,
         battlefield_height: 600.0,
         gun_cooling_rate: 0.1,
+        bullet_mode: BulletMode::Arcade,
     }
 }
 

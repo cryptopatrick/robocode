@@ -46,6 +46,7 @@ fn status_of(
         battlefield_width: config.battlefield.width,
         battlefield_height: config.battlefield.height,
         gun_cooling_rate: config.gun_cooling_rate,
+        bullet_mode: config.bullet_mode,
     }
 }
 
@@ -89,6 +90,7 @@ pub fn observe_status(
         y: status.y.round() as i32,
         field_width: status.battlefield_width.round() as i32,
         field_height: status.battlefield_height.round() as i32,
+        bullet_mode: status.bullet_mode,
         target: target.map(|(scan, age)| TargetInfo {
             bearing: Angle::from_degrees(scan.absolute_bearing),
             distance: scan.distance.round() as i32,

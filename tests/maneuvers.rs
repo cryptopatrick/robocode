@@ -17,6 +17,7 @@ fn obs() -> Observation {
         field_width: 800,
         field_height: 600,
         target: None,
+        bullet_mode: robocode::BulletMode::Arcade,
     }
 }
 

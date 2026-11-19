@@ -115,3 +115,33 @@ fn arcade_outcomes_unchanged() {
     let fixture = include_str!("fixtures/open_arena_0_5_0.json");
     assert_eq!(json.replacen(r#""version":2"#, r#""version":1"#, 1), fixture);
 }
+
+// ---- Robots see the mode ----
+
+#[test]
+fn observation_reports_the_battle_mode() {
+    let robot = RobotState::new(0, Point::new(400.0, 300.0));
+    for mode in [BulletMode::Realistic, BulletMode::Arcade] {
+        let config =
+            BattleConfig { bullet_mode: mode, ..BattleConfig::default() };
+        let obs = robocode::runner::observe(&robot, &config, 1, None);
+        assert_eq!(obs.bullet_mode, mode);
+    }
+}
+
+#[test]
+fn bullet_speed_for_gives_the_mode_speed() {
+    use robocode::units::Power;
+    let robot = RobotState::new(0, Point::new(400.0, 300.0));
+    let observe = |mode| {
+        let config =
+            BattleConfig { bullet_mode: mode, ..BattleConfig::default() };
+        robocode::runner::observe(&robot, &config, 1, None)
+    };
+    let realistic = observe(BulletMode::Realistic);
+    let arcade = observe(BulletMode::Arcade);
+    for p in [Power(100), Power(1000), Power(3000)] {
+        assert_eq!(realistic.bullet_speed_for(p), 300.0);
+        assert_eq!(arcade.bullet_speed_for(p), 20.0 - 3.0 * p.to_f64());
+    }
+}
