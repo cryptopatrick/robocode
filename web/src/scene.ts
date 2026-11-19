@@ -54,6 +54,21 @@ export function tankPose(r: RobotSnapshot, width: number, height: number): TankP
   };
 }
 
+/**
+ * Distance each robot has driven by each turn, `[turn][robot]`: the running sum
+ * of the signed recorded velocity (turn 0 is zero), so reversing runs the tracks back.
+ */
+export function drivenDistances(rec: Recording): number[][] {
+  const out: number[][] = [];
+  let prev: number[] = [];
+  rec.turns.forEach((turn, t) => {
+    const row = turn.robots.map((r, i) => (t === 0 ? 0 : (prev[i] ?? 0) + r.velocity));
+    out.push(row);
+    prev = row;
+  });
+  return out;
+}
+
 /** The map objects of a recording, as world-space boxes (`x, z, width, depth`). */
 export function terrainBoxes(rec: Recording): {
   buildings: [number, number, number, number][];
@@ -118,4 +133,12 @@ export function cameraFor(
     target: [0, 0, 0],
     fov: CAMERA_FOV,
   };
+}
+
+/**
+ * Identity of the 3D scene a recording needs: arena size, terrain, robots and
+ * tanks. Appending live frames leaves it unchanged, so the scene is not rebuilt.
+ */
+export function sceneKey(rec: Recording): string {
+  return JSON.stringify([rec.battlefield, rec.terrain ?? null, rec.robots, rec.tanks ?? null]);
 }

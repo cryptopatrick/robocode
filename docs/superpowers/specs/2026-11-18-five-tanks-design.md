@@ -22,7 +22,7 @@ The viewers should instead show five recognisable vehicles, in both 2D and 3D:
 2. **M1A2 Abrams SEPv3:** wide hull, big flat slab turret with a rear bustle rack, desert tan.
 3. **K2 Black Panther:** sleek cut-corner nose, compact turret, longest gun, green and sand camouflage.
 4. **Leclerc XLR:** boxy, low square turret, bolt-on armour blocks, green/brown/grey three-tone.
-5. **Merkava (inspired):** long sloped nose (engine in front), turret set far back, rear hatch, pale sand.
+5. **Merkava (inspired):** long sloped nose (engine in front), turret set far back (superseded — see Amendments), rear hatch, pale sand.
 
 These are stylised interpretations, not engineering replicas, and the Merkava is labelled "inspired".
 
@@ -58,7 +58,7 @@ These are stylised interpretations, not engineering replicas, and the Merkava is
 - **2D size.** Each tank keeps its own proportions from the supplied art, scaled so that its width
   (tracks included) is 28 px, which fits inside the 36 px circle. Its length follows from those
   proportions, about 44–50 px, so nose and tail run past the circle. Barrel reach is measured from the
-  robot's centre (not the pivot): about 20–28 px beyond the centre, with the K2's longest. The definitions
+  robot's centre (not the pivot): about 20–28 px beyond the centre, with the K2's longest (superseded — see Amendments). The definitions
   table holds the scaled numbers. (Builder's call: measure them once from the art and write them in as literals; the 3D
   models are scaled to match.)
 - **Bullets still leave from the robot's centre**, as the engine has them. A long barrel means a new bullet
@@ -132,7 +132,7 @@ Robot *i* defaults to `DEFAULT_TANKS[i % 5]`.
 ### 3D: procedural models
 
 - Port `tankmodels.md`'s factory to TypeScript in `web/src/tanks/models3d.ts`, keeping its low-poly,
-  flat-shaded style and its per-tank differences (Merkava rear compartment and set-back turret, armour
+  flat-shaded style and its per-tank differences (Merkava rear compartment and set-back turret (superseded — see Amendments), armour
   blocks, APS sensors, optics).
 - **Changes from the file:**
   - Scale it so the hull length and width match the 2D definitions. The 3D world is in battlefield px
@@ -188,3 +188,7 @@ Robot *i* defaults to `DEFAULT_TANKS[i % 5]`.
 - **Radar.** The radar stays a small dish on the turret roof in both views, because the source models
   have no radar part.
 - **Release.** This ships after 0.6.0, as its own release.
+
+## Amendments (during implementation)
+
+- The supplied 2D art measured hull lengths of about 45-47 px, gun reach of about 28-29 px for every tank, and turret pivots near the hull centre, the Merkava included. The art is the authority for geometry, so the 3D models follow these numbers rather than the earlier seed proportions.

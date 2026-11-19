@@ -178,3 +178,27 @@ fn tactician_decisions_carry_intent() {
     let plain = recording::record(urban_battle("Circler", "Spinner"), 50);
     assert!(!plain.contains("intent"));
 }
+
+#[test]
+fn tanks_in_header() {
+    let mut battle = duel();
+    battle.set_tanks(vec!["k2".into(), "abrams".into()]);
+    let json = recording::record(battle, 5);
+    assert!(json.contains(r#""tanks":["k2","abrams"]"#));
+    assert!(json.contains(r#""version":2"#));
+}
+
+#[test]
+fn no_tanks_no_field() {
+    let json = recording::record(duel(), 5);
+    assert!(!json.contains(r#""tanks""#));
+}
+
+#[test]
+fn live_header_carries_tanks() {
+    let mut battle = duel();
+    battle.set_tanks(vec!["k2".into(), "abrams".into()]);
+    assert!(
+        recording::header_json(&battle).contains(r#""tanks":["k2","abrams"]"#)
+    );
+}

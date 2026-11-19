@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { headingRotation, relativeRotation, terrainBoxes, tankPose, worldPoint } from './scene';
+import { drivenDistances, sceneKey, headingRotation, relativeRotation, terrainBoxes, tankPose, worldPoint } from './scene';
 import type { Recording, RobotSnapshot } from './recording';
 
 const close = (a: number, b: number) => expect(a).toBeCloseTo(b, 9);
@@ -92,4 +92,43 @@ describe('cameraFor', () => {
       }
     });
   }
+});
+
+describe('drivenDistances', () => {
+  const rob = (velocity: number) => ({ velocity }) as RobotSnapshot;
+  const rec = (rows: number[][]) => ({ turns: rows.map((r) => ({ robots: r.map(rob) })) }) as unknown as Recording;
+
+  it('driven distance sums velocity', () => {
+    const d = drivenDistances(rec([[0], [8], [8], [-2]]));
+    expect(d.map((t) => t[0])).toEqual([0, 8, 16, 14]);
+  });
+
+  it('driven distance is per robot', () => {
+    const d = drivenDistances(rec([[5, 1], [2, -3], [4, 0]]));
+    expect(d[0]).toEqual([0, 0]);
+    expect(d[2]).toEqual([6, -3]);
+  });
+});
+
+describe('sceneKey', () => {
+  const base = {
+    robots: ['a', 'b'],
+    battlefield: { width: 800, height: 600 },
+    terrain: { buildings: [[0, 0, 10, 10]], roads: [] },
+    tanks: ['abrams', 'k2'],
+    turns: [{ robots: [] }],
+  } as unknown as Recording;
+
+  it('stays the same when frames are appended', () => {
+    const more = { ...base, turns: [...base.turns, { robots: [] }] } as unknown as Recording;
+    expect(sceneKey(more)).toBe(sceneKey(base));
+  });
+
+  it('changes with tanks, robots, size and terrain', () => {
+    const k = sceneKey(base);
+    expect(sceneKey({ ...base, tanks: ['k2', 'k2'] } as unknown as Recording)).not.toBe(k);
+    expect(sceneKey({ ...base, robots: ['a'] } as unknown as Recording)).not.toBe(k);
+    expect(sceneKey({ ...base, battlefield: { width: 900, height: 600 } } as unknown as Recording)).not.toBe(k);
+    expect(sceneKey({ ...base, terrain: undefined } as unknown as Recording)).not.toBe(k);
+  });
 });

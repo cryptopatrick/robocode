@@ -8,6 +8,7 @@ fn spec(robots: &[&str]) -> BattleSpec {
         height: 600.0,
         max_turns: 5000,
         urban: false,
+        tanks: vec![],
     }
 }
 
@@ -126,9 +127,15 @@ fn live_battle_streams_the_same_battle() {
         &record_battle(&spec(&["SafeShooter", "Spinner"])).unwrap(),
     )
     .unwrap();
-    let mut live =
-        LiveBattle::create("SafeShooter,Spinner", 800.0, 600.0, 5000, false)
-            .unwrap();
+    let mut live = LiveBattle::create(
+        "SafeShooter,Spinner",
+        800.0,
+        600.0,
+        5000,
+        false,
+        "",
+    )
+    .unwrap();
     let header: Value = serde_json::from_str(&live.header()).unwrap();
     assert_eq!(header["robots"], expected["robots"]);
     let mut turns = vec![
@@ -200,4 +207,28 @@ fn ratio_size_matches_the_engine() {
         assert_eq!(robocode_wasm::ratio_size(r.name()), Ok(vec![w, h]));
     }
     assert!(robocode_wasm::ratio_size("3:2").is_err());
+}
+
+#[test]
+fn run_battle_passes_tanks() {
+    let json = robocode_wasm::run_battle_native(
+        "SafeShooter,Spinner",
+        800.0,
+        600.0,
+        10,
+        false,
+        "merkava,k2",
+    )
+    .unwrap();
+    assert!(json.contains(r#""tanks":["merkava","k2"]"#));
+    let none = robocode_wasm::run_battle_native(
+        "SafeShooter,Spinner",
+        800.0,
+        600.0,
+        10,
+        false,
+        "",
+    )
+    .unwrap();
+    assert!(!none.contains("\"tanks\""));
 }
