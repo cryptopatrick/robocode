@@ -300,8 +300,9 @@ impl BattleState {
 
     /// Realistic mode: each bullet's outcome this turn is whatever it meets
     /// first along `previous_position -> position`: a building, a robot
-    /// circle (`ROBOT_RADIUS`, never its owner) or another bullet's path. On
-    /// a tie the robot wins. Leaving the field is checked last.
+    /// circle (`robot.radius + BULLET_RADIUS`, as in arcade; never its
+    /// owner) or another bullet's path. On a tie the robot wins. Leaving the
+    /// field is checked last.
     fn apply_bullets_earliest_contact(&mut self, events: &mut TurnEvents) {
         #[derive(Clone, Copy)]
         enum Contact {
@@ -333,7 +334,8 @@ impl BattleState {
                         from,
                         to,
                         r.position,
-                        rules::ROBOT_RADIUS,
+                        // The same hit radius as arcade's end-point check.
+                        r.radius + rules::BULLET_RADIUS,
                     )
                     .map(|t| (t, i))
                 })
@@ -760,8 +762,6 @@ fn arc_overlaps(sweep: f64, rel: f64, half_width: f64) -> bool {
         .any(|r| r + half_width >= lo && r - half_width <= hi)
 }
 
-/// Whether segments p1–p2 and q1–q2 intersect (touching counts, like Java's
-/// `Line2D.intersectsLine`).
 fn lerp(a: Point, b: Point, t: f64) -> Point {
     Point::new(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
 }
@@ -813,6 +813,8 @@ fn segment_intersection(
     ((0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u)).then_some((t, u))
 }
 
+/// Whether segments p1–p2 and q1–q2 intersect (touching counts, like Java's
+/// `Line2D.intersectsLine`).
 fn segments_intersect(p1: Point, p2: Point, q1: Point, q2: Point) -> bool {
     fn cross(o: Point, a: Point, b: Point) -> f64 {
         (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)

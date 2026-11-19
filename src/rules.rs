@@ -44,10 +44,14 @@ pub fn body_turn_rate_for_velocity(velocity: f64) -> f64 {
     (MAX_TURN_RATE - 0.75 * velocity.abs()).max(0.0)
 }
 
+#[cfg(feature = "verus")]
+use vstd::prelude::*;
+
 /// Bullet speed in realistic mode, in pixels per turn, whatever the power.
 pub const REALISTIC_BULLET_SPEED: f64 = 300.0;
 
 /// How fast bullets fly (see the PRD, "Bullet modes").
+#[cfg_attr(feature = "verus", verus_verify)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum BulletMode {
     /// Fixed [`REALISTIC_BULLET_SPEED`]; a documented deviation from Robocode.

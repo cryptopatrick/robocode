@@ -113,7 +113,14 @@ fn arcade_outcomes_unchanged() {
     let battle = Battle::new(config, &roster::spawns(2, 800.0, 600.0), robots);
     let json = recording::record(battle, 50);
     let fixture = include_str!("fixtures/open_arena_0_5_0.json");
-    assert_eq!(json.replacen(r#""version":2"#, r#""version":1"#, 1), fixture);
+    // The 0.5.0 fixture predates the version bump and the "bullets" header
+    // field; compare without them.
+    let json = json.replacen(r#""version":2"#, r#""version":1"#, 1).replacen(
+        r#","bullets":"arcade""#,
+        "",
+        1,
+    );
+    assert_eq!(json, fixture);
 }
 
 // ---- Robots see the mode ----
@@ -144,4 +151,55 @@ fn bullet_speed_for_gives_the_mode_speed() {
         assert_eq!(realistic.bullet_speed_for(p), 300.0);
         assert_eq!(arcade.bullet_speed_for(p), 20.0 - 3.0 * p.to_f64());
     }
+}
+
+// ---- Fix round 1 ----
+
+#[test]
+fn realistic_hit_radius_matches_arcade() {
+    // The path passes 20 px from the robot's centre: inside the arcade hit
+    // radius (robot radius 18 + bullet radius 3).
+    let mut victim = RobotState::new(1, Point::new(250.0, 320.0));
+    victim.gun_heat = 3.0;
+    let mut battle = BattleState::new(
+        BattleConfig::default(),
+        vec![shooter(100.0, 300.0, 90.0), victim],
+    );
+    battle.robots[0].control.fire_power = Some(1.0);
+    let events = battle.step();
+    assert_eq!(events.bullet_hits.len(), 1, "{events:?}");
+}
+
+#[test]
+fn bullets_collide_before_a_farther_robot() {
+    // A fires right along y=300, B fires down along x=250; they cross at
+    // (250, 300), halfway along A's path. C sits farther along A's path.
+    let mut b = shooter(250.0, 50.0, 180.0);
+    b.id = 1;
+    let mut c = RobotState::new(2, Point::new(380.0, 300.0));
+    c.gun_heat = 3.0;
+    let mut battle = BattleState::new(
+        BattleConfig::default(),
+        vec![shooter(100.0, 300.0, 90.0), b, c],
+    );
+    battle.robots[0].control.fire_power = Some(1.0);
+    battle.robots[1].control.fire_power = Some(1.0);
+    let events = battle.step();
+    assert_eq!(events.bullet_fired.len(), 2);
+    assert_eq!(events.bullet_hit_bullets.len(), 1, "{events:?}");
+    assert!(events.bullet_hits.is_empty(), "{events:?}");
+    assert_eq!(battle.robots[2].energy, 100.0);
+}
+
+#[test]
+fn shooter_is_not_hit_by_its_own_bullet() {
+    // The swept path starts inside the shooter's own circle.
+    let mut battle = BattleState::new(
+        BattleConfig::default(),
+        vec![shooter(100.0, 300.0, 90.0)],
+    );
+    battle.robots[0].control.fire_power = Some(1.0);
+    let events = battle.step();
+    assert!(events.bullet_hits.is_empty(), "{events:?}");
+    assert_eq!(battle.bullets.len(), 1, "the bullet flies on");
 }
