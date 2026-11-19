@@ -7,7 +7,8 @@ on energy, aim, how fresh the sighting is, or walls and buildings unless a claus
 spec forbids, the robot attacks: it turns its radar to find the enemy, turns its gun toward the enemy's last known
 bearing, fires at full power (`Power(3000)`) every turn the gun is cool, whatever its energy or aim, and drives
 toward the enemy at full speed. Where a clause does limit something, do exactly what the clause requires and no
-more.
+more. An empty spec (no clauses) means no limits at all: the robot still hunts, aims, fires
+and drives as above. A robot that does nothing is wrong.
 
 {{UNITS}}
 
@@ -38,9 +39,11 @@ Rules for the code, or it is refused before it runs:
 - Keep arithmetic small enough not to overflow `i32`/`u32` (Verus checks overflow), e.g. compare instead of
   subtracting unsigned values.
 - No macros of any kind, and none of these identifiers anywhere: {{FORBIDDEN}}.
-- The only attributes allowed are exactly `#[cfg_attr(feature = "verus", verus_verify)]` and
-  `#[cfg_attr(feature = "verus", verus_spec(...))]` on helpers. A helper with no spec is fine: Verus then only
-  knows its type, so put the logic the proof needs straight into `decide`'s body, or give the helper an `ensures`.
+- Prefer no helpers: write the whole robot inline in `decide`'s body. Verus cannot see an unmarked helper, and
+  calling one makes every clause "unknown", so the robot proves nothing. If you do write a helper, it must carry
+  `#[cfg_attr(feature = "verus", verus_verify)]`, plus `#[cfg_attr(feature = "verus", verus_spec(...))]` with
+  `requires` bounding its inputs if it does arithmetic (so it can't overflow) and `ensures` for anything the proof
+  needs from its result. These two are the only attributes allowed.
 - Don't define `decide`, `use`, `mod` or `impl`.
 
 ## An example that Verus accepts (for a different spec)
