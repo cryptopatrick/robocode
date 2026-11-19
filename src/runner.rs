@@ -402,6 +402,11 @@ impl Battle {
         }
     }
 
+    /// How fast this battle's bullets fly.
+    pub fn bullet_mode(&self) -> crate::rules::BulletMode {
+        self.state.config.bullet_mode
+    }
+
     pub fn state(&self) -> &BattleState {
         &self.state
     }

@@ -23,6 +23,7 @@ impl BulletState {
         position: Point,
         heading: f64,
         power: f64,
+        mode: rules::BulletMode,
     ) -> Self {
         let power = rules::clamp_bullet_power(power);
         Self {
@@ -32,7 +33,7 @@ impl BulletState {
             previous_position: position,
             heading: normalize_absolute_angle(heading),
             power,
-            speed: rules::bullet_speed(power),
+            speed: rules::bullet_speed(power, mode),
             alive: true,
         }
     }

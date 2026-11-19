@@ -18,6 +18,7 @@ use crate::terrain::Terrain;
 pub struct BattleConfig {
     pub battlefield: Battlefield,
     pub gun_cooling_rate: f64,
+    pub bullet_mode: rules::BulletMode,
 }
 
 impl Default for BattleConfig {
@@ -25,6 +26,7 @@ impl Default for BattleConfig {
         Self {
             battlefield: Battlefield::from_ratio(Ratio::R4x3),
             gun_cooling_rate: rules::GUN_COOLING_RATE,
+            bullet_mode: rules::BulletMode::default(),
         }
     }
 }
@@ -172,7 +174,12 @@ impl BattleState {
             if let Some((robot_id, position, heading, power)) = fire_request {
                 let bullet_id = self.next_bullet_id();
                 let bullet = BulletState::new(
-                    bullet_id, robot_id, position, heading, power,
+                    bullet_id,
+                    robot_id,
+                    position,
+                    heading,
+                    power,
+                    self.config.bullet_mode,
                 );
                 self.bullets.push(bullet);
                 events.bullet_fired.push(BulletFired {

@@ -45,6 +45,9 @@ fn build_battle(spec: &BattleSpec) -> Result<Battle, String> {
     recording::validate_setup(n, spec.width, spec.height, spec.max_turns)?;
     let config = BattleConfig {
         battlefield: Battlefield::new(spec.width, spec.height),
+        // Pinned to arcade until BattleSpec.bullets and the recording header
+        // carry the mode (a recording without it is read as arcade).
+        bullet_mode: robocode::BulletMode::Arcade,
         ..BattleConfig::default()
     };
     let mut battle = Battle::new(

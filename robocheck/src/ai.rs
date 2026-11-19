@@ -457,7 +457,7 @@ mod tests {
     }
 
     fn s1_json() -> Value {
-        serde_json::to_value(&reference_clauses("S1")).unwrap()
+        serde_json::to_value(reference_clauses("S1")).unwrap()
     }
 
     #[test]
@@ -667,7 +667,7 @@ mod tests {
         assert!(
             llm.requests.iter().all(|r| r.max_tokens == GENERATE_MAX_TOKENS)
         );
-        assert!(GENERATE_MAX_TOKENS <= 8000);
+        const { assert!(GENERATE_MAX_TOKENS <= 8000) };
     }
 
     #[test]

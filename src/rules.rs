@@ -44,9 +44,53 @@ pub fn body_turn_rate_for_velocity(velocity: f64) -> f64 {
     (MAX_TURN_RATE - 0.75 * velocity.abs()).max(0.0)
 }
 
+/// Bullet speed in realistic mode, in pixels per turn, whatever the power.
+pub const REALISTIC_BULLET_SPEED: f64 = 300.0;
+
+/// How fast bullets fly (see the PRD, "Bullet modes").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum BulletMode {
+    /// Fixed [`REALISTIC_BULLET_SPEED`]; a documented deviation from Robocode.
+    #[default]
+    Realistic,
+    /// Robocode-identical: `20 - 3 * power`.
+    Arcade,
+}
+
+impl BulletMode {
+    pub fn name(self) -> &'static str {
+        match self {
+            BulletMode::Realistic => "realistic",
+            BulletMode::Arcade => "arcade",
+        }
+    }
+}
+
+impl std::fmt::Display for BulletMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
+impl std::str::FromStr for BulletMode {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "realistic" => Ok(BulletMode::Realistic),
+            "arcade" => Ok(BulletMode::Arcade),
+            other => Err(format!(
+                "unknown bullet mode {other:?} (expected realistic or arcade)"
+            )),
+        }
+    }
+}
+
 /// Converts bullet power to travel speed in pixels per turn.
-pub fn bullet_speed(power: f64) -> f64 {
-    20.0 - 3.0 * power
+pub fn bullet_speed(power: f64, mode: BulletMode) -> f64 {
+    match mode {
+        BulletMode::Realistic => REALISTIC_BULLET_SPEED,
+        BulletMode::Arcade => 20.0 - 3.0 * power,
+    }
 }
 
 /// Returns how much damage a hit bullet deals to the victim robot.

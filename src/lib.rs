@@ -37,6 +37,7 @@ pub mod terrain;
 pub mod units;
 
 pub use geometry::{Battlefield, Point, Ratio, Rect, line_of_sight};
+pub use rules::BulletMode;
 
 /// Names the robot defined in a robot file, for `cargo robocode`.
 ///

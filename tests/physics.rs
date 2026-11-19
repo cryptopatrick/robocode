@@ -1,11 +1,17 @@
+use robocode::BulletMode;
 use robocode::Point;
 use robocode::physics::{BattleConfig, BattleState, RobotState};
+
+/// Pinned to arcade: these tests assume classic Robocode bullet speed.
+fn arcade() -> BattleConfig {
+    BattleConfig { bullet_mode: BulletMode::Arcade, ..BattleConfig::default() }
+}
 
 #[test]
 fn robot_moves_forward_and_stops_near_target_distance() {
     let mut robot = RobotState::new(0, Point::new(400.0, 300.0));
     robot.set_ahead(100.0);
-    let mut battle = BattleState::new(BattleConfig::default(), vec![robot]);
+    let mut battle = BattleState::new(arcade(), vec![robot]);
     for _ in 0..40 {
         battle.step();
     }
@@ -23,7 +29,7 @@ fn robot_moves_forward_and_stops_near_target_distance() {
 fn firing_creates_bullet_and_cools_down() {
     let mut robot = RobotState::new(0, Point::new(400.0, 300.0));
     robot.set_fire(2.5);
-    let mut battle = BattleState::new(BattleConfig::default(), vec![robot]);
+    let mut battle = BattleState::new(arcade(), vec![robot]);
     let events = battle.step();
     assert_eq!(events.bullet_fired.len(), 1);
     assert!(battle.robots[0].gun_heat > 0.0);
@@ -38,8 +44,7 @@ fn bullet_hit_reduces_energy() {
     let mut shooter = RobotState::new(0, Point::new(400.0, 550.0));
     shooter.gun_heading = 0.0;
     let target = RobotState::new(1, Point::new(400.0, 150.0));
-    let mut battle =
-        BattleState::new(BattleConfig::default(), vec![shooter, target]);
+    let mut battle = BattleState::new(arcade(), vec![shooter, target]);
     battle.robots[0].set_fire(3.0);
     let mut hit_observed = false;
     for _ in 0..80 {
@@ -56,7 +61,7 @@ fn bullet_hit_reduces_energy() {
 #[test]
 fn turn_snapshot_serializes_to_json() {
     let mut battle = BattleState::new(
-        BattleConfig::default(),
+        arcade(),
         vec![RobotState::new(0, Point::new(300.0, 300.0))],
     );
     let events = battle.step();
@@ -72,7 +77,7 @@ fn snapshot_json_writes_non_finite_numbers_as_null() {
     let mut robot = RobotState::new(0, Point::new(400.0, 300.0));
     robot.energy = f64::NAN;
     robot.velocity = f64::INFINITY;
-    let battle = BattleState::new(BattleConfig::default(), vec![robot]);
+    let battle = BattleState::new(arcade(), vec![robot]);
     let json = battle.snapshot("t", &TurnEvents::default()).to_json_string();
     assert!(json.contains(r#""energy":null"#), "{json}");
     assert!(json.contains(r#""velocity":null"#), "{json}");
@@ -83,7 +88,7 @@ fn snapshot_json_writes_non_finite_numbers_as_null() {
 fn bullet_leaving_field_is_a_miss() {
     let mut robot = RobotState::new(0, Point::new(400.0, 300.0));
     robot.set_fire(3.0); // gun points up (0°), nothing in the way
-    let mut battle = BattleState::new(BattleConfig::default(), vec![robot]);
+    let mut battle = BattleState::new(arcade(), vec![robot]);
     let misses: Vec<_> =
         (0..40).flat_map(|_| battle.step().bullet_misses).collect();
     assert_eq!(misses.len(), 1);
@@ -96,8 +101,7 @@ fn hit_is_not_a_miss() {
     let mut shooter = RobotState::new(0, Point::new(400.0, 500.0));
     shooter.set_fire(1.0);
     let target = RobotState::new(1, Point::new(400.0, 200.0));
-    let mut battle =
-        BattleState::new(BattleConfig::default(), vec![shooter, target]);
+    let mut battle = BattleState::new(arcade(), vec![shooter, target]);
     let (mut hits, mut misses) = (0, 0);
     for _ in 0..40 {
         let e = battle.step();

@@ -4,7 +4,7 @@
 use robocode::physics::{BattleConfig, BattleState, BulletState, RobotState};
 use robocode::rules::ROBOT_RADIUS;
 use robocode::terrain::Terrain;
-use robocode::{Point, Ratio, Rect};
+use robocode::{BulletMode, Point, Ratio, Rect};
 
 fn robot_at(x: f64, y: f64) -> RobotState {
     let mut robot = RobotState::new(0, Point::new(x, y));
@@ -103,6 +103,7 @@ fn a_building_absorbs_a_bullet_on_its_path() {
         Point::new(385.0, 310.0),
         90.0,
         1.0,
+        BulletMode::Arcade, // pinned: classic speed keeps the bullet short of x=400 here
     ));
 
     let events = battle.step();
@@ -125,6 +126,7 @@ fn roads_and_the_empty_arena_do_not_block_anything() {
         Point::new(385.0, 310.0),
         90.0,
         1.0,
+        BulletMode::Arcade, // pinned: classic speed keeps the bullet short of x=400 here
     ));
     let events = battle.step();
     assert!(events.bullet_hit_obstacles.is_empty());

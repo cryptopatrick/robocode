@@ -45,12 +45,18 @@ fn relative_bearing_wraps() {
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use robocode::BulletMode;
 use robocode::api::{
     BulletHitEvent, BulletMissedEvent, HitByBulletEvent, HitWallEvent, Robot,
     RobotDeathEvent, ScannedRobotEvent, Status,
 };
 use robocode::physics::{BattleConfig, SpawnSpec};
 use robocode::runner::Battle;
+
+/// Pinned to arcade: these tests assume classic Robocode bullet speed.
+fn arcade() -> BattleConfig {
+    BattleConfig { bullet_mode: BulletMode::Arcade, ..BattleConfig::default() }
+}
 
 type Log = Rc<RefCell<Vec<String>>>;
 type Script = Box<dyn FnMut(&Status, &mut Commands)>;
@@ -153,7 +159,7 @@ fn battle(robots: Vec<Entry>) -> Battle {
         .map(|(i, (_, (x, y, h)))| SpawnSpec::new(i, *x, *y, *h))
         .collect();
     Battle::new(
-        BattleConfig::default(),
+        arcade(),
         &spawns,
         robots.into_iter().map(|(r, _)| r).collect(),
     )

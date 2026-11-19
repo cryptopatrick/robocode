@@ -1,18 +1,20 @@
+use robocode::BulletMode;
 use robocode::physics::BattleConfig;
 use robocode::recording::{self, RecordingBuilder};
 use robocode::roster;
 use robocode::runner::Battle;
+
+/// Pinned to arcade: these tests assume classic Robocode bullet speed.
+fn arcade() -> BattleConfig {
+    BattleConfig { bullet_mode: BulletMode::Arcade, ..BattleConfig::default() }
+}
 
 fn duel() -> Battle {
     let robots = vec![
         roster::built_in("SafeShooter").unwrap(),
         roster::built_in("Spinner").unwrap(),
     ];
-    Battle::new(
-        BattleConfig::default(),
-        &roster::spawns(2, 800.0, 600.0),
-        robots,
-    )
+    Battle::new(arcade(), &roster::spawns(2, 800.0, 600.0), robots)
 }
 
 #[test]
@@ -64,11 +66,8 @@ fn urban_battle(a: &str, b: &str) -> Battle {
     use robocode::terrain::Terrain;
     let robots =
         vec![roster::built_in(a).unwrap(), roster::built_in(b).unwrap()];
-    let mut battle = Battle::new(
-        BattleConfig::default(),
-        &roster::spawns(2, 800.0, 600.0),
-        robots,
-    );
+    let mut battle =
+        Battle::new(arcade(), &roster::spawns(2, 800.0, 600.0), robots);
     battle.set_terrain(Terrain::urban(800.0, 600.0));
     battle
 }
@@ -104,11 +103,8 @@ fn open_arena_frames_have_no_beam() {
         roster::built_in("SafeShooter").unwrap(),
         roster::built_in("Circler").unwrap(),
     ];
-    let battle = Battle::new(
-        BattleConfig::default(),
-        &roster::spawns(2, 800.0, 600.0),
-        robots,
-    );
+    let battle =
+        Battle::new(arcade(), &roster::spawns(2, 800.0, 600.0), robots);
     let json = recording::record(battle, 50);
     assert!(!json.contains("beam"));
     let fixture = include_str!("fixtures/open_arena_0_5_0.json");

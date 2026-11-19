@@ -113,7 +113,9 @@ fn battle_program(
     };
     src.push_str(&format!(
         "    ];\n\
-         \x20   let config = robocode::physics::BattleConfig {{ battlefield: robocode::Battlefield::new({width:?}, {height:?}), ..Default::default() }};\n\
+         \x20   // Pinned to arcade until the recording header carries the bullet mode\n\
+         \x20   // (a recording without it is read as arcade).\n\
+         \x20   let config = robocode::physics::BattleConfig {{ battlefield: robocode::Battlefield::new({width:?}, {height:?}), bullet_mode: robocode::BulletMode::Arcade, ..Default::default() }};\n\
          \x20   let mut battle = robocode::runner::Battle::new(config, &robocode::roster::spawns({n}, {width:?}, {height:?}), robots);\n\
          {terrain}\
          \x20   battle\n\

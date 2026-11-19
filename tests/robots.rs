@@ -68,13 +68,13 @@ fn close_range_power_needs_energy() {
 #[test]
 fn firing_never_kills_the_shooter() {
     // Energy exactly 1.0 in the engine: a "safe" shot must not leave it dead.
-    use robocode::physics::{BattleConfig, SpawnSpec};
+    use robocode::physics::SpawnSpec;
     let spawns = [
         SpawnSpec::new(0, 400.0, 500.0, 0.0),
         SpawnSpec::new(1, 400.0, 200.0, 0.0),
     ];
     let mut battle = Battle::new(
-        BattleConfig::default(),
+        arcade(),
         &spawns,
         vec![boxed(SafeShooter), boxed(SittingDuck)],
     );
@@ -150,11 +150,7 @@ fn duel(opponent: Box<dyn robocode::api::Robot>) -> Battle {
         SpawnSpec::new(0, 100.0, 100.0, 0.0),
         SpawnSpec::new(1, 700.0, 500.0, 0.0),
     ];
-    Battle::new(
-        BattleConfig::default(),
-        &spawns,
-        vec![boxed(SafeShooter), opponent],
-    )
+    Battle::new(arcade(), &spawns, vec![boxed(SafeShooter), opponent])
 }
 
 #[test]
@@ -201,8 +197,14 @@ fn golden_safe_shooter_vs_sitting_duck() {
 
 // ---- Circler: a sample written only against robocode::api ----------------
 
+use robocode::BulletMode;
 use robocode::api::{Commands, HitWallEvent, Robot, Status};
 use robocode::robots::Circler;
+
+/// Pinned to arcade: these tests assume classic Robocode bullet speed.
+fn arcade() -> BattleConfig {
+    BattleConfig { bullet_mode: BulletMode::Arcade, ..BattleConfig::default() }
+}
 
 fn status() -> Status {
     Status {
@@ -246,7 +248,7 @@ fn circler_beats_sitting_duck() {
         SpawnSpec::new(1, 700.0, 500.0, 0.0),
     ];
     let mut battle = Battle::new(
-        BattleConfig::default(),
+        arcade(),
         &spawns,
         vec![Box::new(Circler::default()), boxed(SittingDuck)],
     );
@@ -468,11 +470,8 @@ mod tactician {
 
     fn battle(t: Tactician) -> Battle {
         let robots = vec![boxed(t), roster::built_in("Circler").unwrap()];
-        let mut b = Battle::new(
-            BattleConfig::default(),
-            &roster::spawns(2, 800.0, 600.0),
-            robots,
-        );
+        let mut b =
+            Battle::new(arcade(), &roster::spawns(2, 800.0, 600.0), robots);
         b.set_terrain(Terrain::urban(800.0, 600.0));
         b
     }
@@ -483,11 +482,8 @@ mod tactician {
             boxed(Tactician::default()),
             roster::built_in("SafeShooter").unwrap(),
         ];
-        let mut b = Battle::new(
-            BattleConfig::default(),
-            &roster::spawns(2, 800.0, 600.0),
-            robots,
-        );
+        let mut b =
+            Battle::new(arcade(), &roster::spawns(2, 800.0, 600.0), robots);
         b.set_terrain(Terrain::urban(800.0, 600.0));
         let mut seen = false;
         for _ in 0..1500 {
@@ -508,11 +504,8 @@ mod tactician {
             boxed(Tactician::default()),
             roster::built_in("SafeShooter").unwrap(),
         ];
-        let mut b = Battle::new(
-            BattleConfig::default(),
-            &roster::spawns(2, 800.0, 600.0),
-            robots,
-        );
+        let mut b =
+            Battle::new(arcade(), &roster::spawns(2, 800.0, 600.0), robots);
         b.set_terrain(Terrain::urban(800.0, 600.0));
         // Count Tactician's wall-collision events turn by turn.
         let mut hits = 0;
