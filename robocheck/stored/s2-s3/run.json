@@ -1,13 +1,13 @@
 {
   "format": "robocheck-run",
   "version": 1,
-  "run_id": "f8a5432f40fe-1794870693",
-  "created_at": "2026-11-16T23:11:33Z",
+  "run_id": "f8a5432f40fe-1795095139",
+  "created_at": "2026-11-19T13:32:19Z",
   "source": "stored",
   "model": "claude-sonnet-5-5",
-  "robocode": "0.5.0",
+  "robocode": "0.7.0",
   "robocheck_arena": "0.1.0",
-  "cost_usd": 0.031716,
+  "cost_usd": 0.032854,
   "outcome": "proved",
   "outcome_note": null,
   "rules": [
@@ -15,7 +15,7 @@
       "id": "S2",
       "text": "Only fire at a robot you saw this turn, with the gun aimed at it.",
       "status": "proved",
-      "read_back": "Whenever the robot fires a shot of any power, there must be a target that was scanned this very turn (age 0) and the gun must be pointing at it within 3.0°; if there is no such target, it does not fire.",
+      "read_back": "Whenever the tank fires a shot of any power, it must have a target that was scanned this turn (age 0) and its gun must be pointing at that target within 3.0°; with no target, or a stale scan, or an unaimed gun, it cannot fire.",
       "clauses": [
         "r.fire matches Some(p) ==> ((obs.target matches Some(t) && t.age == 0) && aimed(*obs))"
       ],
@@ -32,7 +32,7 @@
       "id": "S3",
       "text": "Never drive toward a wall or building closer than 80 px.",
       "status": "proved",
-      "read_back": "Whenever the robot drives forward it must leave at least 80 pixels of the free distance ahead unused (clearance ahead minus the distance driven is at least 80), and whenever it drives backward it must likewise leave at least 80 pixels of the free distance behind (clearance behind minus the distance driven backward is at least 80), with no restriction when it does not drive.",
+      "read_back": "Whenever the tank drives forward it must leave at least 80 pixels of the free distance ahead unused (clearance ahead minus the distance driven is at least 80), and whenever it drives backward it must likewise leave at least 80 pixels of the free distance behind (clearance behind minus the distance driven backward is at least 80); if it does not drive, neither requirement applies.",
       "clauses": [
         "r.ahead matches Some(a) ==> (a > 0 ==> (((around.clearance_ahead as int) - (a as int)) >= 80))",
         "r.ahead matches Some(a) ==> (a < 0 ==> (((around.clearance_behind as int) + (a as int)) >= 80))"
@@ -58,20 +58,20 @@
     }
   ],
   "code": {
-    "strategy_rs": "//! TRUSTED TEMPLATE (robocheck). The candidate supplies only the body of\n//! `decide` and helper functions below the marked line; the reference spec on\n//! `decide` is written by robocheck (Phase 0's human-written reference, or\n//! rendered from AI-formalised rules) and may not be changed by the candidate.\n#![allow(\n    clippy::manual_range_contains,\n    clippy::manual_clamp,\n    clippy::collapsible_match,\n    clippy::single_match,\n    unused_imports,\n    dead_code\n)]\n\n#[cfg(feature = \"verus\")]\nuse vstd::prelude::*;\n\nuse robocheck_arena::{OBSTACLE_MARGIN, Surroundings};\nuse robocode::robots::safe_shooter::{AIM_TOLERANCE, MAX_GUN_TURN, MAX_RADAR_TURN, WALL_MARGIN};\nuse robocode::strategy::{Action, Observation};\nuse robocode::units::{Angle, Power, angle_diff};\n#[cfg(verus_only)]\nuse robocheck_arena::surroundings_ok;\n#[cfg(verus_only)]\nuse robocode::robots::safe_shooter::{aimed, heading_into_near_wall, ready, reverse_heading};\n#[cfg(verus_only)]\nuse robocode::strategy::well_formed;\n#[cfg(verus_only)]\nuse robocode::units::{MAX_POWER, MIN_POWER, spec_angle_diff};\n\n/// The candidate's decision for one turn, checked against the spec. `around`\n/// is what robocode 0.5.0's `Observation` lacks: the free distance to walls\n/// and buildings ahead and behind (robocheck-arena).\n#[cfg_attr(feature = \"verus\", verus_verify)]\n#[cfg_attr(feature = \"verus\", verus_spec(r =>\n    requires well_formed(*obs), surroundings_ok(*around),\n    ensures\n        r.fire matches Some(p) ==> ((obs.target matches Some(t) && t.age == 0) && aimed(*obs)), // S2\n        r.ahead matches Some(a) ==> (a > 0 ==> (((around.clearance_ahead as int) - (a as int)) >= 80)), // S3\n        r.ahead matches Some(a) ==> (a < 0 ==> (((around.clearance_behind as int) + (a as int)) >= 80)), // S3\n))]\npub fn decide(obs: &Observation, around: &Surroundings) -> Action {\nlet mut fire = None;\n    let mut turn_gun = None;\n    let mut turn_radar = Some(MAX_RADAR_TURN);\n    let mut speed = 100;\n    match obs.target {\n        Some(t) => {\n            let d = angle_diff(t.bearing, obs.gun_heading);\n            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });\n            if t.age == 0 {\n                let o = 2 * angle_diff(t.bearing, obs.radar_heading);\n                turn_radar = Some(if o > MAX_RADAR_TURN { MAX_RADAR_TURN } else if o < -MAX_RADAR_TURN { -MAX_RADAR_TURN } else { o });\n                if obs.gun_heat.0 == 0 && -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE {\n                    fire = Some(Power(3000));\n                }\n            }\n        }\n        None => {}\n    }\n    let ahead = if around.clearance_ahead >= 180 {\n        Some(100)\n    } else if around.clearance_behind >= 180 {\n        Some(-100)\n    } else {\n        None\n    };\n    Action { fire, ahead, turn_body: None, turn_gun, turn_radar }\n}\n\n// ---- candidate helpers below (untrusted) ----\n\n",
-    "candidate": "// Written by claude-sonnet-5-5 for RoboCheck.\n// @@helpers\n\n// @@body\nlet mut fire = None;\n    let mut turn_gun = None;\n    let mut turn_radar = Some(MAX_RADAR_TURN);\n    let mut speed = 100;\n    match obs.target {\n        Some(t) => {\n            let d = angle_diff(t.bearing, obs.gun_heading);\n            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });\n            if t.age == 0 {\n                let o = 2 * angle_diff(t.bearing, obs.radar_heading);\n                turn_radar = Some(if o > MAX_RADAR_TURN { MAX_RADAR_TURN } else if o < -MAX_RADAR_TURN { -MAX_RADAR_TURN } else { o });\n                if obs.gun_heat.0 == 0 && -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE {\n                    fire = Some(Power(3000));\n                }\n            }\n        }\n        None => {}\n    }\n    let ahead = if around.clearance_ahead >= 180 {\n        Some(100)\n    } else if around.clearance_behind >= 180 {\n        Some(-100)\n    } else {\n        None\n    };\n    Action { fire, ahead, turn_body: None, turn_gun, turn_radar }\n"
+    "strategy_rs": "//! TRUSTED TEMPLATE (robocheck). The candidate supplies only the body of\n//! `decide` and helper functions below the marked line; the reference spec on\n//! `decide` is written by robocheck (Phase 0's human-written reference, or\n//! rendered from AI-formalised rules) and may not be changed by the candidate.\n#![allow(\n    clippy::manual_range_contains,\n    clippy::manual_clamp,\n    clippy::collapsible_match,\n    clippy::single_match,\n    unused_imports,\n    dead_code\n)]\n\n#[cfg(feature = \"verus\")]\nuse vstd::prelude::*;\n\nuse robocheck_arena::{OBSTACLE_MARGIN, Surroundings};\nuse robocode::robots::safe_shooter::{AIM_TOLERANCE, MAX_GUN_TURN, MAX_RADAR_TURN, WALL_MARGIN};\nuse robocode::strategy::{Action, Observation};\nuse robocode::units::{Angle, Power, angle_diff};\n#[cfg(verus_only)]\nuse robocheck_arena::surroundings_ok;\n#[cfg(verus_only)]\nuse robocode::robots::safe_shooter::{aimed, heading_into_near_wall, ready, reverse_heading};\n#[cfg(verus_only)]\nuse robocode::strategy::well_formed;\n#[cfg(verus_only)]\nuse robocode::units::{MAX_POWER, MIN_POWER, spec_angle_diff};\n\n/// The candidate's decision for one turn, checked against the spec. `around`\n/// is what robocode 0.5.0's `Observation` lacks: the free distance to walls\n/// and buildings ahead and behind (robocheck-arena).\n#[cfg_attr(feature = \"verus\", verus_verify)]\n#[cfg_attr(feature = \"verus\", verus_spec(r =>\n    requires well_formed(*obs), surroundings_ok(*around),\n    ensures\n        r.fire matches Some(p) ==> ((obs.target matches Some(t) && t.age == 0) && aimed(*obs)), // S2\n        r.ahead matches Some(a) ==> (a > 0 ==> (((around.clearance_ahead as int) - (a as int)) >= 80)), // S3\n        r.ahead matches Some(a) ==> (a < 0 ==> (((around.clearance_behind as int) + (a as int)) >= 80)), // S3\n))]\npub fn decide(obs: &Observation, around: &Surroundings) -> Action {\nlet mut fire = None;\n    let mut turn_gun = None;\n    let mut turn_radar = Some(MAX_RADAR_TURN);\n    let mut ahead = None;\n    let mut aimed = false;\n    match obs.target {\n        Some(t) => {\n            let d = angle_diff(t.bearing, obs.gun_heading);\n            aimed = -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE;\n            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });\n            if t.age == 0 {\n                let o = 2 * angle_diff(t.bearing, obs.radar_heading);\n                turn_radar = Some(if o > MAX_RADAR_TURN { MAX_RADAR_TURN } else if o < -MAX_RADAR_TURN { -MAX_RADAR_TURN } else { o });\n                if obs.gun_heat.0 == 0 && aimed {\n                    fire = Some(Power(3000));\n                }\n            }\n        }\n        None => {}\n    }\n    if around.clearance_ahead >= 81 {\n        let m = around.clearance_ahead - 80;\n        ahead = Some(if m > 100 { 100 } else { m });\n    } else if around.clearance_behind >= 81 {\n        let m = around.clearance_behind - 80;\n        ahead = Some(if m > 100 { -100 } else { -m });\n    }\n    Action { fire, ahead, turn_body: None, turn_gun, turn_radar }\n}\n\n// ---- candidate helpers below (untrusted) ----\n\n",
+    "candidate": "// Written by claude-sonnet-5-5 for RoboCheck.\n// @@helpers\n\n// @@body\nlet mut fire = None;\n    let mut turn_gun = None;\n    let mut turn_radar = Some(MAX_RADAR_TURN);\n    let mut ahead = None;\n    let mut aimed = false;\n    match obs.target {\n        Some(t) => {\n            let d = angle_diff(t.bearing, obs.gun_heading);\n            aimed = -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE;\n            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });\n            if t.age == 0 {\n                let o = 2 * angle_diff(t.bearing, obs.radar_heading);\n                turn_radar = Some(if o > MAX_RADAR_TURN { MAX_RADAR_TURN } else if o < -MAX_RADAR_TURN { -MAX_RADAR_TURN } else { o });\n                if obs.gun_heat.0 == 0 && aimed {\n                    fire = Some(Power(3000));\n                }\n            }\n        }\n        None => {}\n    }\n    if around.clearance_ahead >= 81 {\n        let m = around.clearance_ahead - 80;\n        ahead = Some(if m > 100 { 100 } else { m });\n    } else if around.clearance_behind >= 81 {\n        let m = around.clearance_behind - 80;\n        ahead = Some(if m > 100 { -100 } else { -m });\n    }\n    Action { fire, ahead, turn_body: None, turn_gun, turn_radar }\n"
   },
   "explanation": {
-    "headline": "Proved: both rules hold",
-    "summary": "Verus proved S2 (only fire at a robot seen this turn, with the gun aimed at it) and S3 (never drive toward a wall or building closer than 80 px). Neither battle, the open arena or the city map, showed any rule violations."
+    "headline": "Proved: all 2 rules hold",
+    "summary": "Verus proved both rules: S2 (only fire at a robot seen this turn with the gun aimed at it) and S3 (never drive toward a wall or building closer than 80 px). Neither battle, open arena or city map, showed any violations."
   },
   "battles": {
     "open": {
       "status": "ok",
       "recording": "recording-open.json",
       "decisions": "decisions-open.jsonl",
-      "winner": "Circler",
-      "turns": 154,
+      "winner": "Candidate",
+      "turns": 123,
       "error": null
     },
     "urban": {
@@ -79,7 +79,7 @@
       "recording": "recording-urban.json",
       "decisions": "decisions-urban.jsonl",
       "winner": "Candidate",
-      "turns": 340,
+      "turns": 738,
       "error": null
     }
   },

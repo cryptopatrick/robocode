@@ -1,13 +1,13 @@
 {
   "format": "robocheck-evidence",
   "version": 2,
-  "run_id": "1054484cff96-1794870707",
-  "created_at": "2026-11-16T23:11:47Z",
+  "run_id": "1054484cff96-1795095156",
+  "created_at": "2026-11-19T13:32:36Z",
   "candidate": {
     "path": "candidate.rs",
-    "sha256": "2488c2ae8dbb63f3e5090b871c21752034c409d4189809e0ad4e3bf217e954f2"
+    "sha256": "b93b6666326366d2f4041bcb38840b38e5e544d3e643f39fd1f483426e962084"
   },
-  "artifact_hash": "2c04c5148bdd6a0bc51356989b74dde07951b4a226b06a631007723f665f371c",
+  "artifact_hash": "ffa5cb70059280eb8d174f39bf36e1937ae623a66b3a72d8f3c46a7bb92384a1",
   "spec_hash": "0e21291fd4e4ec044e7e3f17758d6606fd222318e9607fdd354748fb92ba26a6",
   "validation": {
     "ok": true,
@@ -23,7 +23,7 @@
         "id": "S1",
         "name": "Never fire a shot you can't afford.",
         "status": "unknown",
-        "note": "cannot use function `robocheck_candidate_2c04c5148bdd::strategy::fire_power` which is ignored because it is either declared outside the verus! macro or it is marked as `external`",
+        "note": "cannot use function `robocheck_candidate_ffa5cb700592::strategy::clamp_to` which is ignored because it is either declared outside the verus! macro or it is marked as `external`",
         "failed_at": null
       }
     ],
@@ -36,12 +36,12 @@
       "arena": "open",
       "status": "ok",
       "opponent": "Circler",
-      "turns": 123,
-      "winner": "Circler",
-      "artifact_hash": "2c04c5148bdd6a0bc51356989b74dde07951b4a226b06a631007723f665f371c",
+      "turns": 113,
+      "winner": "Candidate",
+      "artifact_hash": "ffa5cb70059280eb8d174f39bf36e1937ae623a66b3a72d8f3c46a7bb92384a1",
       "same_artifact": true,
       "recording_file": "recording-open.json",
-      "recording_sha256": "986bf0b3b2be0cd5944d3ab7abe100958c36b8a1711d0c42794351e5bda064fb",
+      "recording_sha256": "0f4f35b5071ca059a42fb0395fd839e90b6bd9db9d174b6de8ebcd8b3b227348",
       "decisions_file": "decisions-open.jsonl",
       "error": null
     },
@@ -49,18 +49,18 @@
       "arena": "urban",
       "status": "ok",
       "opponent": "Circler",
-      "turns": 204,
-      "winner": "Candidate",
-      "artifact_hash": "2c04c5148bdd6a0bc51356989b74dde07951b4a226b06a631007723f665f371c",
+      "turns": 68,
+      "winner": "Circler",
+      "artifact_hash": "ffa5cb70059280eb8d174f39bf36e1937ae623a66b3a72d8f3c46a7bb92384a1",
       "same_artifact": true,
       "recording_file": "recording-urban.json",
-      "recording_sha256": "761255f15b8ac37fab8b0fbfa787e80a9ed37b9433c5dfee0f2e703dcdfe4822",
+      "recording_sha256": "ba4c1ebf12f5f9692bc19485c3c0bc7774a0e6f4d13c2558b25188b30f62e531",
       "decisions_file": "decisions-urban.jsonl",
       "error": null
     }
   ],
   "toolchain": {
-    "robocode": "0.5.0",
+    "robocode": "0.7.0",
     "verus": "0.2026.11.02.8bf68ee",
     "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
     "z3": "Z3 version 4.16.0 - 64 bit"

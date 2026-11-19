@@ -1,13 +1,13 @@
 {
   "format": "robocheck-run",
   "version": 1,
-  "run_id": "1054484cff96-1794870707",
-  "created_at": "2026-11-16T23:11:47Z",
+  "run_id": "1054484cff96-1795095156",
+  "created_at": "2026-11-19T13:32:36Z",
   "source": "stored",
   "model": "claude-sonnet-5-5",
-  "robocode": "0.5.0",
+  "robocode": "0.7.0",
   "robocheck_arena": "0.1.0",
-  "cost_usd": 0.0356,
+  "cost_usd": 0.037336,
   "outcome": "unknown",
   "outcome_note": null,
   "rules": [
@@ -15,13 +15,13 @@
       "id": "S1",
       "text": "Never fire a shot you can't afford.",
       "status": "unknown",
-      "read_back": "Whenever the robot fires, the shot's power must be between 0.1 and 3.0 inclusive, and the robot's energy at the start of the turn must be strictly greater than the shot's power.",
+      "read_back": "Whenever the tank fires, the shot power must be between 0.1 and 3.0 inclusive, and the tank's energy at the start of the turn must be strictly greater than the shot's power.",
       "clauses": [
         "r.fire matches Some(p) ==> (((p.0 as int) >= 100) && ((p.0 as int) <= 3000) && ((obs.energy.0 as int) > (p.0 as int)))"
       ],
       "not_formalised": null,
       "failed_at": null,
-      "why": "Verus returned 'unknown', not a rejection: the rule's firing logic lives in the helper fire_power, which Verus ignores because it sits outside the verus! macro or is marked external, so it could not reason about it. Reading the code, fire_power looks within the rule (it fires only when energy > 100, with power min(3000, energy-1)), but that is my reading, not a proof.",
+      "why": "Verus gave no line, only a note that the helper `clamp_to` is outside the verified code, so S1 is unproven rather than shown to fail; reading the firing code, power is 3000 when energy is above 3000, otherwise energy minus 1, and it is only set when energy is above 100, so the power looks affordable and at least 100, but that is my reading, not a proof.",
       "violations": {
         "open": null,
         "urban": null
@@ -36,11 +36,11 @@
       "violations": {
         "open": {
           "first_turn": 0,
-          "turns": 7
+          "turns": 2
         },
         "urban": {
           "first_turn": 0,
-          "turns": 13
+          "turns": 5
         }
       }
     },
@@ -50,38 +50,38 @@
       "violations": {
         "open": {
           "first_turn": 2,
-          "turns": 42
+          "turns": 34
         },
         "urban": {
           "first_turn": 2,
-          "turns": 148
+          "turns": 66
         }
       }
     }
   ],
   "code": {
-    "strategy_rs": "//! TRUSTED TEMPLATE (robocheck). The candidate supplies only the body of\n//! `decide` and helper functions below the marked line; the reference spec on\n//! `decide` is written by robocheck (Phase 0's human-written reference, or\n//! rendered from AI-formalised rules) and may not be changed by the candidate.\n#![allow(\n    clippy::manual_range_contains,\n    clippy::manual_clamp,\n    clippy::collapsible_match,\n    clippy::single_match,\n    unused_imports,\n    dead_code\n)]\n\n#[cfg(feature = \"verus\")]\nuse vstd::prelude::*;\n\nuse robocheck_arena::{OBSTACLE_MARGIN, Surroundings};\nuse robocode::robots::safe_shooter::{AIM_TOLERANCE, MAX_GUN_TURN, MAX_RADAR_TURN, WALL_MARGIN};\nuse robocode::strategy::{Action, Observation};\nuse robocode::units::{Angle, Power, angle_diff};\n#[cfg(verus_only)]\nuse robocheck_arena::surroundings_ok;\n#[cfg(verus_only)]\nuse robocode::robots::safe_shooter::{aimed, heading_into_near_wall, ready, reverse_heading};\n#[cfg(verus_only)]\nuse robocode::strategy::well_formed;\n#[cfg(verus_only)]\nuse robocode::units::{MAX_POWER, MIN_POWER, spec_angle_diff};\n\n/// The candidate's decision for one turn, checked against the spec. `around`\n/// is what robocode 0.5.0's `Observation` lacks: the free distance to walls\n/// and buildings ahead and behind (robocheck-arena).\n#[cfg_attr(feature = \"verus\", verus_verify)]\n#[cfg_attr(feature = \"verus\", verus_spec(r =>\n    requires well_formed(*obs), surroundings_ok(*around),\n    ensures\n        r.fire matches Some(p) ==> (((p.0 as int) >= 100) && ((p.0 as int) <= 3000) && ((obs.energy.0 as int) > (p.0 as int))), // S1\n))]\npub fn decide(obs: &Observation, around: &Surroundings) -> Action {\n    let mut turn_gun = None;\n    let mut turn_body = None;\n    match obs.target {\n        Some(t) => {\n            let d = angle_diff(t.bearing, obs.gun_heading);\n            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });\n            turn_body = Some(angle_diff(t.bearing, obs.heading));\n        }\n        None => {}\n    }\n    Action { fire: fire_power(obs), ahead: Some(100), turn_body, turn_gun, turn_radar: Some(MAX_RADAR_TURN) }\n}\n\n// ---- candidate helpers below (untrusted) ----\nfn fire_power(obs: &Observation) -> Option<Power> {\n    if obs.gun_heat.0 != 0 {\n        None\n    } else if obs.energy.0 > 3000 {\n        Some(Power(3000))\n    } else if obs.energy.0 > 100 {\n        Some(Power(obs.energy.0 - 1))\n    } else {\n        None\n    }\n}\n",
-    "candidate": "// Written by claude-sonnet-5-5 for RoboCheck.\n// @@helpers\nfn fire_power(obs: &Observation) -> Option<Power> {\n    if obs.gun_heat.0 != 0 {\n        None\n    } else if obs.energy.0 > 3000 {\n        Some(Power(3000))\n    } else if obs.energy.0 > 100 {\n        Some(Power(obs.energy.0 - 1))\n    } else {\n        None\n    }\n}\n// @@body\n    let mut turn_gun = None;\n    let mut turn_body = None;\n    match obs.target {\n        Some(t) => {\n            let d = angle_diff(t.bearing, obs.gun_heading);\n            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });\n            turn_body = Some(angle_diff(t.bearing, obs.heading));\n        }\n        None => {}\n    }\n    Action { fire: fire_power(obs), ahead: Some(100), turn_body, turn_gun, turn_radar: Some(MAX_RADAR_TURN) }\n"
+    "strategy_rs": "//! TRUSTED TEMPLATE (robocheck). The candidate supplies only the body of\n//! `decide` and helper functions below the marked line; the reference spec on\n//! `decide` is written by robocheck (Phase 0's human-written reference, or\n//! rendered from AI-formalised rules) and may not be changed by the candidate.\n#![allow(\n    clippy::manual_range_contains,\n    clippy::manual_clamp,\n    clippy::collapsible_match,\n    clippy::single_match,\n    unused_imports,\n    dead_code\n)]\n\n#[cfg(feature = \"verus\")]\nuse vstd::prelude::*;\n\nuse robocheck_arena::{OBSTACLE_MARGIN, Surroundings};\nuse robocode::robots::safe_shooter::{AIM_TOLERANCE, MAX_GUN_TURN, MAX_RADAR_TURN, WALL_MARGIN};\nuse robocode::strategy::{Action, Observation};\nuse robocode::units::{Angle, Power, angle_diff};\n#[cfg(verus_only)]\nuse robocheck_arena::surroundings_ok;\n#[cfg(verus_only)]\nuse robocode::robots::safe_shooter::{aimed, heading_into_near_wall, ready, reverse_heading};\n#[cfg(verus_only)]\nuse robocode::strategy::well_formed;\n#[cfg(verus_only)]\nuse robocode::units::{MAX_POWER, MIN_POWER, spec_angle_diff};\n\n/// The candidate's decision for one turn, checked against the spec. `around`\n/// is what robocode 0.5.0's `Observation` lacks: the free distance to walls\n/// and buildings ahead and behind (robocheck-arena).\n#[cfg_attr(feature = \"verus\", verus_verify)]\n#[cfg_attr(feature = \"verus\", verus_spec(r =>\n    requires well_formed(*obs), surroundings_ok(*around),\n    ensures\n        r.fire matches Some(p) ==> (((p.0 as int) >= 100) && ((p.0 as int) <= 3000) && ((obs.energy.0 as int) > (p.0 as int))), // S1\n))]\npub fn decide(obs: &Observation, around: &Surroundings) -> Action {\nlet mut turn_gun = None; let mut turn_body = None; let mut turn_radar = Some(MAX_RADAR_TURN); match obs.target { Some(t) => { turn_gun = Some(clamp_to(angle_diff(t.bearing, obs.gun_heading), MAX_GUN_TURN)); turn_radar = Some(clamp_to(2 * angle_diff(t.bearing, obs.radar_heading), MAX_RADAR_TURN)); turn_body = Some(angle_diff(t.bearing, obs.heading)); } None => {} } let e = obs.energy.0; let mut fire = None; if obs.gun_heat.0 == 0 && e > 100 { let p = if e > 3000 { 3000 } else { e - 1 }; fire = Some(Power(p)); } Action { fire, ahead: Some(100), turn_body, turn_gun, turn_radar }\n}\n\n// ---- candidate helpers below (untrusted) ----\nfn clamp_to(v: i32, m: i32) -> i32 { if v > m { m } else if v < -m { -m } else { v } }\n",
+    "candidate": "// Written by claude-sonnet-5-5 for RoboCheck.\n// @@helpers\nfn clamp_to(v: i32, m: i32) -> i32 { if v > m { m } else if v < -m { -m } else { v } }\n// @@body\nlet mut turn_gun = None; let mut turn_body = None; let mut turn_radar = Some(MAX_RADAR_TURN); match obs.target { Some(t) => { turn_gun = Some(clamp_to(angle_diff(t.bearing, obs.gun_heading), MAX_GUN_TURN)); turn_radar = Some(clamp_to(2 * angle_diff(t.bearing, obs.radar_heading), MAX_RADAR_TURN)); turn_body = Some(angle_diff(t.bearing, obs.heading)); } None => {} } let e = obs.energy.0; let mut fire = None; if obs.gun_heat.0 == 0 && e > 100 { let p = if e > 3000 { 3000 } else { e - 1 }; fire = Some(Power(p)); } Action { fire, ahead: Some(100), turn_body, turn_gun, turn_radar }\n"
   },
   "explanation": {
-    "headline": "Not proved: Verus could not check rule S1 at all",
-    "summary": "Verus did not prove rule S1 (never fire a shot you can't afford). Its verdict was 'unknown' because it cannot use the helper fire_power. The battles reported violations of rules S2 (first at turn 0) and S3 (first at turn 2) in both the open arena and the city map, but those rules are not in the checked rule list, so I can't say what they mean. No S1 violation was reported in either battle."
+    "headline": "Not proved: Verus couldn't check rule S1 (never fire a shot you can't afford)",
+    "summary": "Verus returned \"unknown\" for S1 because the code calls `clamp_to`, a function it ignores as external, so the rule was neither proved nor shown broken. The battles reported no S1 violations in either arena; they flagged only S2 (first on turn 0) and S3 (first on turn 2), and neither is in the spec I was given, so I can't say what they cover."
   },
   "battles": {
     "open": {
       "status": "ok",
       "recording": "recording-open.json",
       "decisions": "decisions-open.jsonl",
-      "winner": "Circler",
-      "turns": 123,
+      "winner": "Candidate",
+      "turns": 113,
       "error": null
     },
     "urban": {
       "status": "ok",
       "recording": "recording-urban.json",
       "decisions": "decisions-urban.jsonl",
-      "winner": "Candidate",
-      "turns": 204,
+      "winner": "Circler",
+      "turns": 68,
       "error": null
     }
   },

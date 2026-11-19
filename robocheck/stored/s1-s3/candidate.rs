@@ -2,7 +2,7 @@
 // @@helpers
 
 // @@body
-    let mut turn_gun = None;
+let mut turn_gun = None;
     let mut turn_body = None;
     match obs.target {
         Some(t) => {
