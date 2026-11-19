@@ -3,13 +3,13 @@
 //! A battle is simulated to the end and returned as a JSON **recording**
 //! (format `roboverus-recording`, version 2); see [`robocode::recording`].
 
-use robocode::Battlefield;
 use robocode::live::{LiveSession, Pacer};
 use robocode::physics::BattleConfig;
 use robocode::recording;
 use robocode::roster;
 use robocode::runner::Battle;
 use robocode::terrain::Terrain;
+use robocode::{Battlefield, BulletMode};
 use wasm_bindgen::prelude::*;
 
 /// Robots that can be picked in the browser.
@@ -26,6 +26,8 @@ pub struct BattleSpec {
     pub urban: bool,
     /// Tank id per robot; empty means none picked (decoration only).
     pub tanks: Vec<String>,
+    /// How fast bullets fly; recorded in the header.
+    pub bullets: BulletMode,
 }
 
 /// Builds the battle described by `spec`, checking it like the viewer does.
@@ -45,9 +47,7 @@ fn build_battle(spec: &BattleSpec) -> Result<Battle, String> {
     recording::validate_setup(n, spec.width, spec.height, spec.max_turns)?;
     let config = BattleConfig {
         battlefield: Battlefield::new(spec.width, spec.height),
-        // Pinned to arcade until BattleSpec.bullets and the recording header
-        // carry the mode (a recording without it is read as arcade).
-        bullet_mode: robocode::BulletMode::Arcade,
+        bullet_mode: spec.bullets,
         ..BattleConfig::default()
     };
     let mut battle = Battle::new(
@@ -74,21 +74,28 @@ fn spec_from_csv(
     max_turns: u32,
     urban: bool,
     tanks_csv: &str,
-) -> BattleSpec {
+    bullets: &str,
+) -> Result<BattleSpec, String> {
     let list = |csv: &str| -> Vec<String> {
         csv.split(',')
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
             .collect()
     };
-    BattleSpec {
+    // Empty means the default (realistic).
+    let bullets = match bullets.trim() {
+        "" => BulletMode::default(),
+        b => b.parse::<BulletMode>()?,
+    };
+    Ok(BattleSpec {
         robots: list(robots_csv),
         tanks: list(tanks_csv),
         width,
         height,
         max_turns: max_turns as u64,
         urban,
-    }
+        bullets,
+    })
 }
 
 /// A battle advanced by the page's (or a worker's) own clock, a turn at a time.
@@ -108,9 +115,12 @@ impl LiveBattle {
         max_turns: u32,
         urban: bool,
         tanks_csv: &str,
+        bullets: &str,
     ) -> Result<LiveBattle, JsError> {
-        Self::create(robots_csv, width, height, max_turns, urban, tanks_csv)
-            .map_err(|e| JsError::new(&e))
+        Self::create(
+            robots_csv, width, height, max_turns, urban, tanks_csv, bullets,
+        )
+        .map_err(|e| JsError::new(&e))
     }
 
     /// The v1 header object.
@@ -152,10 +162,11 @@ impl LiveBattle {
         max_turns: u32,
         urban: bool,
         tanks_csv: &str,
+        bullets: &str,
     ) -> Result<LiveBattle, String> {
         let spec = spec_from_csv(
-            robots_csv, width, height, max_turns, urban, tanks_csv,
-        );
+            robots_csv, width, height, max_turns, urban, tanks_csv, bullets,
+        )?;
         Ok(LiveBattle {
             session: LiveSession::new(build_battle(&spec)?, spec.max_turns),
         })
@@ -218,14 +229,16 @@ pub fn run_battle_native(
     max_turns: u32,
     urban: bool,
     tanks_csv: &str,
+    bullets: &str,
 ) -> Result<String, String> {
     record_battle(&spec_from_csv(
-        robots_csv, width, height, max_turns, urban, tanks_csv,
-    ))
+        robots_csv, width, height, max_turns, urban, tanks_csv, bullets,
+    )?)
 }
 
 /// Runs a battle; `robots_csv` is a comma-separated list of robot names and
-/// `tanks_csv` one of tank ids (empty for none).
+/// `tanks_csv` one of tank ids (empty for none). `bullets` is `"realistic"` or
+/// `"arcade"`; empty means realistic.
 /// Throws a JS `Error` with a readable message if the setup is invalid.
 #[wasm_bindgen]
 pub fn run_battle(
@@ -235,9 +248,12 @@ pub fn run_battle(
     max_turns: u32,
     urban: bool,
     tanks_csv: &str,
+    bullets: &str,
 ) -> Result<String, JsError> {
-    run_battle_native(robots_csv, width, height, max_turns, urban, tanks_csv)
-        .map_err(|e| JsError::new(&e))
+    run_battle_native(
+        robots_csv, width, height, max_turns, urban, tanks_csv, bullets,
+    )
+    .map_err(|e| JsError::new(&e))
 }
 
 /// The `[width, height]` of a battlefield ratio ("4:3", "2:1", "16:9" or

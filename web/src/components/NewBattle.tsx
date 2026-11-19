@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { RATIOS, ratioSize } from '../wasm';
+import type { BulletMode } from '../recording';
 import { TANKS, TANK_IDS, defaultTank, type TankId } from '../tanks/defs';
 
 export interface BattleSetup {
@@ -10,6 +11,7 @@ export interface BattleSetup {
   height: number;
   maxTurns: number;
   urban: boolean;
+  bullets: BulletMode;
 }
 
 const field =
@@ -29,6 +31,7 @@ export default function NewBattle({ names, onRun, sizeOf = ratioSize, ratios = R
   const [arena, setArena] = useState(ratios[0]);
   const [maxTurns, setMaxTurns] = useState(5000);
   const [urban, setUrban] = useState(false);
+  const [bullets, setBullets] = useState<BulletMode>('realistic');
 
   const setTank = (i: number, id: TankId) => setTanks(tanks.map((t, j) => (j === i ? id : t)));
 
@@ -40,7 +43,7 @@ export default function NewBattle({ names, onRun, sizeOf = ratioSize, ratios = R
       onSubmit={(e) => {
         e.preventDefault();
         const [width, height] = sizeOf(arena);
-        onRun({ robots, tanks, width, height, maxTurns, urban });
+        onRun({ robots, tanks, width, height, maxTurns, urban, bullets });
       }}
     >
       {robots.map((r, i) => (
@@ -103,6 +106,13 @@ export default function NewBattle({ names, onRun, sizeOf = ratioSize, ratios = R
               </option>
             );
           })}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-slate-600">
+        Bullets
+        <select className={field} value={bullets} onChange={(e) => setBullets(e.target.value as BulletMode)}>
+          <option value="realistic">Realistic</option>
+          <option value="arcade">Arcade</option>
         </select>
       </label>
       <label className="flex items-center gap-2 text-xs text-slate-600">

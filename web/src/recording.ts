@@ -63,6 +63,13 @@ export interface Decision {
   intent?: { maneuver: string; risk: string };
 }
 
+export type BulletMode = 'realistic' | 'arcade';
+
+/** The recording's bullet mode; a missing field means arcade (pre-0.7.0). */
+export function bulletMode(rec: Pick<Recording, 'bullets'>): BulletMode {
+  return rec.bullets === 'realistic' ? 'realistic' : 'arcade';
+}
+
 export interface Recording {
   format: 'roboverus-recording';
   version: 1 | 2;
@@ -72,6 +79,8 @@ export interface Recording {
   terrain?: { buildings: Rect[]; roads: Rect[] };
   /** Tank id per robot, when the battle picked them. Unknown ids fall back to the slot default. */
   tanks?: string[];
+  /** Bullet speed model. Absent in recordings made before bullet modes: those are arcade. */
+  bullets?: BulletMode;
   turns: TurnSnapshot[];
   decisions: (Decision | null)[][];
   outcome: { winner: number | null; turns: number; energies: number[] };

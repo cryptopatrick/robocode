@@ -65,3 +65,24 @@ describe('NewBattle tank picker', () => {
     expect(onRun).toHaveBeenCalledWith(expect.objectContaining({ tanks: ['leopard2a8', 'abrams', 'k2'] }));
   });
 });
+
+describe('NewBattle bullet picker', () => {
+  const setup = (onRun = vi.fn()) => {
+    render(<NewBattle names={['A', 'B']} onRun={onRun} sizeOf={sizeOf} ratios={Object.keys(sizes)} />);
+    return onRun;
+  };
+
+  it('defaults to Realistic', () => {
+    const onRun = setup();
+    expect((screen.getByLabelText('Bullets') as HTMLSelectElement).selectedOptions[0].textContent).toBe('Realistic');
+    fireEvent.click(screen.getByText('Run battle'));
+    expect(onRun).toHaveBeenCalledWith(expect.objectContaining({ bullets: 'realistic' }));
+  });
+
+  it('the picked mode reaches onRun', () => {
+    const onRun = setup();
+    fireEvent.change(screen.getByLabelText('Bullets'), { target: { value: 'arcade' } });
+    fireEvent.click(screen.getByText('Run battle'));
+    expect(onRun).toHaveBeenCalledWith(expect.objectContaining({ bullets: 'arcade' }));
+  });
+});

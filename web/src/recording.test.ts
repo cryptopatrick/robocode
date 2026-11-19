@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRecording } from './recording';
+import { bulletMode, parseRecording } from './recording';
 
 const minimal = {
   format: 'roboverus-recording',
@@ -51,5 +51,16 @@ describe('parseRecording', () => {
 
   it('rejects mismatched turns and decisions', () => {
     expect(() => parseRecording(JSON.stringify({ ...minimal, decisions: [] }))).toThrow('Not a RoboVerus recording');
+  });
+});
+
+describe('bullet mode', () => {
+  it('missing_bullets_field_is_arcade', () => {
+    expect(bulletMode(parseRecording(JSON.stringify(minimal)))).toBe('arcade');
+  });
+
+  it('reads the recorded mode', () => {
+    expect(bulletMode(parseRecording(JSON.stringify({ ...minimal, bullets: 'realistic' })))).toBe('realistic');
+    expect(bulletMode(parseRecording(JSON.stringify({ ...minimal, bullets: 'arcade' })))).toBe('arcade');
   });
 });
