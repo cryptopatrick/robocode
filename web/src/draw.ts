@@ -119,7 +119,7 @@ function drawTank(ctx: CanvasRenderingContext2D, r: RobotSnapshot, color: string
   ctx.stroke();
   ctx.restore();
 
-  // Muzzle cap: the only place the team colour appears.
+  // Muzzle cap, also in the team colour (as is the radar arc above).
   if (r.alive) {
     ctx.save();
     toRing();

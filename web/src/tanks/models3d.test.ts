@@ -78,6 +78,18 @@ describe('procedural 3D tanks', () => {
     expect(t.root.scale.y).toBe(1)
   })
 
+  it('radar dish is in the team colour, greys when dead, and restores', () => {
+    const team = 0x3366cc
+    const t = createTank3D('abrams', team)
+    const dish = t.radar.children.find((c) => (c as THREE.Mesh).isMesh && c.position.y > 0.2) as THREE.Mesh
+    const col = () => (dish.material as THREE.MeshLambertMaterial).color.getHex()
+    expect(col()).toBe(team)
+    t.setDead(true)
+    expect(col()).toBe(WRECK)
+    t.setDead(false)
+    expect(col()).toBe(team)
+  })
+
   it('a dead tank never recolours another tank', () => {
     const a = createTank3D('k2', 0x111111)
     const b = createTank3D('k2', 0x222222)

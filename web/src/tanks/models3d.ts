@@ -190,7 +190,7 @@ export function createTank3D(id: TankId, teamColor: number): Tank3D {
   radar.position.set(0, roof, 0)
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.2, 5), m.dark)
   mast.position.y = 0.1
-  const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.06, 0.1, 8), m.light)
+  const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.06, 0.1, 8), m.team)
   dish.position.y = 0.25
   radar.add(mast, dish)
   t.add(radar)
