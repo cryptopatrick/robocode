@@ -123,7 +123,7 @@ impl LiveBattle {
         .map_err(|e| JsError::new(&e))
     }
 
-    /// The v1 header object.
+    /// The v2 header object (robots, battlefield, bullets, tanks, terrain).
     pub fn header(&self) -> String {
         self.session.header().to_string()
     }

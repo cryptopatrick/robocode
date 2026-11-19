@@ -192,6 +192,18 @@ fn tanks_in_header() {
 }
 
 #[test]
+fn tank_ids_are_fully_escaped() {
+    let mut battle = duel();
+    battle.set_tanks(vec!["a\nb\t\u{1}".into(), "k2".into()]);
+    let json = recording::record(battle, 5);
+    assert!(
+        json.contains(r#""tanks":["a\nb\t\u0001","k2"]"#),
+        "control characters must be escaped"
+    );
+    assert!(!json.contains('\t'), "no raw tab may reach the JSON");
+}
+
+#[test]
 fn no_tanks_no_field() {
     let json = recording::record(duel(), 5);
     assert!(!json.contains(r#""tanks""#));

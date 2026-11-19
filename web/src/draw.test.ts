@@ -216,7 +216,7 @@ describe('five tanks', () => {
 
   it('dead tank is grey with no muzzle colour', () => {
     const log = run([at(0, false)], k2Tanks);
-    expect(log.some((l) => l.k === 'setFilter' && l.filter === 'grayscale(1)')).toBe(true);
+    expect(log.some((l) => l.k === 'setFilter' && l.filter === 'grayscale(1) brightness(0.6)')).toBe(true);
     expect(log.filter((l) => l.k === 'drawImage')).toHaveLength(2);
     expect(log.some((l) => l.k === 'fillRect' && l.fillStyle === ROBOT_COLORS[0])).toBe(false);
   });

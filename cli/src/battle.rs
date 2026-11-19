@@ -115,6 +115,8 @@ fn battle_program(
     } else {
         String::new()
     };
+    // The variant name, e.g. Realistic.
+    let bullets_variant = format!("{bullets:?}");
     src.push_str(&format!(
         "    ];\n\
          \x20   let config = robocode::physics::BattleConfig {{ battlefield: robocode::Battlefield::new({width:?}, {height:?}), bullet_mode: robocode::BulletMode::{mode}, ..Default::default() }};\n\
@@ -189,10 +191,7 @@ fn battle_program(
          \x20   o.flush().unwrap();\n\
          }}\n",
         n = entries.len(),
-        mode = match bullets {
-            robocode::BulletMode::Realistic => "Realistic",
-            robocode::BulletMode::Arcade => "Arcade",
-        }
+        mode = bullets_variant
     ));
     src
 }

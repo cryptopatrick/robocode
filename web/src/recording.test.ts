@@ -28,6 +28,11 @@ describe('parseRecording', () => {
     expect(rec.outcome.winner).toBeNull();
   });
 
+  it('rejects an unknown bullet mode', () => {
+    expect(() => parseRecording(JSON.stringify({ ...minimal, bullets: 'laser' }))).toThrow('Unknown bullet mode laser');
+    expect(parseRecording(JSON.stringify({ ...minimal, bullets: 'arcade' })).bullets).toBe('arcade');
+  });
+
   it('rejects non-JSON', () => {
     expect(() => parseRecording('not json {')).toThrow('Not a JSON file');
   });

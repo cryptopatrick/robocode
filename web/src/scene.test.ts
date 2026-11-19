@@ -210,6 +210,17 @@ describe('impact flash fallbacks', () => {
     close(f[0].x, 400);
     close(f[0].y, 282);
   });
+
+  it('stays at the victim centre when the shooter sits on it', () => {
+    const stacked = [mk(0, 400, 300), mk(1, 400, 300)];
+    const rec = mkRec([
+      { turn: 0, robots: stacked, bullets: [], events: ev() },
+      { turn: 1, robots: stacked, bullets: [], events: ev(hit) },
+    ]);
+    const f = impactFlashes(rec, 1, 4);
+    expect(f[0].x).toBe(400);
+    expect(f[0].y).toBe(300);
+  });
 });
 
 describe('impact flashes', () => {
