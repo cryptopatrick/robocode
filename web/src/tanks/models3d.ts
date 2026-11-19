@@ -69,6 +69,9 @@ export function createTank3D(id: TankId, teamColor: number): Tank3D {
   const h = look.hullHeight
   const r = look.trackRadius
   const pivotX = def.pivotY / k
+  // The 2D turret ring sits off the hull axis by ringX px (+x = tank's right).
+  // The model's +z (file frame) is the tank's right, so the offset is +z here.
+  const ringZ = ((def.art.hull.pivotX - def.art.hull.w / 2) * def.scale) / k
 
   // One material per colour per tank, so a wreck never recolours another tank.
   const originals = new Map<THREE.MeshLambertMaterial, number>()
@@ -140,7 +143,7 @@ export function createTank3D(id: TankId, teamColor: number): Tank3D {
 
   // ---------------- turret ----------------
   const turretGroup = new THREE.Group()
-  turretGroup.position.set(pivotX, h * 0.65, 0)
+  turretGroup.position.set(pivotX, h * 0.65, ringZ)
   model.add(turretGroup)
   const t = turretGroup
   const tl = look.turretLength

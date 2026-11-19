@@ -41,7 +41,10 @@ describe('procedural 3D tanks', () => {
       const p = new THREE.Vector3()
       t.turret.getWorldPosition(p)
       expect(p.z).toBeCloseTo(TANKS[id].pivotY, 1)
-      expect(p.x).toBeCloseTo(0, 5)
+      // Ring offset: 2D +x is the tank's right; facing +z with y up, right is -x.
+      const def = TANKS[id]
+      const ring = ((def.art.hull.pivotX - def.art.hull.w / 2) * def.scale)
+      expect(p.x).toBeCloseTo(-ring, 1)
       expect(t.radar.parent).toBe(t.turret)
     }
   })
