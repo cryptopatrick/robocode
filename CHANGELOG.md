@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.7.0 - 2026-11-19
+ - *Breaking* **Realistic bullets are the default everywhere**: the library's `BattleConfig::default()`, the CLI and the web. In realistic mode every bullet flies 300 px per turn whatever its power (`REALISTIC_BULLET_SPEED`). Power still sets damage, gun heat, energy cost and hit bonus, all unchanged.
+ - *Breaking* `rules::bullet_speed` now takes a mode: `bullet_speed(mode, power)`.
+ - *Breaking* `Observation` has new fields, `bullet_mode` and `bullet_speed_for`, so constructing it as a struct literal no longer compiles.
+ - **Bullet modes**: new `BulletMode { Realistic, Arcade }` (default `Realistic`, with `name()` and `FromStr`). Arcade is Robocode's classic `20 - 3 * power`.
+ - `cargo robocode battle --bullets realistic|arcade`, a Bullets picker in the viewer's New battle, and a `"bullets"` field in the recording header (new recordings always write it; the recording version stays 2).
+ - **Swept earliest-contact hits** in realistic mode: a fast bullet hits the first robot or building along its path in the turn, not whatever it ends the turn inside.
+ - Viewer: **tracers, muzzle flashes and impact flashes** in 2D and 3D.
+ - **Five tanks**: pick a Leopard 2A8, Abrams, K2, Leclerc or Merkava for each robot; drawn in 2D and 3D, with a `tanks` recording header field. Decoration only. (Merged after 0.6.0, so listed here.)
+ - *Compatibility* Old recordings (no `"bullets"` field) play as arcade.
+ - *Compatibility* An arcade battle is byte-identical to 0.6.0. Library users who need classic physics should set `bullet_mode: BulletMode::Arcade`.
+
 ## v0.6.0 - 2026-11-18
  - **Buildings block the radar** (centre-line rule): a robot is scanned only if the line between the two robot centres touches no building. This changes urban battles. On urban maps SafeShooter often never sees its opponent and so never fires. Open-arena battles are unchanged: a 0.5.0 open-arena recording is identical apart from `"version"`. New public `line_of_sight` and `physics::radar::radar_beam`.
  - **Radar beam** drawn as it is blocked: the 2D viewer shows the polygon the radar swept and could see, cut off at buildings. The 3D view does not draw it yet.

@@ -27,6 +27,10 @@
 - **Five tanks:** pick a Leopard 2A8, Abrams, K2, Leclerc or Merkava for each robot; the viewer draws them in 2D and 3D, with the team colour on the muzzle.
 - **No dependencies** in the default build.
 
+## Bullet modes
+
+Bullets fly in one of two modes. **Realistic** (the default) sends every bullet 300 px per turn whatever its power, and a bullet hits the first robot or building along its path. **Arcade** is Robocode's classic `20 - 3 * power`. Power sets damage, gun heat, energy cost and hit bonus in both modes. Pick one with `cargo robocode battle --bullets realistic|arcade`, in the viewer's New battle, or in the library with `BattleConfig { bullet_mode: BulletMode::Arcade, .. }`. Recordings say which mode they used in the `"bullets"` header field; older recordings play as arcade. See `docs/robot-api.md`.
+
 ## Architecture
 
 | Module | What it does |
@@ -44,7 +48,7 @@ The engine uses `f64` and follows the Java original. Verifiable strategies see t
 
 ```toml
 [dependencies]
-robocode = "0.6"
+robocode = "0.7"
 ```
 
 ```rust
