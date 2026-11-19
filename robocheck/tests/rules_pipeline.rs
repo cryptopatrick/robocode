@@ -203,7 +203,18 @@ fn writes_run_json_with_all_rules() {
     assert_eq!(p["version"], 1);
     assert_eq!(p["source"], "live");
     assert_eq!(p["model"], "claude-sonnet-5-5");
-    assert_eq!(p["robocode"], "0.5.0");
+    // The run records the robocode version of this repository.
+    let root_manifest = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../Cargo.toml"
+    ))
+    .unwrap();
+    let version = root_manifest
+        .lines()
+        .find_map(|l| l.strip_prefix("version = \""))
+        .and_then(|v| v.strip_suffix('"'))
+        .unwrap();
+    assert_eq!(p["robocode"], version);
     assert_eq!(p["outcome"], "proved");
     assert_eq!(p["rules"].as_array().unwrap().len(), 3);
     for id in ["S1", "S2", "S3"] {
