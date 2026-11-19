@@ -54,6 +54,8 @@ fn main() {
     if urban {
         battle.set_terrain(terrain);
     }
+    // Decoration only (physics never reads it): the candidate drives a Leopard 2A8, the opponent an Abrams.
+    battle.set_tanks(vec!["leopard2a8".into(), "abrams".into()]);
     let rec = recording::record_with_summary(battle, turns);
     let lines: String = log.borrow().iter().map(|d| d.to_json_line() + "\n").collect();
     if let Err(e) = std::fs::write(&decisions, lines) {
