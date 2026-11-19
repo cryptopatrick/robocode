@@ -1,47 +1,74 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling version_check v0.9.5
+   Compiling verus_prettyplease v0.0.0-2026-11-01-0251
+    Checking typenum v1.20.1
+   Compiling equivalent v1.0.3
+   Compiling hashbrown v0.17.1
+   Compiling convert_case v0.4.0
+   Compiling vstd v0.0.0-2026-11-01-0251
+   Compiling generic-array v0.14.7
+   Compiling libc v0.2.191
+    Checking verus_builtin v0.0.0-2026-11-01-0251
+    Checking cfg-if v1.0.5
+   Compiling indexmap v2.14.2
+   Compiling verus_syn v0.0.0-2026-11-01-0251
+   Compiling syn v2.0.119
+    Checking crypto-common v0.1.7
+    Checking block-buffer v0.10.4
+    Checking digest v0.10.7
+    Checking cpufeatures v0.2.17
+    Checking sha2 v0.10.9
+   Compiling synstructure v0.13.2
+   Compiling verus_state_machines_macros v0.0.0-2026-11-01-0251
+   Compiling verus_builtin_macros v0.0.0-2026-11-01-0251
+verification results:: 2159 verified, 0 errors
+    Checking robocode v0.7.0 (/Users/cp/wer/crt/robocode-tanks)
 note: automatically chose triggers for this expression:
-  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:13:16
+  --> /Users/cp/wer/crt/robocode-tanks/src/strategy/targeting.rs:13:16
    |
 13 |             && forall|j: int| 0 <= j < targets@.len() ==> targets@[i as int].distance <= targets@[j].distance,
    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 note:   trigger 1 of 1:
-  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:13:90
+  --> /Users/cp/wer/crt/robocode-tanks/src/strategy/targeting.rs:13:90
    |
 13 |             && forall|j: int| 0 <= j < targets@.len() ==> targets@[i as int].distance <= targets@[j].distance,
    |                                                                                          ^^^^^^^^^^^
 
 note: automatically chose triggers for this expression:
-  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:15:31
+  --> /Users/cp/wer/crt/robocode-tanks/src/strategy/targeting.rs:15:31
    |
 15 |         r matches Some(i) ==> forall|j: int| 0 <= j < i ==> targets@[j].distance > targets@[i as int].distance,
    |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 note:   trigger 1 of 1:
-  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:15:61
+  --> /Users/cp/wer/crt/robocode-tanks/src/strategy/targeting.rs:15:61
    |
 15 |         r matches Some(i) ==> forall|j: int| 0 <= j < i ==> targets@[j].distance > targets@[i as int].distance,
    |                                                             ^^^^^^^^^^^
 
 note: automatically chose triggers for this expression:
-  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:29:13
+  --> /Users/cp/wer/crt/robocode-tanks/src/strategy/targeting.rs:29:13
    |
 29 |             forall|j: int| 0 <= j < i ==> targets@[best as int].distance <= targets@[j].distance,
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 note:   trigger 1 of 1:
-  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:29:77
+  --> /Users/cp/wer/crt/robocode-tanks/src/strategy/targeting.rs:29:77
    |
 29 |             forall|j: int| 0 <= j < i ==> targets@[best as int].distance <= targets@[j].distance,
    |                                                                             ^^^^^^^^^^^
 
 note: automatically chose triggers for this expression:
-  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:30:13
+  --> /Users/cp/wer/crt/robocode-tanks/src/strategy/targeting.rs:30:13
    |
 30 |             forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 note:   trigger 1 of 1:
-  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:30:46
+  --> /Users/cp/wer/crt/robocode-tanks/src/strategy/targeting.rs:30:46
    |
 30 |             forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
    |                                              ^^^^^^^^^^^
@@ -59,12 +86,15 @@ note: Verus printed one or more automatically chosen quantifier triggers
       (Note: triggers are used by the underlying SMT theorem prover to instantiate quantifiers;
       the theorem prover instantiates a quantifier whenever some expression matches the
       pattern specified by one of the quantifier's triggers.)
-  --> /Users/cp/wer/crt/robocode/src/strategy/targeting.rs:30:13
+  --> /Users/cp/wer/crt/robocode-tanks/src/strategy/targeting.rs:30:13
    |
 30 |             forall|j: int| 0 <= j < best ==> targets@[j].distance > targets@[best as int].distance,
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    Checking robocheck-candidate-a80bd2ab46f2 v0.1.0 (/Users/cp/wer/crt/robocode/target/robocheck/work/77b7e8d88749-1795106350/verify)
+verification results:: 27 verified, 0 errors
+    Checking robocheck-arena v0.1.0 (/Users/cp/wer/crt/robocode-tanks/robocheck/arena)
+verification results:: 3 verified, 0 errors
+    Checking robocheck-candidate-289052ff2385 v0.1.0 (/Users/cp/wer/crt/robocode-tanks/target/robocheck/work/77b7e8d88749-1795119185/verify)
 verification results:: 1 verified, 0 errors
 verification results:: 0 verified, 0 errors
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.31s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 28.34s

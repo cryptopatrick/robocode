@@ -1,8 +1,8 @@
 {
   "format": "robocheck-evidence",
   "version": 2,
-  "run_id": "4f53cda18c2b-1795106497",
-  "created_at": "2026-11-19T16:41:37Z",
+  "run_id": "4f53cda18c2b-1795119334",
+  "created_at": "2026-11-19T20:15:34Z",
   "candidate": {
     "path": "candidate.rs",
     "sha256": "d465ce1df82a0488e55a8be1566ef322e75fb85ddb1ff989a1623758aaf00bf3"
@@ -33,7 +33,7 @@
       "artifact_hash": "ceabd4315b06bc3c94e98667748f9270bf8af771489cd52be68c1d09f03f08e9",
       "same_artifact": true,
       "recording_file": "recording-open.json",
-      "recording_sha256": "9f8c5497886431699b58939bc61b23db54079b2e952c2a023cea2886ac443265",
+      "recording_sha256": "4e3cd75b8e7404352991a72630ccb238dc4dc4ad536629e955fe029ddcf2e5ba",
       "decisions_file": "decisions-open.jsonl",
       "error": null
     },
@@ -46,7 +46,7 @@
       "artifact_hash": "ceabd4315b06bc3c94e98667748f9270bf8af771489cd52be68c1d09f03f08e9",
       "same_artifact": true,
       "recording_file": "recording-urban.json",
-      "recording_sha256": "ad3bda93da7ab135c9b807776207758b8065d9d15eedf1118eb3d8e5548b5063",
+      "recording_sha256": "d542c3a9af537e5c21709b49c9a9ee2a958a6b3f49030fc264213ead433c3c1d",
       "decisions_file": "decisions-urban.jsonl",
       "error": null
     }
