@@ -1,6 +1,7 @@
 // Draws one turn of a recording onto a canvas. The look is RoboVerus's own:
 // an ink-blue plotting table with instrument-style robots.
 import { scanArc } from './geometry';
+import { bulletSegment, impactFlashes } from './scene';
 import type { Decision, Recording, RobotSnapshot } from './recording';
 import type { Sprites } from './sprites';
 import { TANKS, tankFor, type TankId } from './tanks/defs';
@@ -22,6 +23,13 @@ const STEEL = '#e9eef2';
 const LABEL = '#c9d6e2';
 const EFFECT_TURNS = 8;
 const BODY = 36;
+const TRACER_GLOW = 'rgba(255,200,80,0.35)';
+const TRACER_CORE = '#fff6c8';
+const MUZZLE_FLASH_TURNS = 2;
+const IMPACT_TURNS = 4;
+/** Muzzle distance of the plain (sprite or vector) robot's gun. */
+const PLAIN_REACH = 20;
+const SPARK_ANGLES = [0, 1, 2, 3, 4, 5].map((k) => (k * Math.PI) / 3 + 0.3);
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
 
@@ -209,7 +217,6 @@ function drawRobot(
   ctx.restore();
 }
 
-/** Draws turn `turn` of `rec`. */
 const ROAD = '#1e2b3a';
 const BUILDING = '#34465c';
 const BUILDING_EDGE = '#56708c';
@@ -228,6 +235,58 @@ function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Recording['terrain'
   }
 }
 
+/** Tracers, muzzle flashes and impact flashes. Only the tracer core ignores `view.effects`. */
+function drawShots(ctx: CanvasRenderingContext2D, rec: Recording, turn: number, view: ViewOptions, reachFor: (i: number) => number) {
+  ctx.save();
+  ctx.lineCap = 'round';
+  if (view.effects) {
+    // Muzzle flashes: a bright disc on the fire turn, fading over the next.
+    for (let k = Math.max(0, turn - MUZZLE_FLASH_TURNS + 1); k <= turn; k++) {
+      const fade = 1 - (turn - k) / MUZZLE_FLASH_TURNS;
+      rec.turns[k].bullets.forEach((_, j) => {
+        const s = bulletSegment(rec, k, j, reachFor);
+        if (!s.first) return;
+        ctx.fillStyle = `rgba(255, 250, 220, ${fade})`;
+        ctx.beginPath();
+        ctx.arc(s.from.x, s.from.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+    // Impact flashes: an expanding disc plus six sparks, fading out.
+    for (const f of impactFlashes(rec, turn, IMPACT_TURNS)) {
+      const fade = 1 - f.age / IMPACT_TURNS;
+      const r = 6 + f.power * 2 + f.age * 4;
+      ctx.fillStyle = `rgba(255, 240, 190, ${0.85 * fade})`;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255, 220, 120, ${fade})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (const a of SPARK_ANGLES) {
+        ctx.moveTo(f.x + Math.cos(a) * r, f.y + Math.sin(a) * r);
+        ctx.lineTo(f.x + Math.cos(a) * (r + 6), f.y + Math.sin(a) * (r + 6));
+      }
+      ctx.stroke();
+    }
+  }
+  rec.turns[turn].bullets.forEach((b, j) => {
+    if (!b.alive) return;
+    const { from, to } = bulletSegment(rec, turn, j, reachFor);
+    const layers: [string, number][] = view.effects ? [[TRACER_GLOW, 4], [TRACER_CORE, 1.5]] : [[TRACER_CORE, 1.5]];
+    for (const [color, width] of layers) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    }
+  });
+  ctx.restore();
+}
+
+/** Draws turn `turn` of `rec`. */
 export function drawArena(
   ctx: CanvasRenderingContext2D,
   rec: Recording,
@@ -284,15 +343,6 @@ export function drawArena(
       const age = turn - k;
       const fade = 1 - age / EFFECT_TURNS;
       const at = rec.turns[k];
-      for (const hit of at.events.bullet_hits) {
-        const victim = at.robots.find((r) => r.id === hit.victim);
-        if (!victim) continue;
-        ctx.strokeStyle = `rgba(255, 214, 120, ${fade})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(victim.position.x, victim.position.y, 12 + age * 4, 0, Math.PI * 2);
-        ctx.stroke();
-      }
       for (const id of at.events.robot_deaths) {
         const dead = at.robots.find((r) => r.id === id);
         if (!dead) continue;
@@ -308,13 +358,7 @@ export function drawArena(
   const order = snap.robots.map((r, i) => [r, i] as const).sort(([a], [b]) => Number(a.alive) - Number(b.alive));
   for (const [r, i] of order) drawRobot(ctx, r, ROBOT_COLORS[i % ROBOT_COLORS.length], sprites, tankFor(rec, i), tanks);
 
-  ctx.fillStyle = STEEL;
-  for (const b of snap.bullets) {
-    if (!b.alive) continue;
-    ctx.beginPath();
-    ctx.arc(b.position.x, b.position.y, 1.5 + b.power, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  drawShots(ctx, rec, turn, view, (i) => (tanks[tankFor(rec, i)] && !sprites.body ? TANKS[tankFor(rec, i)].barrelReach : PLAIN_REACH));
 
   if (view.names || view.energy) {
     ctx.font = '11px system-ui, sans-serif';
