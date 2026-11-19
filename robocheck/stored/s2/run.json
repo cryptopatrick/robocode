@@ -1,13 +1,13 @@
 {
   "format": "robocheck-run",
   "version": 1,
-  "run_id": "6965760fe0bb-1795095175",
-  "created_at": "2026-11-19T13:32:55Z",
+  "run_id": "6965760fe0bb-1795106461",
+  "created_at": "2026-11-19T16:41:01Z",
   "source": "stored",
   "model": "claude-sonnet-5-5",
   "robocode": "0.7.0",
   "robocheck_arena": "0.1.0",
-  "cost_usd": 0.021674,
+  "cost_usd": 0.027014,
   "outcome": "proved",
   "outcome_note": null,
   "rules": [
@@ -15,7 +15,7 @@
       "id": "S2",
       "text": "Only fire at a robot you saw this turn, with the gun aimed at it.",
       "status": "proved",
-      "read_back": "Whenever the robot fires a shot, of any power, it must have a target that was scanned this very turn and its gun must be pointing at that target within 3.0°; if there is no such target, or the gun is not aimed, it must not fire.",
+      "read_back": "Whenever the tank fires a shot, of any power, it must have a target that was scanned this very turn and its gun must be pointing at that target within 3.0°; if there is no target, no stale scan (age above 0), or the gun is not aimed, it must not fire.",
       "clauses": [
         "r.fire matches Some(p) ==> ((obs.target matches Some(t) && t.age == 0) && aimed(*obs))"
       ],
@@ -42,18 +42,24 @@
       "id": "S3",
       "text": "Never drive toward a wall or building closer than 80 px.",
       "violations": {
-        "open": null,
-        "urban": null
+        "open": {
+          "first_turn": 2,
+          "turns": 55
+        },
+        "urban": {
+          "first_turn": 2,
+          "turns": 76
+        }
       }
     }
   ],
   "code": {
-    "strategy_rs": "//! TRUSTED TEMPLATE (robocheck). The candidate supplies only the body of\n//! `decide` and helper functions below the marked line; the reference spec on\n//! `decide` is written by robocheck (Phase 0's human-written reference, or\n//! rendered from AI-formalised rules) and may not be changed by the candidate.\n#![allow(\n    clippy::manual_range_contains,\n    clippy::manual_clamp,\n    clippy::collapsible_match,\n    clippy::single_match,\n    unused_imports,\n    dead_code\n)]\n\n#[cfg(feature = \"verus\")]\nuse vstd::prelude::*;\n\nuse robocheck_arena::{OBSTACLE_MARGIN, Surroundings};\nuse robocode::robots::safe_shooter::{AIM_TOLERANCE, MAX_GUN_TURN, MAX_RADAR_TURN, WALL_MARGIN};\nuse robocode::strategy::{Action, Observation};\nuse robocode::units::{Angle, Power, angle_diff};\n#[cfg(verus_only)]\nuse robocheck_arena::surroundings_ok;\n#[cfg(verus_only)]\nuse robocode::robots::safe_shooter::{aimed, heading_into_near_wall, ready, reverse_heading};\n#[cfg(verus_only)]\nuse robocode::strategy::well_formed;\n#[cfg(verus_only)]\nuse robocode::units::{MAX_POWER, MIN_POWER, spec_angle_diff};\n\n/// The candidate's decision for one turn, checked against the spec. `around`\n/// is what robocode 0.5.0's `Observation` lacks: the free distance to walls\n/// and buildings ahead and behind (robocheck-arena).\n#[cfg_attr(feature = \"verus\", verus_verify)]\n#[cfg_attr(feature = \"verus\", verus_spec(r =>\n    requires well_formed(*obs), surroundings_ok(*around),\n    ensures\n        r.fire matches Some(p) ==> ((obs.target matches Some(t) && t.age == 0) && aimed(*obs)), // S2\n))]\npub fn decide(obs: &Observation, around: &Surroundings) -> Action {\n    Action { fire: None, ahead: None, turn_body: None, turn_gun: None, turn_radar: None }\n}\n\n// ---- candidate helpers below (untrusted) ----\n\n",
-    "candidate": "// Written by claude-sonnet-5-5 for RoboCheck.\n// @@helpers\n\n// @@body\n    Action { fire: None, ahead: None, turn_body: None, turn_gun: None, turn_radar: None }\n"
+    "strategy_rs": "//! TRUSTED TEMPLATE (robocheck). The candidate supplies only the body of\n//! `decide` and helper functions below the marked line; the reference spec on\n//! `decide` is written by robocheck (Phase 0's human-written reference, or\n//! rendered from AI-formalised rules) and may not be changed by the candidate.\n#![allow(\n    clippy::manual_range_contains,\n    clippy::manual_clamp,\n    clippy::collapsible_match,\n    clippy::single_match,\n    unused_imports,\n    dead_code\n)]\n\n#[cfg(feature = \"verus\")]\nuse vstd::prelude::*;\n\nuse robocheck_arena::{OBSTACLE_MARGIN, Surroundings};\nuse robocode::robots::safe_shooter::{AIM_TOLERANCE, MAX_GUN_TURN, MAX_RADAR_TURN, WALL_MARGIN};\nuse robocode::strategy::{Action, Observation};\nuse robocode::units::{Angle, Power, angle_diff};\n#[cfg(verus_only)]\nuse robocheck_arena::surroundings_ok;\n#[cfg(verus_only)]\nuse robocode::robots::safe_shooter::{aimed, heading_into_near_wall, ready, reverse_heading};\n#[cfg(verus_only)]\nuse robocode::strategy::well_formed;\n#[cfg(verus_only)]\nuse robocode::units::{MAX_POWER, MIN_POWER, spec_angle_diff};\n\n/// The candidate's decision for one turn, checked against the spec. `around`\n/// is what robocode 0.5.0's `Observation` lacks: the free distance to walls\n/// and buildings ahead and behind (robocheck-arena).\n#[cfg_attr(feature = \"verus\", verus_verify)]\n#[cfg_attr(feature = \"verus\", verus_spec(r =>\n    requires well_formed(*obs), surroundings_ok(*around),\n    ensures\n        r.fire matches Some(p) ==> ((obs.target matches Some(t) && t.age == 0) && aimed(*obs)), // S2\n))]\npub fn decide(obs: &Observation, around: &Surroundings) -> Action {\nlet mut fire = None;\n    let mut turn_gun = None;\n    let mut turn_radar = Some(MAX_RADAR_TURN);\n    let mut ahead = Some(100);\n    match obs.target {\n        Some(t) => {\n            let d = angle_diff(t.bearing, obs.gun_heading);\n            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });\n            if t.age == 0 {\n                let r = 2 * angle_diff(t.bearing, obs.radar_heading);\n                turn_radar = Some(if r > MAX_RADAR_TURN { MAX_RADAR_TURN } else if r < -MAX_RADAR_TURN { -MAX_RADAR_TURN } else { r });\n                if obs.gun_heat.0 == 0 && -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE {\n                    fire = Some(Power(3000));\n                }\n            }\n        }\n        None => {}\n    }\n    Action { fire, ahead, turn_body: None, turn_gun, turn_radar }\n}\n\n// ---- candidate helpers below (untrusted) ----\n\n",
+    "candidate": "// Written by claude-sonnet-5-5 for RoboCheck.\n// @@helpers\n\n// @@body\nlet mut fire = None;\n    let mut turn_gun = None;\n    let mut turn_radar = Some(MAX_RADAR_TURN);\n    let mut ahead = Some(100);\n    match obs.target {\n        Some(t) => {\n            let d = angle_diff(t.bearing, obs.gun_heading);\n            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });\n            if t.age == 0 {\n                let r = 2 * angle_diff(t.bearing, obs.radar_heading);\n                turn_radar = Some(if r > MAX_RADAR_TURN { MAX_RADAR_TURN } else if r < -MAX_RADAR_TURN { -MAX_RADAR_TURN } else { r });\n                if obs.gun_heat.0 == 0 && -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE {\n                    fire = Some(Power(3000));\n                }\n            }\n        }\n        None => {}\n    }\n    Action { fire, ahead, turn_body: None, turn_gun, turn_radar }\n"
   },
   "explanation": {
-    "headline": "Proved: the 1 rule holds",
-    "summary": "Verus proved rule S2 (only fire at a robot seen this turn with the gun aimed at it). The robot's code does nothing on every turn: it never fires, drives or turns, so the rule can never be broken. Neither the open arena nor the city map showed any violations."
+    "headline": "Proved: rule S2 holds",
+    "summary": "Verus proved S2: the robot only fires when it scanned a target this turn (age 0) and the gun is within the aim tolerance of it. In both battles the robot broke a rule called S3 from turn 2 (55 turns in the open arena, 76 in the city), but S3 was not among the rules Verus checked here, so nothing is shown about it."
   },
   "battles": {
     "open": {
@@ -61,15 +67,15 @@
       "recording": "recording-open.json",
       "decisions": "decisions-open.jsonl",
       "winner": "Circler",
-      "turns": 138,
+      "turns": 57,
       "error": null
     },
     "urban": {
       "status": "ok",
       "recording": "recording-urban.json",
       "decisions": "decisions-urban.jsonl",
-      "winner": "Candidate",
-      "turns": 738,
+      "winner": "Circler",
+      "turns": 78,
       "error": null
     }
   },

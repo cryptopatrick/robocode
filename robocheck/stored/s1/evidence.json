@@ -1,13 +1,13 @@
 {
   "format": "robocheck-evidence",
   "version": 2,
-  "run_id": "1054484cff96-1795095156",
-  "created_at": "2026-11-19T13:32:36Z",
+  "run_id": "1054484cff96-1795106444",
+  "created_at": "2026-11-19T16:40:44Z",
   "candidate": {
     "path": "candidate.rs",
-    "sha256": "b93b6666326366d2f4041bcb38840b38e5e544d3e643f39fd1f483426e962084"
+    "sha256": "fa7e1c67d1558abc48b088e01fbaea4961ae2f0a0824b258e46c82cab23989d2"
   },
-  "artifact_hash": "ffa5cb70059280eb8d174f39bf36e1937ae623a66b3a72d8f3c46a7bb92384a1",
+  "artifact_hash": "bea7dde4e02632a52e83892ae6bc2f897389ea1889786dd08c9cccbdb7dcde1f",
   "spec_hash": "0e21291fd4e4ec044e7e3f17758d6606fd222318e9607fdd354748fb92ba26a6",
   "validation": {
     "ok": true,
@@ -22,8 +22,8 @@
       {
         "id": "S1",
         "name": "Never fire a shot you can't afford.",
-        "status": "unknown",
-        "note": "cannot use function `robocheck_candidate_ffa5cb700592::strategy::clamp_to` which is ignored because it is either declared outside the verus! macro or it is marked as `external`",
+        "status": "proved",
+        "note": "",
         "failed_at": null
       }
     ],
@@ -36,12 +36,12 @@
       "arena": "open",
       "status": "ok",
       "opponent": "Circler",
-      "turns": 113,
-      "winner": "Candidate",
-      "artifact_hash": "ffa5cb70059280eb8d174f39bf36e1937ae623a66b3a72d8f3c46a7bb92384a1",
+      "turns": 117,
+      "winner": "Circler",
+      "artifact_hash": "bea7dde4e02632a52e83892ae6bc2f897389ea1889786dd08c9cccbdb7dcde1f",
       "same_artifact": true,
       "recording_file": "recording-open.json",
-      "recording_sha256": "0f4f35b5071ca059a42fb0395fd839e90b6bd9db9d174b6de8ebcd8b3b227348",
+      "recording_sha256": "edc544e07670e80d7033fffe065d33e9032c9e64bd5c9c3493fe6a55ec768939",
       "decisions_file": "decisions-open.jsonl",
       "error": null
     },
@@ -51,7 +51,7 @@
       "opponent": "Circler",
       "turns": 68,
       "winner": "Circler",
-      "artifact_hash": "ffa5cb70059280eb8d174f39bf36e1937ae623a66b3a72d8f3c46a7bb92384a1",
+      "artifact_hash": "bea7dde4e02632a52e83892ae6bc2f897389ea1889786dd08c9cccbdb7dcde1f",
       "same_artifact": true,
       "recording_file": "recording-urban.json",
       "recording_sha256": "ba4c1ebf12f5f9692bc19485c3c0bc7774a0e6f4d13c2558b25188b30f62e531",
