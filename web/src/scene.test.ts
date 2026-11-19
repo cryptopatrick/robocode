@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { headingRotation, relativeRotation, terrainBoxes, tankPose, worldPoint } from './scene';
+import { drivenDistances, headingRotation, relativeRotation, terrainBoxes, tankPose, worldPoint } from './scene';
 import type { Recording, RobotSnapshot } from './recording';
 
 const close = (a: number, b: number) => expect(a).toBeCloseTo(b, 9);
@@ -92,4 +92,20 @@ describe('cameraFor', () => {
       }
     });
   }
+});
+
+describe('drivenDistances', () => {
+  const rob = (velocity: number) => ({ velocity }) as RobotSnapshot;
+  const rec = (rows: number[][]) => ({ turns: rows.map((r) => ({ robots: r.map(rob) })) }) as unknown as Recording;
+
+  it('driven distance sums velocity', () => {
+    const d = drivenDistances(rec([[0], [8], [8], [-2]]));
+    expect(d.map((t) => t[0])).toEqual([0, 8, 16, 14]);
+  });
+
+  it('driven distance is per robot', () => {
+    const d = drivenDistances(rec([[5, 1], [2, -3], [4, 0]]));
+    expect(d[0]).toEqual([0, 0]);
+    expect(d[2]).toEqual([6, -3]);
+  });
 });

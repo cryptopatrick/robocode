@@ -1,16 +1,16 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ROBOT_COLORS } from '../draw';
 import type { Recording } from '../recording';
-import { BUILDING_HEIGHT, cameraFor, HULL_HEIGHT, terrainBoxes, tankPose } from '../scene';
+import { BUILDING_HEIGHT, cameraFor, drivenDistances, HULL_HEIGHT, terrainBoxes, tankPose } from '../scene';
+import { tankFor } from '../tanks/defs';
+import { createTank3D, type Tank3D } from '../tanks/models3d';
 
 const BACKGROUND = 0x0b1624;
 const GROUND = 0x22395a;
 const ROAD = 0x2e4260;
 const BUILDING = 0x6d86a3;
-const WRECK = 0x4a5866;
-const STEEL = 0xe9eef2;
 const BULLET = 0xffd166;
 
 interface Props {
@@ -19,8 +19,7 @@ interface Props {
 }
 
 interface Built {
-  tanks: THREE.Group[];
-  bodies: THREE.Mesh[];
+  tanks: Tank3D[];
   bullets: THREE.Group;
   bulletGeometry: THREE.SphereGeometry;
   bulletMaterial: THREE.MeshLambertMaterial;
@@ -64,30 +63,9 @@ function build(container: HTMLElement, rec: Recording): Built {
     scene.add(building);
   }
 
-  const bodies: THREE.Mesh[] = [];
   const tanks = rec.robots.map((_, i) => {
-    const tank = new THREE.Group();
-    const hull = new THREE.Mesh(new THREE.BoxGeometry(36, HULL_HEIGHT, 36), material(tankColor(i)));
-    hull.position.y = HULL_HEIGHT / 2;
-    tank.add(hull);
-    bodies.push(hull);
-
-    const turret = new THREE.Group();
-    turret.position.y = HULL_HEIGHT;
-    const turretBlock = new THREE.Mesh(new THREE.BoxGeometry(22, 6, 22), material(STEEL));
-    turretBlock.position.y = 3;
-    turret.add(turretBlock);
-    const gun = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 28), material(STEEL));
-    gun.position.set(0, 6, 14);
-    turret.add(gun);
-    tank.add(turret);
-
-    const radar = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 4, 12), material(STEEL));
-    radar.position.set(0, HULL_HEIGHT + 2, -10);
-    tank.add(radar);
-
-    tank.userData = { turret, radar };
-    scene.add(tank);
+    const tank = createTank3D(tankFor(rec, i), tankColor(i));
+    scene.add(tank.root);
     return tank;
   });
 
@@ -121,7 +99,6 @@ function build(container: HTMLElement, rec: Recording): Built {
 
   return {
     tanks,
-    bodies,
     bullets,
     bulletGeometry,
     bulletMaterial,
@@ -147,6 +124,7 @@ function build(container: HTMLElement, rec: Recording): Built {
 export default function ArenaScene3D({ recording, turn }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const built = useRef<Built | null>(null);
+  const dist = useMemo(() => drivenDistances(recording), [recording]);
   const latest = useRef({ recording, turn });
   latest.current = { recording, turn };
 
@@ -169,15 +147,13 @@ export default function ArenaScene3D({ recording, turn }: Props) {
     snap.robots.forEach((r, i) => {
       const pose = tankPose(r, width, height);
       const tank = b.tanks[i];
-      tank.position.set(pose.x, 0, pose.z);
-      tank.rotation.y = pose.hull;
-      tank.visible = true;
-      const { turret, radar } = tank.userData as { turret: THREE.Group; radar: THREE.Mesh };
-      turret.rotation.y = pose.gun;
-      radar.rotation.y = pose.radar;
-      const body = b.bodies[i];
-      (body.material as THREE.MeshLambertMaterial).color.set(pose.alive ? tankColor(i) : WRECK);
-      tank.scale.y = pose.alive ? 1 : 0.4;
+      tank.root.position.set(pose.x, 0, pose.z);
+      tank.root.rotation.y = pose.hull;
+      tank.root.visible = true;
+      tank.turret.rotation.y = pose.gun;
+      tank.radar.rotation.y = pose.radar - pose.gun;
+      tank.setDead(!pose.alive);
+      tank.setTrackDistance(dist[turn][i]);
     });
 
     b.bullets.clear();
@@ -187,7 +163,7 @@ export default function ArenaScene3D({ recording, turn }: Props) {
       b.bullets.add(mesh);
     }
     b.render();
-  }, [recording, turn]);
+  }, [recording, turn, dist]);
 
   return <div ref={container} className="aspect-[4/3] w-full overflow-hidden rounded-lg bg-[#0f1e2e]" role="img" aria-label="Battle in 3D" />;
 }
