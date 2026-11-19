@@ -213,3 +213,21 @@ describe('impact flashes', () => {
     expect(impactFlashes(rec, 6, 4)).toHaveLength(0);
   });
 });
+
+import { streakPose } from './scene';
+
+describe('3D streak', () => {
+  it('centres a streak between the two points, as long as the gap, pointing along it', () => {
+    const s = streakPose({ x: 100, y: 300 }, { x: 400, y: 300 }, 800, 600);
+    close(s.x, -150);
+    close(s.z, 0);
+    close(s.length, 300);
+    // Local +z turned by rotation y lands on world +x (east).
+    close(Math.sin(s.rotation), 1);
+    close(Math.cos(s.rotation), 0);
+  });
+  it('keeps a minimum length for a bullet that has not moved', () => {
+    const s = streakPose({ x: 10, y: 10 }, { x: 10, y: 10 }, 800, 600);
+    expect(s.length).toBeGreaterThan(0);
+  });
+});

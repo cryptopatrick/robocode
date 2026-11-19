@@ -221,3 +221,17 @@ export function impactFlashes(rec: Recording, turn: number, turns: number): Impa
   }
   return out;
 }
+
+/** Shortest 3D streak, so a bullet that has not moved still shows. */
+const MIN_STREAK = 2;
+
+/**
+ * Pose of a box streak (unit box along local z) from `from` to `to` in
+ * battlefield pixels: world centre, length, and rotation about the vertical.
+ */
+export function streakPose(from: Point, to: Point, width: number, height: number): { x: number; z: number; length: number; rotation: number } {
+  const c = worldPoint((from.x + to.x) / 2, (from.y + to.y) / 2, width, height);
+  const dx = to.x - from.x;
+  const dz = to.y - from.y;
+  return { x: c.x, z: c.z, length: Math.max(Math.hypot(dx, dz), MIN_STREAK), rotation: Math.atan2(dx, dz) };
+}

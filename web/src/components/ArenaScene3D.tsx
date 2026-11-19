@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ROBOT_COLORS } from '../draw';
 import type { Recording } from '../recording';
-import { BUILDING_HEIGHT, cameraFor, drivenDistances, sceneKey, HULL_HEIGHT, terrainBoxes, tankPose } from '../scene';
+import { BUILDING_HEIGHT, bulletSegment, cameraFor, drivenDistances, impactFlashes, sceneKey, HULL_HEIGHT, streakPose, terrainBoxes, tankPose } from '../scene';
 import { tankFor } from '../tanks/defs';
 import { createTank3D, type Tank3D } from '../tanks/models3d';
 
@@ -11,7 +11,11 @@ const BACKGROUND = 0x0b1624;
 const GROUND = 0x22395a;
 const ROAD = 0x2e4260;
 const BUILDING = 0x6d86a3;
-const BULLET = 0xffd166;
+const TRACER = 0xfff6c8;
+const FLASH = 0xfff0be;
+/** Cross-section of a tracer streak, in battlefield pixels. */
+const TRACER_THICKNESS = 1.5;
+const IMPACT_TURNS = 4;
 
 interface Props {
   recording: Recording;
@@ -21,8 +25,10 @@ interface Props {
 interface Built {
   tanks: Tank3D[];
   bullets: THREE.Group;
-  bulletGeometry: THREE.SphereGeometry;
-  bulletMaterial: THREE.MeshLambertMaterial;
+  bulletGeometry: THREE.BoxGeometry;
+  bulletMaterial: THREE.MeshBasicMaterial;
+  flashes: THREE.Group;
+  flashTexture: THREE.Texture;
   render: () => void;
   dispose: () => void;
 }
@@ -31,6 +37,28 @@ const material = (color: number) => new THREE.MeshLambertMaterial({ color });
 
 /** A robot's colour as a number, from the palette used everywhere in the viewer. */
 const tankColor = (i: number): number => parseInt(ROBOT_COLORS[i % ROBOT_COLORS.length].slice(1), 16);
+
+/** A soft round glow, white in the middle, for impact flash sprites. */
+function glowTexture(): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  if (g) {
+    const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.35, 'rgba(255,230,150,0.8)');
+    grad.addColorStop(1, 'rgba(255,200,80,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 64, 64);
+  }
+  return new THREE.CanvasTexture(c);
+}
+
+/** Removes the flash sprites and frees their per-flash materials. */
+function clearFlashes(flashes: THREE.Group) {
+  for (const o of flashes.children) if (o instanceof THREE.Sprite) o.material.dispose();
+  flashes.clear();
+}
 
 /** Builds the static scene for a recording: ground, map objects and one tank per robot. */
 function build(container: HTMLElement, rec: Recording): Built {
@@ -71,8 +99,12 @@ function build(container: HTMLElement, rec: Recording): Built {
 
   const bullets = new THREE.Group();
   scene.add(bullets);
-  const bulletGeometry = new THREE.SphereGeometry(3, 8, 8);
-  const bulletMaterial = material(BULLET);
+  // Unlit, so the streak glows whatever the lighting: a unit box scaled per bullet.
+  const bulletGeometry = new THREE.BoxGeometry(TRACER_THICKNESS, TRACER_THICKNESS, 1);
+  const bulletMaterial = new THREE.MeshBasicMaterial({ color: TRACER });
+  const flashes = new THREE.Group();
+  scene.add(flashes);
+  const flashTexture = glowTexture();
 
   const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 1, 5000);
   {
@@ -102,12 +134,16 @@ function build(container: HTMLElement, rec: Recording): Built {
     bullets,
     bulletGeometry,
     bulletMaterial,
+    flashes,
+    flashTexture,
     render,
     dispose: () => {
       window.removeEventListener('resize', onResize);
       controls.dispose();
       bulletGeometry.dispose();
       bulletMaterial.dispose();
+      clearFlashes(flashes);
+      flashTexture.dispose();
       scene.traverse((o) => {
         if (o instanceof THREE.Mesh) {
           o.geometry.dispose();
@@ -160,10 +196,35 @@ export default function ArenaScene3D({ recording, turn }: Props) {
     });
 
     b.bullets.clear();
-    for (const bullet of snap.bullets) {
+    snap.bullets.forEach((bullet, j) => {
+      if (!bullet.alive) return;
+      const { from, to } = bulletSegment(recording, turn, j);
+      const s = streakPose(from, to, width, height);
       const mesh = new THREE.Mesh(b.bulletGeometry, b.bulletMaterial);
-      mesh.position.set(bullet.position.x - width / 2, HULL_HEIGHT, bullet.position.y - height / 2);
+      mesh.position.set(s.x, HULL_HEIGHT, s.z);
+      mesh.rotation.y = s.rotation;
+      mesh.scale.z = s.length;
       b.bullets.add(mesh);
+    });
+
+    clearFlashes(b.flashes);
+    for (const f of impactFlashes(recording, turn, IMPACT_TURNS)) {
+      const fade = 1 - f.age / IMPACT_TURNS;
+      const sprite = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: b.flashTexture,
+          color: FLASH,
+          transparent: true,
+          opacity: fade,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      );
+      const size = 14 + f.power * 4 + f.age * 8;
+      sprite.scale.set(size, size, 1);
+      const p = { x: f.x - width / 2, z: f.y - height / 2 };
+      sprite.position.set(p.x, HULL_HEIGHT, p.z);
+      b.flashes.add(sprite);
     }
     b.render();
   }, [recording, turn, dist]);
