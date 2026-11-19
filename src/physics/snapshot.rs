@@ -73,6 +73,9 @@ pub struct RobotSnapshot {
     pub alive: bool,
     pub radius: f64,
     pub control: RobotControlSnapshot,
+    /// The radar beam polygon, rounded to 0.1 px. `Some` only in battles
+    /// with buildings (empty for a dead robot); `None` omits the key.
+    pub beam: Option<Vec<Point>>,
 }
 
 impl From<&RobotState> for RobotSnapshot {
@@ -95,6 +98,7 @@ impl From<&RobotState> for RobotSnapshot {
                 radar_turn_remaining: robot.control.radar_turn_remaining,
                 fire_power: robot.control.fire_power,
             },
+            beam: None,
         }
     }
 }
@@ -366,7 +370,32 @@ fn append_robot(out: &mut String, robot: &RobotSnapshot) {
     append_bool_field(out, &mut first, "alive", robot.alive);
     append_f64_field(out, &mut first, "radius", robot.radius);
     append_control_field(out, &mut first, &robot.control);
+    if let Some(beam) = &robot.beam {
+        append_beam_field(out, &mut first, beam);
+    }
     out.push('}');
+}
+
+fn append_beam_field(out: &mut String, first: &mut bool, beam: &[Point]) {
+    append_field_sep(out, first);
+    push_string(out, "beam");
+    out.push(':');
+    out.push('[');
+    for (idx, p) in beam.iter().enumerate() {
+        if idx > 0 {
+            out.push(',');
+        }
+        out.push('[');
+        push_f64(out, round_tenth(p.x));
+        out.push(',');
+        push_f64(out, round_tenth(p.y));
+        out.push(']');
+    }
+    out.push(']');
+}
+
+fn round_tenth(v: f64) -> f64 {
+    (v * 10.0).round() / 10.0
 }
 
 fn append_control_field(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { headingRotation, relativeRotation, terrainBoxes, tankPose, worldPoint } from './scene';
+import { drivenDistances, sceneKey, headingRotation, relativeRotation, terrainBoxes, tankPose, worldPoint } from './scene';
 import type { Recording, RobotSnapshot } from './recording';
 
 const close = (a: number, b: number) => expect(a).toBeCloseTo(b, 9);
@@ -66,5 +66,69 @@ describe('scene mapping', () => {
     expect(boxes.buildings[0]).toEqual([-350, -275, 100, 50]);
     expect(boxes.roads[0]).toEqual([0, 0, 100, 600]); // centred on the arena
     expect(terrainBoxes({ battlefield: { width: 1, height: 1 } } as Recording)).toEqual({ buildings: [], roads: [] });
+  });
+});
+
+import * as THREE from 'three';
+import { cameraFor } from './scene';
+
+describe('cameraFor', () => {
+  const sizes: [number, number][] = [[800, 600], [1200, 600], [1067, 600], [600, 600]];
+  for (const aspect of [16 / 9, 1, 9 / 16]) {
+    it(`keeps all four walls in view at aspect ${aspect.toFixed(2)}`, () => {
+      for (const [w, h] of sizes) {
+        const c = cameraFor(w, h, aspect);
+        const cam = new THREE.PerspectiveCamera(c.fov, aspect, 1, 5000);
+        cam.position.set(...c.position);
+        cam.lookAt(...c.target);
+        cam.updateMatrixWorld();
+        cam.updateProjectionMatrix();
+        for (const [x, y] of [[0, 0], [w, 0], [w, h], [0, h]]) {
+          const p = worldPoint(x, y, w, h);
+          const ndc = new THREE.Vector3(p.x, 0, p.z).project(cam);
+          expect(Math.abs(ndc.x), `${w}x${h} x`).toBeLessThanOrEqual(1);
+          expect(Math.abs(ndc.y), `${w}x${h} y`).toBeLessThanOrEqual(1);
+        }
+      }
+    });
+  }
+});
+
+describe('drivenDistances', () => {
+  const rob = (velocity: number) => ({ velocity }) as RobotSnapshot;
+  const rec = (rows: number[][]) => ({ turns: rows.map((r) => ({ robots: r.map(rob) })) }) as unknown as Recording;
+
+  it('driven distance sums velocity', () => {
+    const d = drivenDistances(rec([[0], [8], [8], [-2]]));
+    expect(d.map((t) => t[0])).toEqual([0, 8, 16, 14]);
+  });
+
+  it('driven distance is per robot', () => {
+    const d = drivenDistances(rec([[5, 1], [2, -3], [4, 0]]));
+    expect(d[0]).toEqual([0, 0]);
+    expect(d[2]).toEqual([6, -3]);
+  });
+});
+
+describe('sceneKey', () => {
+  const base = {
+    robots: ['a', 'b'],
+    battlefield: { width: 800, height: 600 },
+    terrain: { buildings: [[0, 0, 10, 10]], roads: [] },
+    tanks: ['abrams', 'k2'],
+    turns: [{ robots: [] }],
+  } as unknown as Recording;
+
+  it('stays the same when frames are appended', () => {
+    const more = { ...base, turns: [...base.turns, { robots: [] }] } as unknown as Recording;
+    expect(sceneKey(more)).toBe(sceneKey(base));
+  });
+
+  it('changes with tanks, robots, size and terrain', () => {
+    const k = sceneKey(base);
+    expect(sceneKey({ ...base, tanks: ['k2', 'k2'] } as unknown as Recording)).not.toBe(k);
+    expect(sceneKey({ ...base, robots: ['a'] } as unknown as Recording)).not.toBe(k);
+    expect(sceneKey({ ...base, battlefield: { width: 900, height: 600 } } as unknown as Recording)).not.toBe(k);
+    expect(sceneKey({ ...base, terrain: undefined } as unknown as Recording)).not.toBe(k);
   });
 });

@@ -46,6 +46,14 @@ The engine advances a battle **one turn at a time**. On every turn, each robot d
 - **Browser:** a Web Worker steps the wasm engine (`LiveBattle`, `LivePacer`) every 4 ms and posts the frames. The page buffers them and, once per animation frame, appends them to the recording and draws. The simulation never waits for rendering. At "Max" it runs hundreds of turns per second while the page still redraws at the display's rate.
 - **CLI:** `cargo robocode battle bot.rs --live [--tps N|max]` runs your robot natively in its own process. That process prints one JSON line per turn and reads `pause`, `resume`, `step` and `tps N` commands on stdin. The tool's server keeps every line streamed, so a late viewer gets the whole battle; streams them as Server-Sent Events on `/live`; and accepts commands on `POST /control`. `/battle.json` answers 409 until the battle ends, then serves the finished recording.
 
+## Radar and buildings
+
+A scan finds a robot if the robot's body overlaps the swept arc and within range, and, on a map with buildings, the **centre line** between the two robot centres is clear: `line_of_sight(from, to, buildings)` (`src/geometry.rs`) is true only if no building touches that segment. The rule looks at centres, not bodies, so a robot partly behind a corner can be scanned while one whose centre is hidden is not. Open arenas have no buildings, so scans there are unchanged.
+
+`physics::radar::radar_beam` computes the polygon the radar swept this turn and could see, from the same geometry: the swept sector widened by a robot's radius (a robot is scanned if any part of it overlaps the sweep), clipped to the field, and cut off at the first building on each ray. The engine records it (recording v2, urban battles only) and the viewer draws it as recorded; the viewer does not recompute it. A property test checks that every scanned robot's centre lies inside the beam.
+
+Consequence for robots: a scan result describes the last time the robot was seen with a clear line. A target that moves behind a building drops out of the scan, and the robot's `Observation` target gets older (`age` grows). A robot that fires only on a fresh target (`age == 0`), as SafeShooter does, may never see its opponent on an urban map and so never fire.
+
 ## Time budgets (optional)
 
 `Battle::set_time_budget(Some(d))` gives each robot at most `d` per turn, covering its handlers plus `run`, like Java's CPU constant. A turn that takes *k* whole budgets makes the robot skip its next *k* turns: no events, no `run`, while its pending commands keep executing. That mirrors a Java robot whose thread is still busy. The robot then gets `on_skipped_turn`, and after 30 skipped turns in a row it's disabled. Budgets are **off by default**, which keeps tests, proofs and pinned battles deterministic. They have no effect in the browser build, which has no clock.

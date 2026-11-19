@@ -8,6 +8,7 @@ fn spec(robots: &[&str]) -> BattleSpec {
         height: 600.0,
         max_turns: 5000,
         urban: false,
+        tanks: vec![],
     }
 }
 
@@ -20,7 +21,7 @@ fn record(robots: &[&str]) -> Value {
 fn records_safe_shooter_vs_spinner() {
     let r = record(&["SafeShooter", "Spinner"]);
     assert_eq!(r["format"], "roboverus-recording");
-    assert_eq!(r["version"], 1);
+    assert_eq!(r["version"], 2);
     assert_eq!(r["robots"][1]["name"], "Spinner");
     assert_eq!(r["battlefield"]["width"], 800.0);
     let turns = r["turns"].as_array().unwrap();
@@ -113,7 +114,10 @@ fn fnv1a(s: &str) -> u64 {
 #[test]
 fn recording_fingerprint_is_unchanged() {
     let json = record_battle(&spec(&["SafeShooter", "Spinner"])).unwrap();
-    assert_eq!((json.len(), fnv1a(&json)), (716_414, 0xa87d_8e29_504d_8bfd));
+    // Open arena: identical to 0.5.0 apart from `"version"`, so hash it as v1
+    // and the fingerprint stays the 0.5.0 one.
+    let as_v1 = json.replacen(r#""version":2"#, r#""version":1"#, 1);
+    assert_eq!((as_v1.len(), fnv1a(&as_v1)), (716_414, 0xa87d_8e29_504d_8bfd));
 }
 
 #[test]
@@ -123,9 +127,15 @@ fn live_battle_streams_the_same_battle() {
         &record_battle(&spec(&["SafeShooter", "Spinner"])).unwrap(),
     )
     .unwrap();
-    let mut live =
-        LiveBattle::create("SafeShooter,Spinner", 800.0, 600.0, 5000, false)
-            .unwrap();
+    let mut live = LiveBattle::create(
+        "SafeShooter,Spinner",
+        800.0,
+        600.0,
+        5000,
+        false,
+        "",
+    )
+    .unwrap();
     let header: Value = serde_json::from_str(&live.header()).unwrap();
     assert_eq!(header["robots"], expected["robots"]);
     let mut turns = vec![
@@ -173,8 +183,10 @@ fn an_urban_recording_carries_its_terrain_and_an_empty_one_does_not() {
 
 #[test]
 fn bullets_are_absorbed_in_an_urban_battle() {
-    let urban =
-        BattleSpec { urban: true, ..spec(&["Spinner", "SafeShooter"]) };
+    // Buildings block the radar, so a robot that fires only at scanned targets
+    // (SafeShooter) never shoots here. Circler fires on its own and one of its
+    // bullets meets a building.
+    let urban = BattleSpec { urban: true, ..spec(&["Circler", "Spinner"]) };
     let json: Value =
         serde_json::from_str(&record_battle(&urban).unwrap()).unwrap();
     let absorbed: usize = json["turns"]
@@ -186,4 +198,37 @@ fn bullets_are_absorbed_in_an_urban_battle() {
         })
         .sum();
     assert!(absorbed > 0, "no bullet met a building in the whole battle");
+}
+
+#[test]
+fn ratio_size_matches_the_engine() {
+    for r in robocode::Ratio::ALL {
+        let (w, h) = r.size();
+        assert_eq!(robocode_wasm::ratio_size(r.name()), Ok(vec![w, h]));
+    }
+    assert!(robocode_wasm::ratio_size("3:2").is_err());
+}
+
+#[test]
+fn run_battle_passes_tanks() {
+    let json = robocode_wasm::run_battle_native(
+        "SafeShooter,Spinner",
+        800.0,
+        600.0,
+        10,
+        false,
+        "merkava,k2",
+    )
+    .unwrap();
+    assert!(json.contains(r#""tanks":["merkava","k2"]"#));
+    let none = robocode_wasm::run_battle_native(
+        "SafeShooter,Spinner",
+        800.0,
+        600.0,
+        10,
+        false,
+        "",
+    )
+    .unwrap();
+    assert!(!none.contains("\"tanks\""));
 }

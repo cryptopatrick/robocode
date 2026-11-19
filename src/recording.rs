@@ -1,13 +1,15 @@
-//! Battle recordings: format `roboverus-recording`, version 1.
+//! Battle recordings: format `roboverus-recording`, version 2.
 //!
 //! A recording holds every turn's snapshot plus what each fixed-point
 //! strategy robot observed and decided. The battle viewer plays them back.
-//! See `docs/viewer.md` for the format.
+//! Version 2 adds each robot's radar `beam` polygon, only in battles with
+//! buildings. See `docs/viewer.md` for the format.
 
 use std::fmt::Write as _;
 
 use crate::physics::TurnEvents;
 use crate::runner::Battle;
+use crate::strategy::maneuver::Intent;
 use crate::strategy::{Action, Observation};
 
 /// Checks a battle setup, with the messages the viewer shows.
@@ -34,7 +36,10 @@ fn opt<T: std::fmt::Display>(v: Option<T>) -> String {
     v.map_or_else(|| "null".to_string(), |v| v.to_string())
 }
 
-fn decision_json((obs, action): &(Observation, Action)) -> String {
+fn decision_json(
+    (obs, action): &(Observation, Action),
+    intent: Option<Intent>,
+) -> String {
     let target = obs.target.map_or_else(
         || "null".to_string(),
         |t| {
@@ -44,8 +49,15 @@ fn decision_json((obs, action): &(Observation, Action)) -> String {
             )
         },
     );
+    let intent = intent.map_or_else(String::new, |i| {
+        format!(
+            r#","intent":{{"maneuver":"{}","risk":"{}"}}"#,
+            i.maneuver.name(),
+            i.risk.name()
+        )
+    });
     format!(
-        r#"{{"energy":{},"gun_heat":{},"gun_heading":{},"target":{},"fire":{},"ahead":{},"turn_body":{},"turn_gun":{},"turn_radar":{}}}"#,
+        r#"{{"energy":{},"gun_heat":{},"gun_heading":{},"target":{},"fire":{},"ahead":{},"turn_body":{},"turn_gun":{},"turn_radar":{}{}}}"#,
         obs.energy.0,
         obs.gun_heat.0,
         obs.gun_heading.0,
@@ -55,6 +67,7 @@ fn decision_json((obs, action): &(Observation, Action)) -> String {
         opt(action.turn_body),
         opt(action.turn_gun),
         opt(action.turn_radar),
+        intent,
     )
 }
 
@@ -116,6 +129,16 @@ fn robots_and_field(battle: &Battle) -> String {
         r#"],"battlefield":{{"width":{},"height":{}}}"#,
         field.width, field.height
     );
+    if !battle.tanks().is_empty() {
+        let tanks: Vec<String> = battle
+            .tanks()
+            .iter()
+            .map(|t| {
+                format!("\"{}\"", t.replace('\\', "\\\\").replace('"', "\\\""))
+            })
+            .collect();
+        let _ = write!(out, r#","tanks":[{}]"#, tanks.join(","));
+    }
     let terrain = &battle.state().terrain;
     if !terrain.buildings.is_empty() || !terrain.roads.is_empty() {
         let rects = |rects: &[crate::geometry::Rect]| {
@@ -146,7 +169,7 @@ fn robots_and_field(battle: &Battle) -> String {
 /// The recording's header as a standalone JSON object (first line of a live stream).
 pub fn header_json(battle: &Battle) -> String {
     format!(
-        r#"{{"format":"roboverus-recording","version":1,{}}}"#,
+        r#"{{"format":"roboverus-recording","version":2,{}}}"#,
         robots_and_field(battle)
     )
 }
@@ -168,10 +191,10 @@ pub fn frame(battle: &Battle, events: &TurnEvents) -> Frame {
     let n = battle.state().robots.len();
     let row: Vec<String> = (0..n)
         .map(|i| {
-            battle
-                .last_decision(i)
-                .as_ref()
-                .map_or_else(|| "null".into(), decision_json)
+            battle.last_decision(i).as_ref().map_or_else(
+                || "null".into(),
+                |d| decision_json(d, battle.last_intent(i)),
+            )
         })
         .collect();
     Frame {
@@ -180,7 +203,7 @@ pub fn frame(battle: &Battle, events: &TurnEvents) -> Frame {
     }
 }
 
-/// Builds a v1 recording one frame at a time (as a live battle produces them).
+/// Builds a v2 recording one frame at a time (as a live battle produces them).
 pub struct RecordingBuilder {
     head: String,
     turns: Vec<String>,
@@ -220,7 +243,7 @@ impl RecordingBuilder {
         let energies: Vec<String> =
             outcome.energies.iter().map(|e| e.to_string()).collect();
         let json = format!(
-            r#"{{"format":"roboverus-recording","version":1,{},"turns":[{}],"decisions":[{}],"outcome":{{"winner":{},"turns":{},"energies":[{}]}}}}"#,
+            r#"{{"format":"roboverus-recording","version":2,{},"turns":[{}],"decisions":[{}],"outcome":{{"winner":{},"turns":{},"energies":[{}]}}}}"#,
             self.head,
             self.turns.join(","),
             self.decisions.join(","),

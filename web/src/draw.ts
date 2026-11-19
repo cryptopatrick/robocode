@@ -1,8 +1,10 @@
 // Draws one turn of a recording onto a canvas. The look is RoboVerus's own:
 // an ink-blue plotting table with instrument-style robots.
 import { scanArc } from './geometry';
-import type { Recording, RobotSnapshot } from './recording';
+import type { Decision, Recording, RobotSnapshot } from './recording';
 import type { Sprites } from './sprites';
+import { TANKS, tankFor, type TankId } from './tanks/defs';
+import type { TankImages } from './tanks/images';
 
 export interface ViewOptions {
   names: boolean;
@@ -42,6 +44,13 @@ export function labelY(y: number, height: number): number {
   return below > height - 4 ? y - BODY / 2 - 6 : below;
 }
 
+const LINE = 12;
+
+/** "ATTACK · normal", or '' when the robot reports no intent. */
+export function intentLabel(d: Decision | null | undefined): string {
+  return d?.intent ? `${d.intent.maneuver.toUpperCase()} · ${d.intent.risk}` : '';
+}
+
 function labelFor(r: RobotSnapshot, name: string, view: ViewOptions): string {
   if (view.names && view.energy) return robotLabel(r, name);
   if (view.names) return name;
@@ -66,7 +75,73 @@ function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.stroke();
 }
 
-function drawRobot(ctx: CanvasRenderingContext2D, r: RobotSnapshot, color: string, sprites: Sprites) {
+/** Radius of the team-colour dot on a tank's turret ring. */
+const TEAM_DOT = 3;
+const MUZZLE_W = 4;
+const MUZZLE_H = 3;
+
+/** One of the five tanks: hull, turret, radar dish, then the team-colour muzzle cap. */
+function drawTank(ctx: CanvasRenderingContext2D, r: RobotSnapshot, color: string, id: TankId, imgs: TankImages[TankId] & object) {
+  const def = TANKS[id];
+  const s = def.scale;
+  ctx.save();
+  ctx.translate(r.position.x, r.position.y);
+  if (!r.alive) {
+    ctx.filter = 'grayscale(1)';
+    ctx.globalAlpha = 0.55;
+  }
+
+  // Hull: centred on the robot, rotated by heading.
+  ctx.save();
+  ctx.rotate(rad(r.heading));
+  ctx.drawImage(imgs.hull, (-def.art.hull.w * s) / 2, (-def.art.hull.h * s) / 2, def.art.hull.w * s, def.art.hull.h * s);
+  ctx.restore();
+
+  // Turret: pivots about the turret ring centre (pivotX off the hull axis, pivotY ahead), then turns with the gun.
+  const ringX = (def.art.hull.pivotX - def.art.hull.w / 2) * s;
+  const toRing = () => {
+    ctx.rotate(rad(r.heading));
+    ctx.translate(ringX, -def.pivotY);
+  };
+  ctx.save();
+  toRing();
+  ctx.rotate(rad(r.gun_heading - r.heading));
+  const t = def.art.turret;
+  ctx.drawImage(imgs.turret, -t.pivotX * s, -t.pivotY * s, t.w * s, t.h * s);
+  ctx.restore();
+
+  // Team marker: a small dot in the team colour on the turret ring.
+  ctx.save();
+  toRing();
+  ctx.fillStyle = r.alive ? color : WRECK;
+  ctx.beginPath();
+  ctx.arc(0, 0, TEAM_DOT, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Muzzle cap, also in the team colour (as is the team dot above).
+  if (r.alive) {
+    ctx.save();
+    toRing();
+    ctx.rotate(rad(r.gun_heading - r.heading));
+    ctx.translate(0, -(def.barrelReach - def.pivotY));
+    ctx.fillStyle = color;
+    ctx.fillRect(-MUZZLE_W / 2, 0, MUZZLE_W, MUZZLE_H);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawRobot(
+  ctx: CanvasRenderingContext2D,
+  r: RobotSnapshot,
+  color: string,
+  sprites: Sprites,
+  tank: TankId,
+  tanks: TankImages,
+) {
+  const imgs = tanks[tank];
+  if (imgs && !sprites.body) return drawTank(ctx, r, color, tank, imgs);
   const tint = r.alive ? color : WRECK;
   ctx.save();
   ctx.translate(r.position.x, r.position.y);
@@ -159,6 +234,7 @@ export function drawArena(
   turn: number,
   view: ViewOptions,
   sprites: Sprites = {},
+  tanks: TankImages = {},
 ): void {
   const { width: w, height: h } = rec.battlefield;
   const snap = rec.turns[turn];
@@ -169,8 +245,20 @@ export function drawArena(
   if (view.scanArcs) {
     snap.robots.forEach((r, i) => {
       if (!r.alive || turn === 0) return;
-      const { start, sweep } = scanArc(prev.robots[i].radar_heading, r.radar_heading);
       const color = ROBOT_COLORS[i % ROBOT_COLORS.length];
+      if (r.beam) {
+        // Recorded beam (v2): absolute arena coordinates, drawn as is.
+        if (r.beam.length < 3) return;
+        ctx.save();
+        ctx.fillStyle = `${color}12`;
+        ctx.beginPath();
+        r.beam.forEach(([bx, by], k) => (k === 0 ? ctx.moveTo(bx, by) : ctx.lineTo(bx, by)));
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
+      const { start, sweep } = scanArc(prev.robots[i].radar_heading, r.radar_heading);
       ctx.save();
       ctx.translate(r.position.x, r.position.y);
       if (Math.abs(sweep) < rad(0.5)) {
@@ -218,7 +306,7 @@ export function drawArena(
 
   // Dead robots first so living ones draw on top.
   const order = snap.robots.map((r, i) => [r, i] as const).sort(([a], [b]) => Number(a.alive) - Number(b.alive));
-  for (const [r, i] of order) drawRobot(ctx, r, ROBOT_COLORS[i % ROBOT_COLORS.length], sprites);
+  for (const [r, i] of order) drawRobot(ctx, r, ROBOT_COLORS[i % ROBOT_COLORS.length], sprites, tankFor(rec, i), tanks);
 
   ctx.fillStyle = STEEL;
   for (const b of snap.bullets) {
@@ -234,7 +322,19 @@ export function drawArena(
     ctx.fillStyle = LABEL;
     snap.robots.forEach((r, i) => {
       const text = labelFor(r, rec.robots[i]?.name ?? `Robot ${i}`, view);
-      if (text) ctx.fillText(text, labelX(r.position.x, w, ctx.measureText(text).width), labelY(r.position.y, h));
+      const intent = r.alive ? intentLabel(rec.decisions?.[turn]?.[i]) : '';
+      // With an intent line, leave room for it: it goes under the name, or
+      // the pair moves above the robot near the bottom edge.
+      const base = labelY(r.position.y, h - (intent ? LINE : 0));
+      const above = base < r.position.y;
+      if (text) {
+        ctx.fillText(text, labelX(r.position.x, w, ctx.measureText(text).width), above && intent ? base - LINE : base);
+      }
+      if (intent) {
+        ctx.font = '10px ui-monospace, monospace';
+        ctx.fillText(intent, labelX(r.position.x, w, ctx.measureText(intent).width), text && !above ? base + LINE : base);
+        ctx.font = '11px system-ui, sans-serif';
+      }
     });
   }
 }

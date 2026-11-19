@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { drawArena, type ViewOptions } from '../draw';
 import type { Recording } from '../recording';
 import type { Sprites } from '../sprites';
+import { loadTankImages, type TankImages } from '../tanks/images';
 
 interface Props {
   recording: Recording;
@@ -12,10 +13,18 @@ interface Props {
 
 export default function ArenaCanvas({ recording, turn, view, sprites }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const [tanks, setTanks] = useState<TankImages>({});
+  useEffect(() => {
+    let live = true;
+    loadTankImages().then((t) => live && setTanks(t));
+    return () => {
+      live = false;
+    };
+  }, []);
   useEffect(() => {
     const ctx = ref.current?.getContext('2d');
-    if (ctx) drawArena(ctx, recording, turn, view, sprites);
-  }, [recording, turn, view, sprites]);
+    if (ctx) drawArena(ctx, recording, turn, view, sprites, tanks);
+  }, [recording, turn, view, sprites, tanks]);
   return (
     <canvas
       ref={ref}

@@ -1,11 +1,23 @@
 import { ROBOT_COLORS } from '../draw';
-import type { RobotSnapshot } from '../recording';
+import type { Decision, RobotSnapshot } from '../recording';
 
 interface Props {
   names: string[];
   robots: RobotSnapshot[];
   selected: number;
   onSelect: (i: number) => void;
+  /** The recording's decisions, one row per turn; with `turn`, shows the maneuver's length. */
+  decisions?: (Decision | null)[][];
+  turn?: number;
+}
+
+/** "Attack · 14 turns": the selected robot's maneuver and how long it has run. */
+export function maneuverRun(decisions: (Decision | null)[][], turn: number, i: number): string {
+  const name = decisions[turn]?.[i]?.intent?.maneuver;
+  if (!name) return '';
+  let n = 1;
+  while (n <= turn && decisions[turn - n]?.[i]?.intent?.maneuver === name) n++;
+  return `${name[0].toUpperCase()}${name.slice(1)} · ${n} ${n === 1 ? 'turn' : 'turns'}`;
 }
 
 // Tailwind needs literal class names, so the swatch colours are listed here.
@@ -17,8 +29,9 @@ function status(r: RobotSnapshot): string {
   return r.energy.toFixed(1);
 }
 
-export default function RobotPanel({ names, robots, selected, onSelect }: Props) {
+export default function RobotPanel({ names, robots, selected, onSelect, decisions, turn }: Props) {
   const r = robots[selected];
+  const run = decisions && turn !== undefined ? maneuverRun(decisions, turn, selected) : '';
   return (
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-1">
@@ -47,6 +60,12 @@ export default function RobotPanel({ names, robots, selected, onSelect }: Props)
       </ul>
       {r && (
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 px-2 text-sm tabular-nums text-slate-600">
+          {run && (
+            <>
+              <dt>Maneuver</dt>
+              <dd className="text-slate-900">{run}</dd>
+            </>
+          )}
           <dt>Energy</dt>
           <dd className="text-slate-900">{r.energy.toFixed(2)}</dd>
           <dt>Gun heat</dt>
