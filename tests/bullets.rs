@@ -53,3 +53,65 @@ fn realistic_bullet_moves_300_per_turn() {
     assert!((bullet.position.y - 300.0).abs() < 1e-9, "{:?}", bullet.position);
     assert_eq!(bullet.speed, 300.0);
 }
+
+// ---- Earliest contact along the bullet's path ----
+
+fn duel(victim_x: f64, buildings: Vec<robocode::Rect>) -> BattleState {
+    let mut victim = RobotState::new(1, Point::new(victim_x, 300.0));
+    victim.gun_heat = 3.0; // the victim does not shoot back
+    let mut battle = BattleState::new(
+        BattleConfig::default(),
+        vec![shooter(100.0, 300.0, 90.0), victim],
+    );
+    battle.terrain = robocode::terrain::Terrain { buildings, roads: vec![] };
+    battle.robots[0].control.fire_power = Some(1.0);
+    battle
+}
+
+#[test]
+fn fast_bullet_hits_robot_it_would_jump() {
+    // The bullet steps 100 -> 400 in one turn; the robot sits midway at 250,
+    // 150 px from where the bullet lands.
+    let mut battle = duel(250.0, vec![]);
+    let events = battle.step();
+    assert_eq!(events.bullet_hits.len(), 1, "{events:?}");
+    assert_eq!(events.bullet_hits[0].victim, 1);
+    assert!(battle.bullets.is_empty());
+}
+
+#[test]
+fn robot_before_building_is_hit() {
+    let wall = robocode::Rect::new(330.0, 270.0, 60.0, 60.0);
+    let mut battle = duel(250.0, vec![wall]);
+    let events = battle.step();
+    assert_eq!(events.bullet_hits.len(), 1, "{events:?}");
+    assert!(events.bullet_hit_obstacles.is_empty(), "{events:?}");
+}
+
+#[test]
+fn building_before_robot_absorbs() {
+    let wall = robocode::Rect::new(160.0, 270.0, 40.0, 60.0);
+    let mut battle = duel(300.0, vec![wall]);
+    let events = battle.step();
+    assert_eq!(events.bullet_hit_obstacles.len(), 1, "{events:?}");
+    assert!(events.bullet_hits.is_empty(), "{events:?}");
+    assert!(battle.robots[1].energy == 100.0);
+}
+
+#[test]
+fn arcade_outcomes_unchanged() {
+    use robocode::{recording, roster, runner::Battle};
+    let robots = vec![
+        roster::built_in("SafeShooter").unwrap(),
+        roster::built_in("Circler").unwrap(),
+    ];
+    // Pinned to arcade: the 0.5.0 fixture is a classic-speed battle.
+    let config = BattleConfig {
+        bullet_mode: BulletMode::Arcade,
+        ..BattleConfig::default()
+    };
+    let battle = Battle::new(config, &roster::spawns(2, 800.0, 600.0), robots);
+    let json = recording::record(battle, 50);
+    let fixture = include_str!("fixtures/open_arena_0_5_0.json");
+    assert_eq!(json.replacen(r#""version":2"#, r#""version":1"#, 1), fixture);
+}
