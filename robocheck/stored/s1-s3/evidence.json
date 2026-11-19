@@ -1,14 +1,14 @@
 {
   "format": "robocheck-evidence",
   "version": 2,
-  "run_id": "c750af1e36aa-1795095119",
-  "created_at": "2026-11-19T13:31:59Z",
+  "run_id": "c750af1e36aa-1795106401",
+  "created_at": "2026-11-19T16:40:01Z",
   "candidate": {
     "path": "candidate.rs",
-    "sha256": "92ee09ffe8d54ea051c31ee9b2b9cb45da0c515069b9a9cfde9398326bc70de7"
+    "sha256": "1a78d4c7fc35dca196bbe2fcb6293f357ee8322b0031492a1d3acc4cc84f7925"
   },
-  "artifact_hash": "20b02920adfe7ef55d808f7475573c67777c4e05de9084dc0bde29b03d074601",
-  "spec_hash": "a3ad106ef5899b81643360b0ba599d616d056105a9a0d0c7691eac8b7f093f93",
+  "artifact_hash": "c882067788fd2ccb230e11277eb203ca62e64495a6ebe65117dc4a29850f5d82",
+  "spec_hash": "f7d1866084335790421620649042c0df452c716244a58c9e335274f5f5b70a40",
   "validation": {
     "ok": true,
     "problems": []
@@ -43,12 +43,12 @@
       "arena": "open",
       "status": "ok",
       "opponent": "Circler",
-      "turns": 125,
-      "winner": "Circler",
-      "artifact_hash": "20b02920adfe7ef55d808f7475573c67777c4e05de9084dc0bde29b03d074601",
+      "turns": 113,
+      "winner": "Candidate",
+      "artifact_hash": "c882067788fd2ccb230e11277eb203ca62e64495a6ebe65117dc4a29850f5d82",
       "same_artifact": true,
       "recording_file": "recording-open.json",
-      "recording_sha256": "0382987ddf27f2774c126da0ead2bbd12fd45916f2eb319ad5913c2c4dbd8440",
+      "recording_sha256": "05d32b6782040b1cc0cda086de666fbd7688bf28372ee61ba20e73d5b7e58ba2",
       "decisions_file": "decisions-open.jsonl",
       "error": null
     },
@@ -58,10 +58,10 @@
       "opponent": "Circler",
       "turns": 738,
       "winner": "Candidate",
-      "artifact_hash": "20b02920adfe7ef55d808f7475573c67777c4e05de9084dc0bde29b03d074601",
+      "artifact_hash": "c882067788fd2ccb230e11277eb203ca62e64495a6ebe65117dc4a29850f5d82",
       "same_artifact": true,
       "recording_file": "recording-urban.json",
-      "recording_sha256": "bdfe8a2176e47d27f39ab90a00ab53000ed441836be7baad1978f57e91e55ec0",
+      "recording_sha256": "468a552129fdb18c0a188c4dccb7854eb6fad61406dd8848296af9017c9f4eb5",
       "decisions_file": "decisions-urban.jsonl",
       "error": null
     }

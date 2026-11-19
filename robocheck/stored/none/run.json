@@ -1,13 +1,13 @@
 {
   "format": "robocheck-run",
   "version": 1,
-  "run_id": "4f53cda18c2b-1795095204",
-  "created_at": "2026-11-19T13:33:24Z",
+  "run_id": "4f53cda18c2b-1795106497",
+  "created_at": "2026-11-19T16:41:37Z",
   "source": "stored",
   "model": "claude-sonnet-5-5",
   "robocode": "0.7.0",
   "robocheck_arena": "0.1.0",
-  "cost_usd": 0.01191,
+  "cost_usd": 0.012274,
   "outcome": "no_rules_in_force",
   "outcome_note": null,
   "rules": [],
@@ -42,8 +42,8 @@
     "candidate": "// Written by claude-sonnet-5-5 for RoboCheck.\n// @@helpers\n\n// @@body\n    Action { fire: None, ahead: None, turn_body: None, turn_gun: None, turn_radar: None }\n"
   },
   "explanation": {
-    "headline": "Proved: nothing to check, no rules were given",
-    "summary": "No rules were supplied, so Verus had no verdicts to report and nothing was rejected. The robot's code does nothing each turn: no firing, driving or turning. Neither battle, in the open arena or the city map, recorded any rule violations."
+    "headline": "Nothing to check: no rules were given, and the robot does nothing",
+    "summary": "Verus was given no rules and returned no verdicts, so nothing was proved or rejected. The robot's code returns an Action with every field set to None on every turn, so it never fires, moves or turns. Neither the open arena nor the city map recorded any rule violations."
   },
   "battles": {
     "open": {

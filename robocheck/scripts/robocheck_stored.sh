@@ -20,7 +20,10 @@ cd "$root"
 cargo build -q -p robocheck
 bin="$root/target/debug/robocheck"
 stage="$(mktemp -d)"
-trap 'rm -rf "$stage"' EXIT
+log="$root/target/robocheck_stored.log"
+: > "$log"
+# Keep the staging folder if anything fails, so the runs (and what they cost) aren't lost.
+trap 'rc=$?; if [ $rc -eq 0 ]; then rm -rf "$stage"; else echo "failed; runs kept in $stage, log in $log" >&2; fi' EXIT
 
 for combo in "${combos[@]}"; do
   ids="$(echo "$combo" | tr 'a-z-' 'A-Z ')"
@@ -31,8 +34,8 @@ starters = json.load(open(sys.argv[1]))["rules"]
 keep = sys.argv[3:]
 json.dump({"rules": [{"id": r["id"], "text": r["text"]} for r in starters if r["id"] in keep]}, open(sys.argv[2], "w"))
 PY
-  echo "== $combo"
-  "$bin" rules "$stage/$combo.rules.json" --stored --out "$stage/raw/$combo"
+  echo "== $combo" | tee -a "$log"
+  "$bin" rules "$stage/$combo.rules.json" --stored --out "$stage/raw/$combo" 2>&1 | tee -a "$log"
   mkdir -p "$stage/out/$combo"
   for f in run.json evidence.json candidate.rs strategy.rs build.log; do
     [ -e "$stage/raw/$combo/$f" ] && cp "$stage/raw/$combo/$f" "$stage/out/$combo/"
@@ -47,8 +50,9 @@ python3 - "$stage/out" <<'PY'
 import json, sys, os, datetime
 out = sys.argv[1]
 first = json.load(open(os.path.join(out, "s1-s2-s3", "run.json")))
-ev = json.load(open(os.path.join(out, "s1-s2-s3", "evidence.json")))
 combos = ["s1-s2-s3", "s1-s2", "s1-s3", "s2-s3", "s1", "s2", "s3", "none"]
+# A run that stopped before building (formalise or generate failed) has no evidence.json.
+ev = next(json.load(open(p)) for p in (os.path.join(out, c, "evidence.json") for c in combos) if os.path.exists(p))
 manifest = {
     "created_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "model": first["model"],

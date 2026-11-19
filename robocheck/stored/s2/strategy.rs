@@ -37,7 +37,25 @@ use robocode::units::{MAX_POWER, MIN_POWER, spec_angle_diff};
         r.fire matches Some(p) ==> ((obs.target matches Some(t) && t.age == 0) && aimed(*obs)), // S2
 ))]
 pub fn decide(obs: &Observation, around: &Surroundings) -> Action {
-    Action { fire: None, ahead: None, turn_body: None, turn_gun: None, turn_radar: None }
+let mut fire = None;
+    let mut turn_gun = None;
+    let mut turn_radar = Some(MAX_RADAR_TURN);
+    let mut ahead = Some(100);
+    match obs.target {
+        Some(t) => {
+            let d = angle_diff(t.bearing, obs.gun_heading);
+            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });
+            if t.age == 0 {
+                let r = 2 * angle_diff(t.bearing, obs.radar_heading);
+                turn_radar = Some(if r > MAX_RADAR_TURN { MAX_RADAR_TURN } else if r < -MAX_RADAR_TURN { -MAX_RADAR_TURN } else { r });
+                if obs.gun_heat.0 == 0 && -AIM_TOLERANCE <= d && d <= AIM_TOLERANCE {
+                    fire = Some(Power(3000));
+                }
+            }
+        }
+        None => {}
+    }
+    Action { fire, ahead, turn_body: None, turn_gun, turn_radar }
 }
 
 // ---- candidate helpers below (untrusted) ----

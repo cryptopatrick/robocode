@@ -1,13 +1,13 @@
 {
   "format": "robocheck-run",
   "version": 1,
-  "run_id": "12c07fc9c96a-1795095184",
-  "created_at": "2026-11-19T13:33:04Z",
+  "run_id": "12c07fc9c96a-1795106476",
+  "created_at": "2026-11-19T16:41:16Z",
   "source": "stored",
   "model": "claude-sonnet-5-5",
   "robocode": "0.7.0",
   "robocheck_arena": "0.1.0",
-  "cost_usd": 0.035112,
+  "cost_usd": 0.036136,
   "outcome": "proved",
   "outcome_note": null,
   "rules": [
@@ -15,7 +15,7 @@
       "id": "S3",
       "text": "Never drive toward a wall or building closer than 80 px.",
       "status": "proved",
-      "read_back": "Whenever the tank drives forward it may only do so if at least 80 pixels of free space lie straight ahead, and whenever it drives backward it may only do so if at least 80 pixels of free space lie straight behind; if it does not drive at all, neither condition is required.",
+      "read_back": "Whenever the robot drives forward it needs at least 80 pixels of free space ahead before a wall or building, and whenever it drives backward it needs at least 80 pixels free behind, while if it does not drive at all neither requirement applies.",
       "clauses": [
         "r.ahead matches Some(a) ==> (a > 0 ==> ((around.clearance_ahead as int) >= 80))",
         "r.ahead matches Some(a) ==> (a < 0 ==> ((around.clearance_behind as int) >= 80))"
@@ -62,8 +62,8 @@
     "candidate": "// Written by claude-sonnet-5-5 for RoboCheck.\n// @@helpers\n\n// @@body\n    let mut turn_gun = None;\n    let mut turn_body = None;\n    match obs.target {\n        Some(t) => {\n            let d = angle_diff(t.bearing, obs.gun_heading);\n            turn_gun = Some(if d > MAX_GUN_TURN { MAX_GUN_TURN } else if d < -MAX_GUN_TURN { -MAX_GUN_TURN } else { d });\n            turn_body = Some(angle_diff(t.bearing, obs.heading));\n        }\n        None => {}\n    }\n    let fire = if obs.gun_heat.0 == 0 { Some(Power(3000)) } else { None };\n    let ahead = if around.clearance_ahead >= 80 {\n        Some(100)\n    } else if around.clearance_behind >= 80 {\n        Some(-100)\n    } else {\n        None\n    };\n    Action { fire, ahead, turn_body, turn_gun, turn_radar: Some(MAX_RADAR_TURN) }\n"
   },
   "explanation": {
-    "headline": "Proved: the one rule (S3) holds",
-    "summary": "Verus proved S3, which says the robot never drives toward a wall or building closer than 80 px. The code only drives ahead when clearance_ahead is at least 80, and only drives backward when clearance_behind is at least 80. The battle logs list violations of S1 (urban, turn 528) and S2 (both arenas, from turn 0), but those rules were not part of this check, so they say nothing about S3, which was not broken."
+    "headline": "Proved: the one rule checked (S3) holds",
+    "summary": "Verus proved S3, never drive toward a wall or building closer than 80 px: the code only drives ahead when clearance ahead is at least 80, and only backs up when clearance behind is at least 80. The battles reported violations of S1 (open arena: none; urban: 1 turn, first on turn 528) and S2 (open: 8 turns from turn 0; urban: 34 turns from turn 0), but those rules were not part of this check, so they say nothing about S3, and no S3 violation appeared in either battle."
   },
   "battles": {
     "open": {
