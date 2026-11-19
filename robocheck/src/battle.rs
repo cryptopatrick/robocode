@@ -347,7 +347,10 @@ mod tests {
         )
         .unwrap();
         let rec = std::fs::read_to_string(dir.join("tanks.json")).unwrap();
-        assert!(rec.contains(r#""tanks":["leopard2a8","abrams"]"#), "no tanks in the recording header");
+        assert!(
+            rec.contains(r#""tanks":["leopard2a8","abrams"]"#),
+            "no tanks in the recording header"
+        );
     }
 
     #[test]
