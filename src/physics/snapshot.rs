@@ -674,7 +674,7 @@ fn push_string(out: &mut String, value: &str) {
     out.push('"');
 }
 
-fn escape_json(input: &str, out: &mut String) {
+pub(crate) fn escape_json(input: &str, out: &mut String) {
     for ch in input.chars() {
         match ch {
             '"' => out.push_str("\\\""),

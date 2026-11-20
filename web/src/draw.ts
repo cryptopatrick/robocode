@@ -95,8 +95,8 @@ function drawTank(ctx: CanvasRenderingContext2D, r: RobotSnapshot, color: string
   ctx.save();
   ctx.translate(r.position.x, r.position.y);
   if (!r.alive) {
-    ctx.filter = 'grayscale(1)';
-    ctx.globalAlpha = 0.55;
+    // Opaque, darkened grey: with transparency the hull showed through the turret.
+    ctx.filter = 'grayscale(1) brightness(0.6)';
   }
 
   // Hull: centred on the robot, rotated by heading.

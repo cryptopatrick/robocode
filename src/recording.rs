@@ -121,7 +121,8 @@ fn robots_and_field(battle: &Battle) -> String {
     let mut out = String::from(r#""robots":["#);
     for i in 0..n {
         let sep = if i > 0 { "," } else { "" };
-        let name = battle.name(i).replace('\\', "\\\\").replace('"', "\\\"");
+        let mut name = String::new();
+        crate::physics::snapshot::escape_json(battle.name(i), &mut name);
         let _ = write!(out, r#"{sep}{{"id":{i},"name":"{name}"}}"#);
     }
     let _ = write!(
@@ -135,7 +136,10 @@ fn robots_and_field(battle: &Battle) -> String {
             .tanks()
             .iter()
             .map(|t| {
-                format!("\"{}\"", t.replace('\\', "\\\\").replace('"', "\\\""))
+                let mut s = String::from('"');
+                crate::physics::snapshot::escape_json(t, &mut s);
+                s.push('"');
+                s
             })
             .collect();
         let _ = write!(out, r#","tanks":[{}]"#, tanks.join(","));

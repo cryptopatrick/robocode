@@ -115,5 +115,8 @@ export function parseRecording(text: string): Recording {
   ) {
     throw new Error('Not a RoboVerus recording');
   }
+  if (rec.bullets !== undefined && rec.bullets !== 'realistic' && rec.bullets !== 'arcade') {
+    throw new Error(`Unknown bullet mode ${String(rec.bullets)}`);
+  }
   return rec as Recording;
 }
