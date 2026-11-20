@@ -7,6 +7,8 @@ import ArenaScene3D from '../../../web/src/components/ArenaScene3D';
 import { drawArena, type ViewOptions } from '../../../web/src/draw';
 import { playbackReducer, type Playback, type PlaybackAction } from '../../../web/src/playback';
 import { parseRecording, type Recording } from '../../../web/src/recording';
+import { TANK_IDS } from '../../../web/src/tanks/defs';
+import type { TankImages } from '../../../web/src/tanks/images';
 
 export type { Recording };
 export type Mode = '2d' | '3d';
@@ -68,6 +70,29 @@ export async function loadRecording(url: string): Promise<Recording> {
   }
 }
 
+/** Loads <base><id>-hull.png and <id>-turret.png for the five tanks; one whose images fail is left out (2D then draws the plain hull). */
+async function loadTankArt(base: string): Promise<TankImages> {
+  const load = (url: string) =>
+    new Promise<HTMLImageElement>((ok, no) => {
+      const img = new Image();
+      img.onload = () => ok(img);
+      img.onerror = () => no(new Error(`failed to load ${url}`));
+      img.src = url;
+    });
+  const out: TankImages = {};
+  await Promise.all(
+    TANK_IDS.map(async (id) => {
+      try {
+        const [hull, turret] = await Promise.all([load(`${base}${id}-hull.png`), load(`${base}${id}-turret.png`)]);
+        out[id] = { hull, turret };
+      } catch {
+        /* this tank keeps the plain hull */
+      }
+    }),
+  );
+  return out;
+}
+
 function hasWebGL(): boolean {
   try {
     const c = document.createElement('canvas');
@@ -90,7 +115,7 @@ class Guard extends Component<{ onError: () => void; children: ReactNode }, { fa
   }
 }
 
-export function mountViewer(el: HTMLElement): Viewer {
+export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string } = {}): Viewer {
   el.classList.add('rcv');
   const canvas = document.createElement('canvas');
   canvas.className = 'rcv-2d';
@@ -107,6 +132,12 @@ export function mountViewer(el: HTMLElement): Viewer {
   el.append(canvas, box3d, note, marker);
 
   let rec: Recording | null = null;
+  // The five tanks' art, loaded once in the background; until it arrives 2D draws the plain hull.
+  let tankImages: TankImages = {};
+  loadTankArt(opts.tanksUrl ?? new URL('tanks/', import.meta.url).href).then((t) => {
+    tankImages = t;
+    draw();
+  });
   let state: Playback = { turn: 0, last: 0, playing: false, speed: SPEED };
   let mode: Mode = '2d';
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -122,7 +153,7 @@ export function mountViewer(el: HTMLElement): Viewer {
     if (!rec) return;
     if (mode === '2d') {
       const ctx = canvas.getContext('2d');
-      if (ctx) drawArena(ctx, rec, state.turn, VIEW);
+      if (ctx) drawArena(ctx, rec, state.turn, VIEW, {}, tankImages);
       canvas.setAttribute('aria-label', `Battle arena, turn ${state.turn}`);
     } else {
       root ??= createRoot(box3d);
