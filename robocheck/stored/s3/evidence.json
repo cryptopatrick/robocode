@@ -1,13 +1,13 @@
 {
   "format": "robocheck-evidence",
   "version": 2,
-  "run_id": "12c07fc9c96a-1795106476",
-  "created_at": "2026-11-19T16:41:16Z",
+  "run_id": "12c07fc9c96a-1795119319",
+  "created_at": "2026-11-19T20:15:19Z",
   "candidate": {
     "path": "candidate.rs",
-    "sha256": "70a3f6787cf10c1c1edf864f515d49178000e3b950444cb48f65787a78494001"
+    "sha256": "c74cec0efc844f4e968b7ce3ec39a9d3961f926bbd0e3f9ee77766e3f89b7f39"
   },
-  "artifact_hash": "7a813ded5b45abafd3c99483ae004fe358a7adf77948f33722cc8be3057c80d7",
+  "artifact_hash": "09507e5ee8fd9c8ee8a14d6bc80149a8c952b4fb7adf4dcdd7ad5a1ae3df7e41",
   "spec_hash": "520878c2abc60b972447340ee00daba48b27d7a11af2a99c9d59c296fb7587d3",
   "validation": {
     "ok": true,
@@ -36,12 +36,12 @@
       "arena": "open",
       "status": "ok",
       "opponent": "Circler",
-      "turns": 125,
-      "winner": "Circler",
-      "artifact_hash": "7a813ded5b45abafd3c99483ae004fe358a7adf77948f33722cc8be3057c80d7",
+      "turns": 113,
+      "winner": "Candidate",
+      "artifact_hash": "09507e5ee8fd9c8ee8a14d6bc80149a8c952b4fb7adf4dcdd7ad5a1ae3df7e41",
       "same_artifact": true,
       "recording_file": "recording-open.json",
-      "recording_sha256": "0382987ddf27f2774c126da0ead2bbd12fd45916f2eb319ad5913c2c4dbd8440",
+      "recording_sha256": "1c842aace88ae8ee7be609e47424488ef7edb24e88eddfa7dab6830b59062134",
       "decisions_file": "decisions-open.jsonl",
       "error": null
     },
@@ -51,10 +51,10 @@
       "opponent": "Circler",
       "turns": 529,
       "winner": "Circler",
-      "artifact_hash": "7a813ded5b45abafd3c99483ae004fe358a7adf77948f33722cc8be3057c80d7",
+      "artifact_hash": "09507e5ee8fd9c8ee8a14d6bc80149a8c952b4fb7adf4dcdd7ad5a1ae3df7e41",
       "same_artifact": true,
       "recording_file": "recording-urban.json",
-      "recording_sha256": "48dec4ba5e354d359e64f2b73a95aa5ad85fc4a054af60dab0ca8e1fd1b3bb84",
+      "recording_sha256": "703bd7b4e3207b4791a817271e7bd85ef3bceaf84f7845c0c8b8b537f46e2f9f",
       "decisions_file": "decisions-urban.jsonl",
       "error": null
     }

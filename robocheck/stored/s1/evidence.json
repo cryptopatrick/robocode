@@ -1,13 +1,13 @@
 {
   "format": "robocheck-evidence",
   "version": 2,
-  "run_id": "1054484cff96-1795106444",
-  "created_at": "2026-11-19T16:40:44Z",
+  "run_id": "1054484cff96-1795119286",
+  "created_at": "2026-11-19T20:14:46Z",
   "candidate": {
     "path": "candidate.rs",
-    "sha256": "fa7e1c67d1558abc48b088e01fbaea4961ae2f0a0824b258e46c82cab23989d2"
+    "sha256": "5874df2e15f53e390bac0e41ff04a81cd9c7db696968484c5ba445cbe17cd1de"
   },
-  "artifact_hash": "bea7dde4e02632a52e83892ae6bc2f897389ea1889786dd08c9cccbdb7dcde1f",
+  "artifact_hash": "0c2bd42eaa95d16abc2213b3b74628fc99067e6dce5a46a533cbab6ef9a058ba",
   "spec_hash": "0e21291fd4e4ec044e7e3f17758d6606fd222318e9607fdd354748fb92ba26a6",
   "validation": {
     "ok": true,
@@ -38,10 +38,10 @@
       "opponent": "Circler",
       "turns": 117,
       "winner": "Circler",
-      "artifact_hash": "bea7dde4e02632a52e83892ae6bc2f897389ea1889786dd08c9cccbdb7dcde1f",
+      "artifact_hash": "0c2bd42eaa95d16abc2213b3b74628fc99067e6dce5a46a533cbab6ef9a058ba",
       "same_artifact": true,
       "recording_file": "recording-open.json",
-      "recording_sha256": "edc544e07670e80d7033fffe065d33e9032c9e64bd5c9c3493fe6a55ec768939",
+      "recording_sha256": "62ee0e00869490418b7a21db8eaf1844a5abf9b8ef937b38ed94430038fbdd9e",
       "decisions_file": "decisions-open.jsonl",
       "error": null
     },
@@ -51,10 +51,10 @@
       "opponent": "Circler",
       "turns": 68,
       "winner": "Circler",
-      "artifact_hash": "bea7dde4e02632a52e83892ae6bc2f897389ea1889786dd08c9cccbdb7dcde1f",
+      "artifact_hash": "0c2bd42eaa95d16abc2213b3b74628fc99067e6dce5a46a533cbab6ef9a058ba",
       "same_artifact": true,
       "recording_file": "recording-urban.json",
-      "recording_sha256": "ba4c1ebf12f5f9692bc19485c3c0bc7774a0e6f4d13c2558b25188b30f62e531",
+      "recording_sha256": "a1555e7ef191b6364e7e6cd8b1aaaa5008ca7de62c2a7e3985257f0f013874de",
       "decisions_file": "decisions-urban.jsonl",
       "error": null
     }

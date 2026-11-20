@@ -11,6 +11,91 @@ use std::time::Duration;
 use robocheck::pipeline::{Options, run};
 use robocheck::verify::CargoVerus;
 
+const BATTLE_USAGE: &str = "usage: robocheck battle <strategy.rs> --out DIR [--opponents A,B,C] [--tanks T,T,T,T] [--width PX --height PX] [--arena open|urban | --buildings x,y,w,h;...] [--bullets realistic|arcade] [--turns N] [--battle-timeout SECS]";
+
+/// `robocheck battle`: fights an already-assembled strategy.rs in a chosen arena, no AI and no Verus.
+/// Writes DIR/recording.json (the battle program's own output) and prints its summary line.
+fn battle(args: &[String], strategy: &str) -> ExitCode {
+    use robocheck::compile::{BuildOutcome, build};
+    use robocheck::workspace::{
+        crate_and_bin, materialize, plain_target_dir, repo_root,
+    };
+    let Some(out) = value(args, "--out").map(PathBuf::from) else {
+        eprintln!("{BATTLE_USAGE}");
+        return ExitCode::from(2);
+    };
+    let timeout = value(args, "--battle-timeout")
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(120);
+    let run = || -> Result<String, String> {
+        let source = std::fs::read_to_string(strategy)
+            .map_err(|e| format!("{strategy}: {e}"))?;
+        std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+        let work = out.join("crate");
+        materialize(&work, &source, &repo_root())
+            .map_err(|e| e.to_string())?;
+        if let BuildOutcome::Failed { log } = build(&work, &plain_target_dir())
+        {
+            return Err(format!("battle build failed:\n{log}"));
+        }
+        let (_, bin) = crate_and_bin(&source);
+        let exe = plain_target_dir().join("release").join(bin);
+        // Everything after the strategy path that the battle program understands is passed through.
+        let mut cmd = std::process::Command::new(&exe);
+        for key in [
+            "--opponents",
+            "--tanks",
+            "--width",
+            "--height",
+            "--arena",
+            "--buildings",
+            "--bullets",
+            "--turns",
+        ] {
+            if let Some(v) = value(args, key) {
+                cmd.arg(key).arg(v);
+            }
+        }
+        cmd.arg("--out")
+            .arg(out.join("recording.json"))
+            .arg("--decisions")
+            .arg(out.join("decisions.jsonl"));
+        let mut child = cmd
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("cannot run {}: {e}", exe.display()))?;
+        let start = std::time::Instant::now();
+        loop {
+            if child.try_wait().map_err(|e| e.to_string())?.is_some() {
+                break;
+            }
+            if start.elapsed() > Duration::from_secs(timeout) {
+                let _ = child.kill();
+                return Err(format!(
+                    "the battle exceeded its time limit of {timeout} s"
+                ));
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let o = child.wait_with_output().map_err(|e| e.to_string())?;
+        if !o.status.success() {
+            return Err(String::from_utf8_lossy(&o.stderr).trim().to_string());
+        }
+        Ok(String::from_utf8_lossy(&o.stdout).trim().to_string())
+    };
+    match run() {
+        Ok(summary) => {
+            println!("{summary}");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            ExitCode::from(2)
+        }
+    }
+}
+
 const USAGE: &str = "usage: robocheck run <candidate.rs> [--opponent NAME] [--turns N] [--out DIR] [--timeout SECS] [--battle-timeout SECS]
        robocheck rules <rules.json> [--opponent NAME] [--turns N] [--out DIR] [--timeout SECS] [--battle-timeout SECS] [--stored]";
 
@@ -100,6 +185,11 @@ fn value(args: &[String], key: &str) -> Option<String> {
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if let (Some("battle"), Some(file)) =
+        (args.first().map(String::as_str), args.get(1))
+    {
+        return battle(&args, file);
+    }
     if let (Some("rules"), Some(file)) =
         (args.first().map(String::as_str), args.get(1))
     {
