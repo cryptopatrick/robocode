@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sceneryFor } from '../../../web/src/scenery';
+import { roadsFor, sceneryFor } from '../../../web/src/scenery';
 import type { Recording } from '../../../web/src/recording';
 import { roadDashes, seeded, textureCanvas } from '../../../web/src/textures';
 
@@ -50,11 +50,28 @@ describe('textures', () => {
     }
   });
 
-  it('trees stand at the walls, and an open arena still gets scenery', () => {
+  it('trees grow in small groves, not in a ring along the walls', () => {
     const props = sceneryFor(arena());
     const trees = props.filter((p) => p.kind === 'tree');
-    expect(trees.length).toBeGreaterThan(20);
-    expect(trees.every((t) => Math.min(t.x, t.y, 1200 - t.x, 600 - t.y) < 60)).toBe(true);
+    expect(trees.length).toBeGreaterThan(15);
+    expect(trees.length).toBeLessThan(90);
+    // Plenty of them stand well away from the walls, and some stand apart from any other tree.
+    expect(trees.filter((t) => Math.min(t.x, t.y, 1200 - t.x, 600 - t.y) > 100).length).toBeGreaterThan(trees.length / 3);
     expect(props.some((p) => p.kind === 'bush' || p.kind === 'rock')).toBe(true);
+  });
+
+  it('a map without roads gets one large road and small paths clear of the buildings', () => {
+    const buildings = [[360, 120, 168, 96], [672, 120, 168, 96], [360, 384, 168, 96], [672, 384, 168, 96], [564, 270, 72, 60]];
+    const roads = roadsFor(arena({ buildings, roads: [] } as never));
+    expect(roads.filter((r) => r.big)).toHaveLength(1);
+    expect(roads.some((r) => !r.big)).toBe(true);
+    for (const { rect: [x, y, w, h] } of roads) {
+      for (const [bx, by, bw, bh] of buildings) expect(x < bx + bw && x + w > bx && y < by + bh && y + h > by).toBe(false);
+    }
+  });
+
+  it('a map with its own roads keeps them', () => {
+    const own: [number, number, number, number][] = [[0, 280, 1200, 40]];
+    expect(roadsFor(arena({ buildings: [], roads: own } as never)).map((r) => r.rect)).toEqual(own);
   });
 });

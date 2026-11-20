@@ -3,9 +3,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ROBOT_COLORS } from '../draw';
 import type { Recording } from '../recording';
-import { sceneryFor } from '../scenery';
+import { roadsFor, sceneryFor } from '../scenery';
 import { BUILDING_HEIGHT, bulletSegment, worldPoint, cameraFor, drivenDistances, impactFlashes, sceneKey, HULL_HEIGHT, streakPose, terrainBoxes, tankPose } from '../scene';
-import { roadDashes, TILE, textureCanvas, type TextureKind } from '../textures';
+import { houseStyle, roadDashes, TILE, textureCanvas, type TextureKind } from '../textures';
 import { tankFor } from '../tanks/defs';
 import { createTank3D, type Tank3D } from '../tanks/models3d';
 
@@ -14,7 +14,7 @@ const GROUND = 0x22395a;
 const ROAD = 0x2e4260;
 const BUILDING = 0x6d86a3;
 /** Daylight: a pale sky, light ground and roofs, a stronger sun. */
-const DAY = { background: 0xa9d0f0, ground: 0x86ab62, road: 0x6b727c, building: 0xcdd1d8, ambient: 0.95, sun: 1.8, tracer: 0xd9480f };
+const DAY = { background: 0xa9d0f0, ground: 0x668f4c, road: 0x6b727c, building: 0xcdd1d8, ambient: 0.95, sun: 1.8, tracer: 0xd9480f };
 const TRACER = 0xfff6c8;
 const FLASH = 0xfff0be;
 /** Cross-section of a tracer streak, in battlefield pixels. */
@@ -103,14 +103,33 @@ function build(container: HTMLElement, rec: Recording, textures: boolean, daylig
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(width, height), surface(c.ground, 'ground', width / TILE, height / TILE));
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
+  if (textures) {
+    // The grass runs on past the walls to the horizon, fading into the sky with distance.
+    const far = 60000;
+    const horizon = new THREE.Mesh(new THREE.PlaneGeometry(far, far), surface(c.ground, 'ground', far / TILE / 2, far / TILE / 2));
+    horizon.rotation.x = -Math.PI / 2;
+    horizon.position.y = -0.3;
+    scene.add(horizon);
+    scene.fog = new THREE.Fog(c.background, 2500, 16000);
+  }
 
   const terrain = terrainBoxes(rec);
   const dashMaterial = new THREE.MeshBasicMaterial({ color: 0xe9eef2 });
-  for (const [x, z, w, d] of terrain.roads) {
-    const road = new THREE.Mesh(new THREE.BoxGeometry(w, 0.5, d), surface(c.road, 'road', w / TILE, d / TILE));
+  // With scenery on, the roads are the map's own or the generated large road and small paths (see ../scenery).
+  const roads: { box: [number, number, number, number]; big: boolean }[] = textures
+    ? roadsFor(rec).map(({ rect: [x, y, w, h], big }) => {
+        const p = worldPoint(x + w / 2, y + h / 2, width, height);
+        return { box: [p.x, p.z, w, h], big };
+      })
+    : terrain.roads.map((box) => ({ box, big: true }));
+  for (const { box: [x, z, w, d], big } of roads) {
+    const road = new THREE.Mesh(
+      new THREE.BoxGeometry(w, 0.5, d),
+      big ? surface(c.road, 'road', w / TILE, d / TILE) : surface(daylight ? 0x9a8c70 : 0x4d4639, 'path', w / TILE, d / TILE),
+    );
     road.position.set(x, 0.25, z);
     scene.add(road);
-    if (textures) {
+    if (textures && big) {
       for (const [dx, dz, dw, dd] of roadDashes([x - w / 2, z - d / 2, w, d])) {
         const dash = new THREE.Mesh(new THREE.BoxGeometry(dw, 0.1, dd), dashMaterial);
         dash.position.set(dx + dw / 2, 0.56, dz + dd / 2);
@@ -118,16 +137,18 @@ function build(container: HTMLElement, rec: Recording, textures: boolean, daylig
       }
     }
   }
-  for (const [x, z, w, d] of terrain.buildings) {
-    // Faces of a box: +x, -x, top, bottom, +z, -z. Facades get windows, the top a roof.
-    const side = (along: number) => surface(c.building, 'wall', along / 96, 0.25);
+  terrain.buildings.forEach(([x, z, w, d], i) => {
+    // Faces of a box: +x, -x, top, bottom, +z, -z. Each building has its own roof and facade (brick, stucco, glass).
+    const style = houseStyle(i, daylight);
+    const hex = (css: string) => parseInt(css.slice(1), 16);
+    const side = (along: number) => surface(hex(style.wallColor), style.wall, along / 96, 0.25);
     const materials = textures
-      ? [side(d), side(d), surface(c.building, 'roof', w / TILE, d / TILE), material(c.building), side(w), side(w)]
+      ? [side(d), side(d), surface(hex(style.roofColor), style.roof, w / TILE, d / TILE), material(hex(style.wallColor)), side(w), side(w)]
       : material(c.building);
     const building = new THREE.Mesh(new THREE.BoxGeometry(w, BUILDING_HEIGHT, d), materials);
     building.position.set(x, BUILDING_HEIGHT / 2, z);
     scene.add(building);
-  }
+  });
 
   if (textures) {
     // Scenery: low-poly trees, bushes and rocks, the same places the 2D drawing uses.
@@ -185,7 +206,7 @@ function build(container: HTMLElement, rec: Recording, textures: boolean, daylig
   scene.add(flashes);
   const flashTexture = glowTexture();
 
-  const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 1, 5000);
+  const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 2, 80000);
   {
     const view = cameraFor(width, height, camera.aspect);
     camera.fov = view.fov;

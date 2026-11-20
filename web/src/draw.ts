@@ -1,7 +1,7 @@
 // Draws one turn of a recording onto a canvas. The look is RoboVerus's own:
 // an ink-blue plotting table with instrument-style robots.
-import { roadDashes, texturePattern } from './textures';
-import { sceneryFor, type Prop } from './scenery';
+import { houseStyle, roadDashes, texturePattern } from './textures';
+import { roadsFor, sceneryFor, type Prop } from './scenery';
 import { scanArc } from './geometry';
 import { bulletSegment, impactFlashes } from './scene';
 import type { Decision, Recording, RobotSnapshot } from './recording';
@@ -38,7 +38,7 @@ const BUILDING_EDGE = '#56708c';
 /** The two palettes the 2D drawing switches between: night (the default) and daylight. */
 const NIGHT = { arena: ARENA, grid: GRID, road: ROAD, building: BUILDING, edge: BUILDING_EDGE, label: LABEL, tracerGlow: TRACER_GLOW, tracerCore: TRACER_CORE };
 const DAY = {
-  arena: '#86ab62', grid: 'rgba(20, 30, 20, 0.10)', road: '#7b828c', building: '#d4d7dd', edge: '#8e95a1', label: '#1b2330',
+  arena: '#668f4c', grid: 'rgba(20, 30, 20, 0.10)', road: '#7b828c', building: '#d4d7dd', edge: '#8e95a1', label: '#1b2330',
   tracerGlow: 'rgba(217, 72, 15, 0.3)', tracerCore: '#d9480f',
 };
 let P = NIGHT;
@@ -237,53 +237,61 @@ function drawRobot(
 
 
 /** Roads, then buildings. Map objects only: they are drawn under the robots. */
-function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Recording['terrain'], textures = false) {
+function drawTerrain(ctx: CanvasRenderingContext2D, rec: Recording, textures = false) {
+  const terrain = rec.terrain;
   if (!terrain) return;
-  ctx.fillStyle = (textures && texturePattern(ctx, 'road', P.road)) || P.road;
-  for (const [x, y, w, h] of terrain.roads) ctx.fillRect(x, y, w, h);
-  if (textures) {
-    // Pavements along both long edges, then the dashed centre line.
+  if (!textures) {
+    ctx.fillStyle = P.road;
+    for (const [x, y, w, h] of terrain.roads) ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = P.building;
+    for (const [x, y, w, h] of terrain.buildings) ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = P.edge;
+    ctx.lineWidth = 1;
+    for (const [x, y, w, h] of terrain.buildings) ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    return;
+  }
+  const day = P === DAY;
+  for (const { rect: [x, y, w, h], big } of roadsFor(rec)) {
+    // The large road is asphalt with pavements and a dashed centre line; small roads are gravel paths.
+    ctx.fillStyle = (big ? texturePattern(ctx, 'road', P.road) : texturePattern(ctx, 'path', day ? '#9a8c70' : '#4d4639')) || P.road;
+    ctx.fillRect(x, y, w, h);
+    if (!big) continue;
     ctx.fillStyle = 'rgba(215, 218, 226, 0.4)';
-    for (const [x, y, w, h] of terrain.roads) {
-      if (w >= h) {
-        ctx.fillRect(x, y, w, 4);
-        ctx.fillRect(x, y + h - 4, w, 4);
-      } else {
-        ctx.fillRect(x, y, 4, h);
-        ctx.fillRect(x + w - 4, y, 4, h);
-      }
+    if (w >= h) {
+      ctx.fillRect(x, y, w, 4);
+      ctx.fillRect(x, y + h - 4, w, 4);
+    } else {
+      ctx.fillRect(x, y, 4, h);
+      ctx.fillRect(x + w - 4, y, 4, h);
     }
     ctx.fillStyle = 'rgba(233, 238, 242, 0.55)';
-    for (const road of terrain.roads) for (const [x, y, w, h] of roadDashes(road)) ctx.fillRect(x, y, w, h);
+    for (const [dx, dy, dw, dh] of roadDashes([x, y, w, h])) ctx.fillRect(dx, dy, dw, dh);
   }
-  for (const [x, y, w, h] of terrain.buildings) {
-    if (textures) {
-      // A soft shadow to the lower right gives the roof some height.
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      ctx.fillRect(x + 4, y + 5, w, h);
-    }
-    ctx.fillStyle = (textures && texturePattern(ctx, 'roof', P.building)) || P.building;
+  terrain.buildings.forEach(([x, y, w, h], i) => {
+    const style = houseStyle(i, day);
+    // A soft shadow to the lower right gives the roof some height.
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillRect(x + 4, y + 5, w, h);
+    ctx.fillStyle = texturePattern(ctx, style.roof, style.roofColor) || style.roofColor;
     ctx.fillRect(x, y, w, h);
     ctx.strokeStyle = P.edge;
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-    if (textures) {
-      // Lit edge top-left, shaded edge bottom-right.
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-      ctx.beginPath();
-      ctx.moveTo(x + 1, y + h - 1);
-      ctx.lineTo(x + 1, y + 1);
-      ctx.lineTo(x + w - 1, y + 1);
-      ctx.stroke();
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.32)';
-      ctx.beginPath();
-      ctx.moveTo(x + w - 1, y + 1);
-      ctx.lineTo(x + w - 1, y + h - 1);
-      ctx.lineTo(x + 1, y + h - 1);
-      ctx.stroke();
-    }
-  }
+    // Lit edge top-left, shaded edge bottom-right.
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.beginPath();
+    ctx.moveTo(x + 1, y + h - 1);
+    ctx.lineTo(x + 1, y + 1);
+    ctx.lineTo(x + w - 1, y + 1);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.32)';
+    ctx.beginPath();
+    ctx.moveTo(x + w - 1, y + 1);
+    ctx.lineTo(x + w - 1, y + h - 1);
+    ctx.lineTo(x + 1, y + h - 1);
+    ctx.stroke();
+  });
 }
 
 /** Trees, bushes, rocks and grass tufts, under the tanks. */
@@ -400,6 +408,36 @@ function drawShots(ctx: CanvasRenderingContext2D, rec: Recording, turn: number, 
 }
 
 /** Draws turn `turn` of `rec`. */
+const staticLayers = new WeakMap<Recording, { key: string; canvas: HTMLCanvasElement }>();
+
+/** Ground, map and scenery: the same every frame. With scenery on it is drawn once into an offscreen canvas and copied
+ *  (hundreds of shaded trees and bushes per frame made the replay crawl); otherwise it is drawn directly. */
+function drawStatic(ctx: CanvasRenderingContext2D, rec: Recording, view: ViewOptions) {
+  const { width: w, height: h } = rec.battlefield;
+  const paint = (c: CanvasRenderingContext2D) => {
+    drawGrid(c, w, h, view.textures);
+    drawTerrain(c, rec, view.textures);
+    if (view.textures) drawScenery(c, sceneryFor(rec), !!view.daylight);
+  };
+  if (!view.textures || typeof document === 'undefined') return paint(ctx);
+  const t = ctx.getTransform();
+  const scale = Math.max(1, Math.hypot(t.a, t.b));
+  const key = `${!!view.daylight}|${scale.toFixed(2)}`;
+  let layer = staticLayers.get(rec);
+  if (!layer || layer.key !== key) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(w * scale);
+    canvas.height = Math.ceil(h * scale);
+    const c = canvas.getContext('2d');
+    if (!c) return paint(ctx);
+    c.scale(scale, scale);
+    paint(c);
+    layer = { key, canvas };
+    staticLayers.set(rec, layer);
+  }
+  ctx.drawImage(layer.canvas, 0, 0, w, h);
+}
+
 export function drawArena(
   ctx: CanvasRenderingContext2D,
   rec: Recording,
@@ -412,9 +450,7 @@ export function drawArena(
   const snap = rec.turns[turn];
   const prev = rec.turns[Math.max(turn - 1, 0)];
   P = view.daylight ? DAY : NIGHT;
-  drawGrid(ctx, w, h, view.textures);
-  drawTerrain(ctx, rec.terrain, view.textures);
-  if (view.textures) drawScenery(ctx, sceneryFor(rec), !!view.daylight);
+  drawStatic(ctx, rec, view);
 
   if (view.scanArcs) {
     snap.robots.forEach((r, i) => {

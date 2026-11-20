@@ -60,7 +60,42 @@ export interface BattleSound {
 
 const MAX_CUES = 10;
 
-export function createBattleSound(): BattleSound {
+const GUNS = ['gun1.mp3', 'gun2.mp3', 'gun3.mp3'];
+
+/** `soundsUrl` is the folder holding the recorded gun shots (gun1.mp3 to gun3.mp3, each at most 2 s); without them,
+ *  or until they have loaded, a synthesised shot is used. */
+export function createBattleSound(soundsUrl?: string): BattleSound {
+  const guns: AudioBuffer[] = [];
+  let loading = false;
+  let lastGun = -1;
+  const loadGuns = () => {
+    if (loading || !soundsUrl || !ctx) return;
+    loading = true;
+    for (const name of GUNS) {
+      fetch(new URL(name, soundsUrl).href)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+        .then((b) => ctx!.decodeAudioData(b))
+        .then((buf) => guns.push(buf))
+        .catch(() => { /* the synthesised shot stays */ });
+    }
+  };
+  /** A recorded shot, a different one each time, a little varied in pitch and level by the shell's power. */
+  const recordedShot = (c: Cue): boolean => {
+    if (!ctx || !master || guns.length === 0) return false;
+    let i = Math.floor(Math.random() * guns.length);
+    if (guns.length > 1 && i === lastGun) i = (i + 1) % guns.length;
+    lastGun = i;
+    const src = ctx.createBufferSource();
+    src.buffer = guns[i];
+    src.playbackRate.value = 0.94 + Math.random() * 0.12;
+    const g = ctx.createGain();
+    g.gain.value = 0.45 + 0.17 * c.power;
+    const pan = ctx.createStereoPanner();
+    pan.pan.value = c.pan;
+    src.connect(g).connect(pan).connect(master);
+    src.start();
+    return true;
+  };
   let ctx: AudioContext | null = null;
   let master: GainNode | null = null;
   let noise: AudioBuffer | null = null;
@@ -80,6 +115,7 @@ export function createBattleSound(): BattleSound {
       noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
       const data = noise.getChannelData(0);
       for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      loadGuns();
     }
     return true;
   };
@@ -131,10 +167,14 @@ export function createBattleSound(): BattleSound {
 
   const sound: Record<CueKind, (c: Cue) => void> = {
     // A cannon: a bright crack that falls into a low thump; a heavier shell rings longer.
-    fire: (c) => voice(c.pan, {
-      noise: { type: 'lowpass', f0: 2600, f1: 260, dur: 0.22 + 0.07 * c.power, gain: 0.5 },
-      tone: { type: 'sine', f0: 150, f1: 42, dur: 0.3 + 0.05 * c.power, gain: 0.6 },
-    }),
+    fire: (c) => {
+      if (!recordedShot(c)) {
+        voice(c.pan, {
+          noise: { type: 'lowpass', f0: 2600, f1: 260, dur: 0.22 + 0.07 * c.power, gain: 0.5 },
+          tone: { type: 'sine', f0: 150, f1: 42, dur: 0.3 + 0.05 * c.power, gain: 0.6 },
+        });
+      }
+    },
     // A shell striking armour: a short metallic clank over a dull thud.
     hit: (c) => {
       voice(c.pan, {

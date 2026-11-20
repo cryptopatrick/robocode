@@ -125,7 +125,7 @@ class Guard extends Component<{ onError: () => void; children: ReactNode }, { fa
   }
 }
 
-export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string } = {}): Viewer {
+export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string; soundsUrl?: string } = {}): Viewer {
   el.classList.add('rcv');
   const canvas = document.createElement('canvas');
   canvas.className = 'rcv-2d';
@@ -151,7 +151,7 @@ export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string } = {}): 
   let state: Playback = { turn: 0, last: 0, playing: false, speed: SPEED };
   let mode: Mode = '2d';
   let textures = true;
-  const snd = createBattleSound();
+  const snd = createBattleSound(opts.soundsUrl ?? new URL('sounds/', import.meta.url).href);
   let daylight = false;
   let timer: ReturnType<typeof setInterval> | null = null;
   let root: Root | null = null;
