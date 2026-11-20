@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ROBOT_COLORS } from '../draw';
 import type { Recording } from '../recording';
 import { BUILDING_HEIGHT, bulletSegment, cameraFor, drivenDistances, impactFlashes, sceneKey, HULL_HEIGHT, streakPose, terrainBoxes, tankPose } from '../scene';
+import { roadDashes, TILE, textureCanvas, type TextureKind } from '../textures';
 import { tankFor } from '../tanks/defs';
 import { createTank3D, type Tank3D } from '../tanks/models3d';
 
@@ -11,6 +12,8 @@ const BACKGROUND = 0x0b1624;
 const GROUND = 0x22395a;
 const ROAD = 0x2e4260;
 const BUILDING = 0x6d86a3;
+/** Daylight: a pale sky, light ground and roofs, a stronger sun. */
+const DAY = { background: 0xa9d0f0, ground: 0x9fb08f, road: 0x6b727c, building: 0xcdd1d8, ambient: 0.95, sun: 1.8, tracer: 0xd9480f };
 const TRACER = 0xfff6c8;
 const FLASH = 0xfff0be;
 /** Cross-section of a tracer streak, in battlefield pixels. */
@@ -20,6 +23,10 @@ const IMPACT_TURNS = 4;
 interface Props {
   recording: Recording;
   turn: number;
+  /** Procedural ground, road, roof and facade textures instead of flat colours (default off). */
+  textures?: boolean;
+  /** Daylight instead of night (default off). */
+  daylight?: boolean;
 }
 
 interface Built {
@@ -61,7 +68,10 @@ function clearFlashes(flashes: THREE.Group) {
 }
 
 /** Builds the static scene for a recording: ground, map objects and one tank per robot. */
-function build(container: HTMLElement, rec: Recording): Built {
+function build(container: HTMLElement, rec: Recording, textures: boolean, daylight: boolean): Built {
+  const c = daylight
+    ? DAY
+    : { background: BACKGROUND, ground: GROUND, road: ROAD, building: BUILDING, ambient: 1.1, sun: 1.2, tracer: TRACER };
   const { width, height } = rec.battlefield;
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
@@ -69,24 +79,51 @@ function build(container: HTMLElement, rec: Recording): Built {
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(BACKGROUND);
-  scene.add(new THREE.AmbientLight(0xffffff, 1.1));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+  scene.background = new THREE.Color(c.background);
+  scene.add(new THREE.AmbientLight(0xffffff, c.ambient));
+  const sun = new THREE.DirectionalLight(0xffffff, c.sun);
   sun.position.set(-300, 600, 400);
   scene.add(sun);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material(GROUND));
+  // Textures are tiled canvases (see ../textures); `owned` is what dispose() must free besides the materials.
+  const owned: THREE.Texture[] = [];
+  const surface = (hex: number, kind: TextureKind, repeatX: number, repeatY: number): THREE.MeshLambertMaterial => {
+    const canvas = textures ? textureCanvas(kind, `#${hex.toString(16).padStart(6, '0')}`) : null;
+    if (!canvas) return material(hex);
+    const map = new THREE.CanvasTexture(canvas);
+    map.wrapS = map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(repeatX, repeatY);
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.anisotropy = 4;
+    owned.push(map);
+    return new THREE.MeshLambertMaterial({ map });
+  };
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(width, height), surface(c.ground, 'ground', width / TILE, height / TILE));
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
 
   const terrain = terrainBoxes(rec);
+  const dashMaterial = new THREE.MeshBasicMaterial({ color: 0xe9eef2 });
   for (const [x, z, w, d] of terrain.roads) {
-    const road = new THREE.Mesh(new THREE.BoxGeometry(w, 0.5, d), material(ROAD));
+    const road = new THREE.Mesh(new THREE.BoxGeometry(w, 0.5, d), surface(c.road, 'road', w / TILE, d / TILE));
     road.position.set(x, 0.25, z);
     scene.add(road);
+    if (textures) {
+      for (const [dx, dz, dw, dd] of roadDashes([x - w / 2, z - d / 2, w, d])) {
+        const dash = new THREE.Mesh(new THREE.BoxGeometry(dw, 0.1, dd), dashMaterial);
+        dash.position.set(dx + dw / 2, 0.56, dz + dd / 2);
+        scene.add(dash);
+      }
+    }
   }
   for (const [x, z, w, d] of terrain.buildings) {
-    const building = new THREE.Mesh(new THREE.BoxGeometry(w, BUILDING_HEIGHT, d), material(BUILDING));
+    // Faces of a box: +x, -x, top, bottom, +z, -z. Facades get windows, the top a roof.
+    const side = (along: number) => surface(c.building, 'wall', along / 96, 0.25);
+    const materials = textures
+      ? [side(d), side(d), surface(c.building, 'roof', w / TILE, d / TILE), material(c.building), side(w), side(w)]
+      : material(c.building);
+    const building = new THREE.Mesh(new THREE.BoxGeometry(w, BUILDING_HEIGHT, d), materials);
     building.position.set(x, BUILDING_HEIGHT / 2, z);
     scene.add(building);
   }
@@ -101,7 +138,7 @@ function build(container: HTMLElement, rec: Recording): Built {
   scene.add(bullets);
   // Unlit, so the streak glows whatever the lighting: a unit box scaled per bullet.
   const bulletGeometry = new THREE.BoxGeometry(TRACER_THICKNESS, TRACER_THICKNESS, 1);
-  const bulletMaterial = new THREE.MeshBasicMaterial({ color: TRACER });
+  const bulletMaterial = new THREE.MeshBasicMaterial({ color: c.tracer });
   const flashes = new THREE.Group();
   scene.add(flashes);
   const flashTexture = glowTexture();
@@ -147,9 +184,10 @@ function build(container: HTMLElement, rec: Recording): Built {
       scene.traverse((o) => {
         if (o instanceof THREE.Mesh) {
           o.geometry.dispose();
-          (o.material as THREE.Material).dispose();
+          for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.dispose();
         }
       });
+      for (const t of owned) t.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     },
@@ -157,10 +195,10 @@ function build(container: HTMLElement, rec: Recording): Built {
 }
 
 /** The battle drawn in 3D. The scene is built once per recording; each turn moves the tanks and bullets. */
-export default function ArenaScene3D({ recording, turn }: Props) {
+export default function ArenaScene3D({ recording, turn, textures = false, daylight = false }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const built = useRef<Built | null>(null);
-  const key = sceneKey(recording);
+  const key = sceneKey(recording) + (textures ? '|textures' : '') + (daylight ? '|day' : '');
   const dist = useMemo(() => drivenDistances(recording), [recording]);
   const latest = useRef({ recording, turn });
   latest.current = { recording, turn };
@@ -168,7 +206,7 @@ export default function ArenaScene3D({ recording, turn }: Props) {
   useEffect(() => {
     const el = container.current;
     if (!el) return;
-    const scene = build(el, latest.current.recording);
+    const scene = build(el, latest.current.recording, textures, daylight);
     built.current = scene;
     return () => {
       scene.dispose();

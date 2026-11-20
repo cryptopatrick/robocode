@@ -1,5 +1,6 @@
 // Draws one turn of a recording onto a canvas. The look is RoboVerus's own:
 // an ink-blue plotting table with instrument-style robots.
+import { roadDashes, texturePattern } from './textures';
 import { scanArc } from './geometry';
 import { bulletSegment, impactFlashes } from './scene';
 import type { Decision, Recording, RobotSnapshot } from './recording';
@@ -8,6 +9,10 @@ import { TANKS, tankFor, type TankId } from './tanks/defs';
 import type { TankImages } from './tanks/images';
 
 export interface ViewOptions {
+  /** Procedural ground, road and roof textures instead of flat colours (default off). */
+  textures?: boolean;
+  /** Daylight palette (light ground, dark labels) instead of the night one (default off). */
+  daylight?: boolean;
   names: boolean;
   energy: boolean;
   scanArcs: boolean;
@@ -25,6 +30,17 @@ const EFFECT_TURNS = 8;
 const BODY = 36;
 const TRACER_GLOW = 'rgba(255,200,80,0.35)';
 const TRACER_CORE = '#fff6c8';
+const ROAD = '#1e2b3a';
+const BUILDING = '#34465c';
+const BUILDING_EDGE = '#56708c';
+
+/** The two palettes the 2D drawing switches between: night (the default) and daylight. */
+const NIGHT = { arena: ARENA, grid: GRID, road: ROAD, building: BUILDING, edge: BUILDING_EDGE, label: LABEL, tracerGlow: TRACER_GLOW, tracerCore: TRACER_CORE };
+const DAY = {
+  arena: '#b4c3a3', grid: 'rgba(20, 30, 20, 0.10)', road: '#7b828c', building: '#d4d7dd', edge: '#8e95a1', label: '#1b2330',
+  tracerGlow: 'rgba(217, 72, 15, 0.3)', tracerCore: '#d9480f',
+};
+let P = NIGHT;
 const MUZZLE_FLASH_TURNS = 2;
 const IMPACT_TURNS = 4;
 /** Muzzle distance of the plain (sprite or vector) robot's gun. */
@@ -66,10 +82,10 @@ function labelFor(r: RobotSnapshot, name: string, view: ViewOptions): string {
   return '';
 }
 
-function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  ctx.fillStyle = ARENA;
+function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number, textures = false) {
+  ctx.fillStyle = (textures && texturePattern(ctx, 'ground', P.arena)) || P.arena;
   ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = GRID;
+  ctx.strokeStyle = P.grid;
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = 50; x < w; x += 50) {
@@ -189,7 +205,7 @@ function drawRobot(
     ctx.moveTo(0, 0);
     ctx.lineTo(0, -27);
     ctx.stroke();
-    ctx.fillStyle = ARENA;
+    ctx.fillStyle = P.arena;
     ctx.beginPath();
     ctx.arc(0, 0, 8, 0, Math.PI * 2);
     ctx.fill();
@@ -217,21 +233,43 @@ function drawRobot(
   ctx.restore();
 }
 
-const ROAD = '#1e2b3a';
-const BUILDING = '#34465c';
-const BUILDING_EDGE = '#56708c';
 
 /** Roads, then buildings. Map objects only: they are drawn under the robots. */
-function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Recording['terrain']) {
+function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Recording['terrain'], textures = false) {
   if (!terrain) return;
-  ctx.fillStyle = ROAD;
+  ctx.fillStyle = (textures && texturePattern(ctx, 'road', P.road)) || P.road;
   for (const [x, y, w, h] of terrain.roads) ctx.fillRect(x, y, w, h);
+  if (textures) {
+    ctx.fillStyle = 'rgba(233, 238, 242, 0.45)';
+    for (const road of terrain.roads) for (const [x, y, w, h] of roadDashes(road)) ctx.fillRect(x, y, w, h);
+  }
   for (const [x, y, w, h] of terrain.buildings) {
-    ctx.fillStyle = BUILDING;
+    if (textures) {
+      // A soft shadow to the lower right gives the roof some height.
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(x + 4, y + 5, w, h);
+    }
+    ctx.fillStyle = (textures && texturePattern(ctx, 'roof', P.building)) || P.building;
     ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = BUILDING_EDGE;
+    ctx.strokeStyle = P.edge;
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    if (textures) {
+      // Lit edge top-left, shaded edge bottom-right.
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.beginPath();
+      ctx.moveTo(x + 1, y + h - 1);
+      ctx.lineTo(x + 1, y + 1);
+      ctx.lineTo(x + w - 1, y + 1);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.32)';
+      ctx.beginPath();
+      ctx.moveTo(x + w - 1, y + 1);
+      ctx.lineTo(x + w - 1, y + h - 1);
+      ctx.lineTo(x + 1, y + h - 1);
+      ctx.stroke();
+    }
   }
 }
 
@@ -274,7 +312,7 @@ function drawShots(ctx: CanvasRenderingContext2D, rec: Recording, turn: number, 
   rec.turns[turn].bullets.forEach((b, j) => {
     if (!b.alive) return;
     const { from, to } = bulletSegment(rec, turn, j, reachFor);
-    const layers: [string, number][] = view.effects ? [[TRACER_GLOW, 4], [TRACER_CORE, 1.5]] : [[TRACER_CORE, 1.5]];
+    const layers: [string, number][] = view.effects ? [[P.tracerGlow, 4], [P.tracerCore, 1.5]] : [[P.tracerCore, 1.5]];
     for (const [color, width] of layers) {
       ctx.strokeStyle = color;
       ctx.lineWidth = width;
@@ -299,8 +337,9 @@ export function drawArena(
   const { width: w, height: h } = rec.battlefield;
   const snap = rec.turns[turn];
   const prev = rec.turns[Math.max(turn - 1, 0)];
-  drawGrid(ctx, w, h);
-  drawTerrain(ctx, rec.terrain);
+  P = view.daylight ? DAY : NIGHT;
+  drawGrid(ctx, w, h, view.textures);
+  drawTerrain(ctx, rec.terrain, view.textures);
 
   if (view.scanArcs) {
     snap.robots.forEach((r, i) => {
@@ -364,7 +403,7 @@ export function drawArena(
   if (view.names || view.energy) {
     ctx.font = '11px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = LABEL;
+    ctx.fillStyle = P.label;
     snap.robots.forEach((r, i) => {
       const text = labelFor(r, rec.robots[i]?.name ?? `Robot ${i}`, view);
       const intent = r.alive ? intentLabel(rec.decisions?.[turn]?.[i]) : '';

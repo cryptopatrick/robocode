@@ -23,6 +23,12 @@ export interface Viewer {
   recording(): Recording | null;
   setMode(m: Mode): void;
   mode(): Mode;
+  /** Procedural ground, road and building textures (default on). */
+  setTextures(on: boolean): void;
+  textures(): boolean;
+  /** Daylight instead of night (default off). */
+  setDaylight(on: boolean): void;
+  daylight(): boolean;
   seek(turn: number): void;
   step(): void;
   play(): void;
@@ -140,6 +146,8 @@ export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string } = {}): 
   });
   let state: Playback = { turn: 0, last: 0, playing: false, speed: SPEED };
   let mode: Mode = '2d';
+  let textures = true;
+  let daylight = false;
   let timer: ReturnType<typeof setInterval> | null = null;
   let root: Root | null = null;
   const listeners: ((turn: number) => void)[] = [];
@@ -153,12 +161,12 @@ export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string } = {}): 
     if (!rec) return;
     if (mode === '2d') {
       const ctx = canvas.getContext('2d');
-      if (ctx) drawArena(ctx, rec, state.turn, VIEW, {}, tankImages);
+      if (ctx) drawArena(ctx, rec, state.turn, { ...VIEW, textures, daylight }, {}, tankImages);
       canvas.setAttribute('aria-label', `Battle arena, turn ${state.turn}`);
     } else {
       root ??= createRoot(box3d);
       root.render(
-        createElement(Guard, { onError: () => fallback() }, createElement(ArenaScene3D, { recording: rec, turn: state.turn })),
+        createElement(Guard, { onError: () => fallback() }, createElement(ArenaScene3D, { recording: rec, turn: state.turn, textures, daylight })),
       );
     }
   };
@@ -212,6 +220,16 @@ export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string } = {}): 
     recording: () => rec,
     setMode,
     mode: () => mode,
+    setTextures(on) {
+      textures = on;
+      draw();
+    },
+    textures: () => textures,
+    setDaylight(on) {
+      daylight = on;
+      draw();
+    },
+    daylight: () => daylight,
     seek: (turn) => dispatch({ type: 'seek', turn }),
     step: () => dispatch({ type: 'step', by: 1 }),
     play: () => dispatch({ type: 'play' }),
