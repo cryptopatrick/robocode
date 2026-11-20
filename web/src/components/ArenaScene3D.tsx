@@ -265,7 +265,8 @@ export default function ArenaScene3D({ recording, turn, textures = false, daylig
       b.flashes.add(sprite);
     }
     b.render();
-  }, [recording, turn, dist]);
+  // `key` too: a rebuilt scene (textures or daylight switched) has to be posed and drawn at once, not at the next turn.
+  }, [recording, turn, dist, key]);
 
   return <div ref={container} className="aspect-[4/3] w-full overflow-hidden rounded-lg bg-[#0f1e2e]" role="img" aria-label="Battle in 3D" />;
 }
