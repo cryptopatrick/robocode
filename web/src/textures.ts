@@ -191,24 +191,3 @@ export function roadDashes(road: Rect): Rect[] {
   }
   return out;
 }
-
-export interface HouseStyle {
-  roof: TextureKind;
-  roofColor: string;
-  wall: TextureKind;
-  wallColor: string;
-}
-
-const HOUSES = [
-  { roof: 'tile', wall: 'brick', day: ['#b5603f', '#a2573f'], night: ['#6b3f3a', '#5f3d38'] },
-  { roof: 'slate', wall: 'stucco', day: ['#5b6577', '#e3d8c2'], night: ['#343c4c', '#6d675f'] },
-  { roof: 'gravel', wall: 'wall', day: ['#8d8f93', '#c8ccd3'], night: ['#4a505c', '#4d5868'] },
-  { roof: 'roof', wall: 'brick', day: ['#d4d7dd', '#b0654a'], night: ['#4b5566', '#5a3d36'] },
-] as const;
-
-/** The look of building number `i`: roof and facade material and colour, varied from one building to the next. */
-export function houseStyle(i: number, daylight: boolean): HouseStyle {
-  const h = HOUSES[i % HOUSES.length];
-  const [roofColor, wallColor] = daylight ? h.day : h.night;
-  return { roof: h.roof, roofColor, wall: h.wall, wallColor };
-}

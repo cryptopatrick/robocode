@@ -75,3 +75,30 @@ describe('textures', () => {
     expect(roadsFor(arena({ buildings: [], roads: own } as never)).map((r) => r.rect)).toEqual(own);
   });
 });
+
+describe('the planning-map look', () => {
+  const rec = {
+    battlefield: { width: 1200, height: 600 },
+    terrain: { buildings: [[360, 120, 168, 96], [672, 120, 168, 96], [360, 384, 168, 96], [672, 384, 168, 96], [564, 270, 72, 60]], roads: [] },
+    robots: [],
+    turns: [],
+  } as unknown as Recording;
+
+  it('buildings take their look in turn, and only some sit on a plot', async () => {
+    const { MAP_DAY, plotsFor } = await import('../../../web/src/maplook');
+    expect(MAP_DAY.buildings.length).toBe(4);
+    const plots = plotsFor(rec, MAP_DAY);
+    // Four of the five buildings have a plot (the green-hatched look has none), each a bit bigger than its building.
+    expect(plots.length).toBe(4);
+    const [x, y, w, h] = plots[0].rect;
+    expect([x, y, w, h]).toEqual([342, 102, 204, 132]);
+    for (const { rect: [px, py, pw, ph] } of plots) expect(px >= 0 && py >= 0 && px + pw <= 1200 && py + ph <= 600).toBe(true);
+  });
+
+  it('the meadows are the same every time and stay inside the arena', async () => {
+    const { meadowsFor } = await import('../../../web/src/maplook');
+    const a = meadowsFor(rec);
+    expect(a.length).toBeGreaterThanOrEqual(2);
+    for (const pts of a) for (const [x, y] of pts) expect(x >= 0 && x <= 1200 && y >= 0 && y <= 600).toBe(true);
+  });
+});

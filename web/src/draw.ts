@@ -1,7 +1,6 @@
 // Draws one turn of a recording onto a canvas. The look is RoboVerus's own:
 // an ink-blue plotting table with instrument-style robots.
-import { houseStyle, roadDashes, texturePattern } from './textures';
-import { roadsFor, sceneryFor, type Prop } from './scenery';
+import { drawMap } from './maplook';
 import { scanArc } from './geometry';
 import { bulletSegment, impactFlashes } from './scene';
 import type { Decision, Recording, RobotSnapshot } from './recording';
@@ -83,10 +82,9 @@ function labelFor(r: RobotSnapshot, name: string, view: ViewOptions): string {
   return '';
 }
 
-function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number, textures = false) {
-  ctx.fillStyle = (textures && texturePattern(ctx, 'ground', P.arena)) || P.arena;
+function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  ctx.fillStyle = P.arena;
   ctx.fillRect(0, 0, w, h);
-  if (textures) return;  // the scenery replaces the grid
   ctx.strokeStyle = P.grid;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -237,177 +235,17 @@ function drawRobot(
 
 
 /** Roads, then buildings. Map objects only: they are drawn under the robots. */
-function drawTerrain(ctx: CanvasRenderingContext2D, rec: Recording, textures = false) {
-  const terrain = rec.terrain;
+function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Recording['terrain']) {
   if (!terrain) return;
-  if (!textures) {
-    ctx.fillStyle = P.road;
-    for (const [x, y, w, h] of terrain.roads) ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = P.building;
-    for (const [x, y, w, h] of terrain.buildings) ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = P.edge;
-    ctx.lineWidth = 1;
-    for (const [x, y, w, h] of terrain.buildings) ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-    return;
-  }
-  const day = P === DAY;
-  for (const { rect: [x, y, w, h], big } of roadsFor(rec)) {
-    // The large road is asphalt with pavements and a dashed centre line; small roads are gravel paths.
-    ctx.fillStyle = (big ? texturePattern(ctx, 'road', P.road) : texturePattern(ctx, 'path', day ? '#9a8c70' : '#4d4639')) || P.road;
-    ctx.fillRect(x, y, w, h);
-    if (!big) continue;
-    ctx.fillStyle = 'rgba(215, 218, 226, 0.4)';
-    if (w >= h) {
-      ctx.fillRect(x, y, w, 4);
-      ctx.fillRect(x, y + h - 4, w, 4);
-    } else {
-      ctx.fillRect(x, y, 4, h);
-      ctx.fillRect(x + w - 4, y, 4, h);
-    }
-    ctx.fillStyle = 'rgba(233, 238, 242, 0.55)';
-    for (const [dx, dy, dw, dh] of roadDashes([x, y, w, h])) ctx.fillRect(dx, dy, dw, dh);
-  }
-  terrain.buildings.forEach(([x, y, w, h], i) => {
-    const style = houseStyle(i, day);
-    // A soft shadow to the lower right gives the roof some height.
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-    ctx.fillRect(x + 4, y + 5, w, h);
-    ctx.fillStyle = texturePattern(ctx, style.roof, style.roofColor) || style.roofColor;
-    ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = P.edge;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-    // Lit edge top-left, shaded edge bottom-right.
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-    ctx.beginPath();
-    ctx.moveTo(x + 1, y + h - 1);
-    ctx.lineTo(x + 1, y + 1);
-    ctx.lineTo(x + w - 1, y + 1);
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.32)';
-    ctx.beginPath();
-    ctx.moveTo(x + w - 1, y + 1);
-    ctx.lineTo(x + w - 1, y + h - 1);
-    ctx.lineTo(x + 1, y + h - 1);
-    ctx.stroke();
-  });
+  ctx.fillStyle = P.road;
+  for (const [x, y, w, h] of terrain.roads) ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = P.building;
+  for (const [x, y, w, h] of terrain.buildings) ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = P.edge;
+  ctx.lineWidth = 1;
+  for (const [x, y, w, h] of terrain.buildings) ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
 }
 
-/** Trees, bushes, rocks and grass tufts, under the tanks. */
-function drawScenery(ctx: CanvasRenderingContext2D, props: Prop[], day: boolean) {
-  const leaf = day ? ['#2d6f30', '#5cad4c'] : ['#173d2a', '#2b6845'];
-  const bush = day ? ['#4a8c3b', '#72ba5f'] : ['#1c4a31', '#2f704a'];
-  const rock = day ? ['#8b8f97', '#bcc0c8'] : ['#464f5d', '#6f7a8b'];
-  const tuft = day ? '#4d8a38' : '#2c6244';
-  const blob = (x: number, y: number, r: number, dark: string, light: string) => {
-    const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
-    g.addColorStop(0, light);
-    g.addColorStop(1, dark);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  };
-  ctx.save();
-  for (const p of props) {
-    if (p.kind === 'tuft') {
-      ctx.strokeStyle = tuft;
-      ctx.lineWidth = 1;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      for (let k = -2; k <= 2; k++) {
-        ctx.moveTo(p.x + k * 1.4, p.y + 2);
-        ctx.lineTo(p.x + k * 2.4, p.y - p.r);
-      }
-      ctx.stroke();
-      continue;
-    }
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
-    ctx.beginPath();
-    ctx.ellipse(p.x + p.r * 0.3, p.y + p.r * 0.4, p.r * 1.05, p.r * 0.85, 0, 0, Math.PI * 2);
-    ctx.fill();
-    if (p.kind === 'tree') {
-      blob(p.x, p.y, p.r, leaf[0], leaf[1]);
-      // Clumps of leaves on the crown.
-      for (let k = 0; k < 4; k++) {
-        const a = p.v * 6.28 + k * 1.57;
-        blob(p.x + Math.cos(a) * p.r * 0.45, p.y + Math.sin(a) * p.r * 0.45, p.r * 0.42, leaf[0], leaf[1]);
-      }
-    } else if (p.kind === 'bush') {
-      blob(p.x, p.y, p.r, bush[0], bush[1]);
-      blob(p.x + p.r * 0.5, p.y + p.r * 0.2, p.r * 0.65, bush[0], bush[1]);
-    } else {
-      ctx.fillStyle = rock[0];
-      ctx.beginPath();
-      for (let k = 0; k < 7; k++) {
-        const a = (k / 7) * Math.PI * 2 + p.v * 3, rr = p.r * (0.75 + 0.35 * ((k * 37 + p.v * 100) % 10) / 10);
-        k ? ctx.lineTo(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr) : ctx.moveTo(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr);
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = rock[1];
-      ctx.beginPath();
-      ctx.arc(p.x - p.r * 0.25, p.y - p.r * 0.3, p.r * 0.35, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.restore();
-}
-
-/** Tracers, muzzle flashes and impact flashes. Only the tracer core ignores `view.effects`. */
-function drawShots(ctx: CanvasRenderingContext2D, rec: Recording, turn: number, view: ViewOptions, reachFor: (i: number) => number) {
-  ctx.save();
-  ctx.lineCap = 'round';
-  if (view.effects) {
-    // Muzzle flashes: a bright disc on the fire turn, fading over the next.
-    for (let k = Math.max(0, turn - MUZZLE_FLASH_TURNS + 1); k <= turn; k++) {
-      const fade = 1 - (turn - k) / MUZZLE_FLASH_TURNS;
-      rec.turns[k].bullets.forEach((b, j) => {
-        if (!b.alive) return;
-        const s = bulletSegment(rec, k, j, reachFor);
-        if (!s.first) return;
-        ctx.fillStyle = `rgba(255, 250, 220, ${fade})`;
-        ctx.beginPath();
-        ctx.arc(s.from.x, s.from.y, 6, 0, Math.PI * 2);
-        ctx.fill();
-      });
-    }
-    // Impact flashes: an expanding disc plus six sparks, fading out.
-    for (const f of impactFlashes(rec, turn, IMPACT_TURNS)) {
-      const fade = 1 - f.age / IMPACT_TURNS;
-      const r = 6 + f.power * 2 + f.age * 4;
-      ctx.fillStyle = `rgba(255, 240, 190, ${0.85 * fade})`;
-      ctx.beginPath();
-      ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = `rgba(255, 220, 120, ${fade})`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      for (const a of SPARK_ANGLES) {
-        ctx.moveTo(f.x + Math.cos(a) * r, f.y + Math.sin(a) * r);
-        ctx.lineTo(f.x + Math.cos(a) * (r + 6), f.y + Math.sin(a) * (r + 6));
-      }
-      ctx.stroke();
-    }
-  }
-  rec.turns[turn].bullets.forEach((b, j) => {
-    if (!b.alive) return;
-    const { from, to } = bulletSegment(rec, turn, j, reachFor);
-    const layers: [string, number][] = view.effects ? [[P.tracerGlow, 4], [P.tracerCore, 1.5]] : [[P.tracerCore, 1.5]];
-    for (const [color, width] of layers) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = width;
-      ctx.beginPath();
-      ctx.moveTo(from.x, from.y);
-      ctx.lineTo(to.x, to.y);
-      ctx.stroke();
-    }
-  });
-  ctx.restore();
-}
-
-/** Draws turn `turn` of `rec`. */
 const staticLayers = new WeakMap<Recording, { key: string; canvas: HTMLCanvasElement }>();
 
 /** Ground, map and scenery: the same every frame. With scenery on it is drawn once into an offscreen canvas and copied
@@ -415,9 +253,9 @@ const staticLayers = new WeakMap<Recording, { key: string; canvas: HTMLCanvasEle
 function drawStatic(ctx: CanvasRenderingContext2D, rec: Recording, view: ViewOptions) {
   const { width: w, height: h } = rec.battlefield;
   const paint = (c: CanvasRenderingContext2D) => {
-    drawGrid(c, w, h, view.textures);
-    drawTerrain(c, rec, view.textures);
-    if (view.textures) drawScenery(c, sceneryFor(rec), !!view.daylight);
+    if (view.textures) return drawMap(c, rec, !!view.daylight);
+    drawGrid(c, w, h);
+    drawTerrain(c, rec.terrain);
   };
   if (!view.textures || typeof document === 'undefined') return paint(ctx);
   const t = ctx.getTransform();

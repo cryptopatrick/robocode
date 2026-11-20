@@ -5,7 +5,7 @@ import { ROBOT_COLORS } from '../draw';
 import type { Recording } from '../recording';
 import { roadsFor, sceneryFor } from '../scenery';
 import { BUILDING_HEIGHT, bulletSegment, worldPoint, cameraFor, drivenDistances, impactFlashes, sceneKey, HULL_HEIGHT, streakPose, terrainBoxes, tankPose } from '../scene';
-import { houseStyle, roadDashes, TILE, textureCanvas, type TextureKind } from '../textures';
+import { hatchCanvas, mapPalette, meadowsFor, plotsFor } from '../maplook';
 import { tankFor } from '../tanks/defs';
 import { createTank3D, type Tank3D } from '../tanks/models3d';
 
@@ -86,108 +86,105 @@ function build(container: HTMLElement, rec: Recording, textures: boolean, daylig
   sun.position.set(-300, 600, 400);
   scene.add(sun);
 
-  // Textures are tiled canvases (see ../textures); `owned` is what dispose() must free besides the materials.
+  // `owned` is what dispose() must free besides the materials: the textures made here.
   const owned: THREE.Texture[] = [];
-  const surface = (hex: number, kind: TextureKind, repeatX: number, repeatY: number): THREE.MeshLambertMaterial => {
-    const canvas = textures ? textureCanvas(kind, `#${hex.toString(16).padStart(6, '0')}`) : null;
-    if (!canvas) return material(hex);
-    const map = new THREE.CanvasTexture(canvas);
-    map.wrapS = map.wrapT = THREE.RepeatWrapping;
-    map.repeat.set(repeatX, repeatY);
-    map.colorSpace = THREE.SRGBColorSpace;
-    map.anisotropy = 4;
-    owned.push(map);
-    return new THREE.MeshLambertMaterial({ map });
-  };
+  const hex = (css: string) => parseInt(css.slice(1), 16);
+  const terrain = terrainBoxes(rec);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(width, height), surface(c.ground, 'ground', width / TILE, height / TILE));
-  ground.rotation.x = -Math.PI / 2;
-  scene.add(ground);
-  if (textures) {
-    // The grass runs on past the walls to the horizon, fading into the sky with distance.
-    const far = 60000;
-    const horizon = new THREE.Mesh(new THREE.PlaneGeometry(far, far), surface(c.ground, 'ground', far / TILE / 2, far / TILE / 2));
+  if (!textures) {
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material(c.ground));
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+    for (const [x, z, w, d] of terrain.roads) {
+      const road = new THREE.Mesh(new THREE.BoxGeometry(w, 0.5, d), material(c.road));
+      road.position.set(x, 0.25, z);
+      scene.add(road);
+    }
+    for (const [x, z, w, d] of terrain.buildings) {
+      const building = new THREE.Mesh(new THREE.BoxGeometry(w, BUILDING_HEIGHT, d), material(c.building));
+      building.position.set(x, BUILDING_HEIGHT / 2, z);
+      scene.add(building);
+    }
+  } else {
+    // The planning-map look (see ../maplook): pale ground running to the horizon, darker meadows, peach and pink
+    // plots, white roads, cross-hatched buildings with dark outlines, pale round-crowned trees.
+    const pal = mapPalette(daylight);
+    const flat = (css: string) => new THREE.MeshLambertMaterial({ color: hex(css) });
+    scene.background = new THREE.Color(daylight ? 0xcfe3f2 : c.background);
+    scene.fog = new THREE.Fog(daylight ? 0xcfe3f2 : c.background, 2500, 16000);
+    const horizon = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), flat(pal.ground));
     horizon.rotation.x = -Math.PI / 2;
     horizon.position.y = -0.3;
     scene.add(horizon);
-    scene.fog = new THREE.Fog(c.background, 2500, 16000);
-  }
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(width, height), flat(pal.ground));
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
 
-  const terrain = terrainBoxes(rec);
-  const dashMaterial = new THREE.MeshBasicMaterial({ color: 0xe9eef2 });
-  // With scenery on, the roads are the map's own or the generated large road and small paths (see ../scenery).
-  const roads: { box: [number, number, number, number]; big: boolean }[] = textures
-    ? roadsFor(rec).map(({ rect: [x, y, w, h], big }) => {
-        const p = worldPoint(x + w / 2, y + h / 2, width, height);
-        return { box: [p.x, p.z, w, h], big };
-      })
-    : terrain.roads.map((box) => ({ box, big: true }));
-  for (const { box: [x, z, w, d], big } of roads) {
-    const road = new THREE.Mesh(
-      new THREE.BoxGeometry(w, 0.5, d),
-      big ? surface(c.road, 'road', w / TILE, d / TILE) : surface(daylight ? 0x9a8c70 : 0x4d4639, 'path', w / TILE, d / TILE),
-    );
-    road.position.set(x, 0.25, z);
-    scene.add(road);
-    if (textures && big) {
-      for (const [dx, dz, dw, dd] of roadDashes([x - w / 2, z - d / 2, w, d])) {
-        const dash = new THREE.Mesh(new THREE.BoxGeometry(dw, 0.1, dd), dashMaterial);
-        dash.position.set(dx + dw / 2, 0.56, dz + dd / 2);
-        scene.add(dash);
-      }
-    }
-  }
-  terrain.buildings.forEach(([x, z, w, d], i) => {
-    // Faces of a box: +x, -x, top, bottom, +z, -z. Each building has its own roof and facade (brick, stucco, glass).
-    const style = houseStyle(i, daylight);
-    const hex = (css: string) => parseInt(css.slice(1), 16);
-    const side = (along: number) => surface(hex(style.wallColor), style.wall, along / 96, 0.25);
-    const materials = textures
-      ? [side(d), side(d), surface(hex(style.roofColor), style.roof, w / TILE, d / TILE), material(hex(style.wallColor)), side(w), side(w)]
-      : material(c.building);
-    const building = new THREE.Mesh(new THREE.BoxGeometry(w, BUILDING_HEIGHT, d), materials);
-    building.position.set(x, BUILDING_HEIGHT / 2, z);
-    scene.add(building);
-  });
-
-  if (textures) {
-    // Scenery: low-poly trees, bushes and rocks, the same places the 2D drawing uses.
-    const flat = (hex: number) => new THREE.MeshLambertMaterial({ color: hex, flatShading: true });
-    const leaf = [flat(daylight ? 0x3a8a3a : 0x1d4a33), flat(daylight ? 0x5cad4c : 0x2b6845)];
-    const bushMat = flat(daylight ? 0x5a9d48 : 0x24583b);
-    const rockMat = flat(daylight ? 0x9a9ea6 : 0x555e6c);
-    const trunkMat = flat(daylight ? 0x7a5a3a : 0x3d2f24);
-    for (const p of sceneryFor(rec)) {
-      if (p.kind === 'tuft') continue;
-      const { x, z } = worldPoint(p.x, p.y, width, height);
-      let mesh: THREE.Object3D;
-      if (p.kind === 'tree') {
-        const s = p.r / 12;
-        const tree = new THREE.Group();
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(1.3 * s, 1.9 * s, 7 * s, 6), trunkMat);
-        trunk.position.y = 3.5 * s;
-        const pine = p.v < 0.5;
-        const crown = new THREE.Mesh(
-          pine ? new THREE.ConeGeometry(p.r * 0.95, p.r * 2.6, 7) : new THREE.IcosahedronGeometry(p.r * 0.95, 0),
-          leaf[p.v < 0.25 || p.v > 0.75 ? 0 : 1],
-        );
-        crown.position.y = 7 * s + (pine ? p.r * 1.2 : p.r * 0.7);
-        tree.add(trunk, crown);
-        mesh = tree;
-      } else if (p.kind === 'bush') {
-        const bush = new THREE.Mesh(new THREE.SphereGeometry(p.r, 6, 4), bushMat);
-        bush.scale.y = 0.7;
-        bush.position.y = p.r * 0.45;
-        mesh = bush;
-      } else {
-        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(p.r * 0.9, 0), rockMat);
-        rock.position.y = p.r * 0.35;
-        rock.rotation.set(p.v * 3, p.v * 7, 0);
-        mesh = rock;
-      }
-      mesh.position.x = x;
-      mesh.position.z = z;
+    const flatShape = (points: [number, number][], css: string, y: number) => {
+      const shape = new THREE.Shape(points.map(([px, py]) => {
+        const p = worldPoint(px, py, width, height);
+        return new THREE.Vector2(p.x, -p.z);
+      }));
+      const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), flat(css));
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.y = y;
       scene.add(mesh);
+    };
+    // Meadows are smoothed blobs: a closed Catmull-Rom curve through the points.
+    for (const pts of meadowsFor(rec)) {
+      const curve = new THREE.CatmullRomCurve3(pts.map(([px, py]) => { const p = worldPoint(px, py, width, height); return new THREE.Vector3(p.x, 0, p.z); }), true);
+      const smooth = curve.getPoints(60).map((v): [number, number] => [v.x, v.z]);
+      const shape = new THREE.Shape(smooth.map(([wx, wz]) => new THREE.Vector2(wx, -wz)));
+      const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), flat(pal.meadow));
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.y = 0.12;
+      scene.add(mesh);
+    }
+    for (const { rect: [x, y, pw, ph], color } of plotsFor(rec, pal)) {
+      flatShape([[x, y], [x + pw, y], [x + pw, y + ph], [x, y + ph]], color, 0.25);
+    }
+    // Roads sit above the plots, white and flat.
+    for (const { rect: [x, y, rw, rh] } of roadsFor(rec)) {
+      flatShape([[x, y], [x + rw, y], [x + rw, y + rh], [x, y + rh]], pal.road, 0.4);
+    }
+
+    const edge = new THREE.LineBasicMaterial({ color: hex(pal.ink) });
+    terrain.buildings.forEach(([x, z, w, d], i) => {
+      const look = pal.buildings[i % pal.buildings.length];
+      const tile = hatchCanvas(look.fill, look.hatch);
+      const roof = new THREE.MeshLambertMaterial({ color: 0xffffff });
+      if (tile) {
+        const map = new THREE.CanvasTexture(tile);
+        map.wrapS = map.wrapT = THREE.RepeatWrapping;
+        map.repeat.set(w / 8, d / 8);
+        map.colorSpace = THREE.SRGBColorSpace;
+        map.magFilter = THREE.NearestFilter;
+        owned.push(map);
+        roof.map = map;
+      } else {
+        roof.color.set(hex(look.fill));
+      }
+      // Faces of a box: +x, -x, top, bottom, +z, -z.
+      const wall = flat(look.fill);
+      const geometry = new THREE.BoxGeometry(w, BUILDING_HEIGHT, d);
+      const building = new THREE.Mesh(geometry, [wall, wall, roof, wall, wall, wall]);
+      building.position.set(x, BUILDING_HEIGHT / 2, z);
+      scene.add(building);
+      const outline = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edge);
+      outline.position.copy(building.position);
+      scene.add(outline);
+    });
+
+    // Trees: a short trunk under a pale round crown (an icosahedron, so it stays light on the triangles).
+    const crown = flat(pal.treeFill), trunk = flat(pal.treeEdge);
+    for (const p of sceneryFor(rec)) {
+      if (p.kind !== 'tree') continue;
+      const { x, z } = worldPoint(p.x, p.y, width, height);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.6, p.r * 0.9, 6), trunk);
+      stem.position.set(x, p.r * 0.45, z);
+      const top = new THREE.Mesh(new THREE.IcosahedronGeometry(p.r * 0.95, 1), crown);
+      top.position.set(x, p.r * 1.4, z);
+      scene.add(stem, top);
     }
   }
 
@@ -206,7 +203,7 @@ function build(container: HTMLElement, rec: Recording, textures: boolean, daylig
   scene.add(flashes);
   const flashTexture = glowTexture();
 
-  const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 2, 80000);
+  const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 10, 80000);
   {
     const view = cameraFor(width, height, camera.aspect);
     camera.fov = view.fov;
