@@ -246,6 +246,58 @@ function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Recording['terrain'
   for (const [x, y, w, h] of terrain.buildings) ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
 }
 
+/** Tracers, muzzle flashes and impact flashes. Only the tracer core ignores `view.effects`. */
+function drawShots(ctx: CanvasRenderingContext2D, rec: Recording, turn: number, view: ViewOptions, reachFor: (i: number) => number) {
+  ctx.save();
+  ctx.lineCap = 'round';
+  if (view.effects) {
+    // Muzzle flashes: a bright disc on the fire turn, fading over the next.
+    for (let k = Math.max(0, turn - MUZZLE_FLASH_TURNS + 1); k <= turn; k++) {
+      const fade = 1 - (turn - k) / MUZZLE_FLASH_TURNS;
+      rec.turns[k].bullets.forEach((b, j) => {
+        if (!b.alive) return;
+        const s = bulletSegment(rec, k, j, reachFor);
+        if (!s.first) return;
+        ctx.fillStyle = `rgba(255, 250, 220, ${fade})`;
+        ctx.beginPath();
+        ctx.arc(s.from.x, s.from.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+    // Impact flashes: an expanding disc plus six sparks, fading out.
+    for (const f of impactFlashes(rec, turn, IMPACT_TURNS)) {
+      const fade = 1 - f.age / IMPACT_TURNS;
+      const r = 6 + f.power * 2 + f.age * 4;
+      ctx.fillStyle = `rgba(255, 240, 190, ${0.85 * fade})`;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255, 220, 120, ${fade})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (const a of SPARK_ANGLES) {
+        ctx.moveTo(f.x + Math.cos(a) * r, f.y + Math.sin(a) * r);
+        ctx.lineTo(f.x + Math.cos(a) * (r + 6), f.y + Math.sin(a) * (r + 6));
+      }
+      ctx.stroke();
+    }
+  }
+  rec.turns[turn].bullets.forEach((b, j) => {
+    if (!b.alive) return;
+    const { from, to } = bulletSegment(rec, turn, j, reachFor);
+    const layers: [string, number][] = view.effects ? [[TRACER_GLOW, 4], [TRACER_CORE, 1.5]] : [[TRACER_CORE, 1.5]];
+    for (const [color, width] of layers) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    }
+  });
+  ctx.restore();
+}
+
 const staticLayers = new WeakMap<Recording, { key: string; canvas: HTMLCanvasElement }>();
 
 /** Ground, map and scenery: the same every frame. With scenery on it is drawn once into an offscreen canvas and copied
