@@ -7,6 +7,7 @@ import ArenaScene3D from '../../../web/src/components/ArenaScene3D';
 import { drawArena, type ViewOptions } from '../../../web/src/draw';
 import { playbackReducer, type Playback, type PlaybackAction } from '../../../web/src/playback';
 import { parseRecording, type Recording } from '../../../web/src/recording';
+import { createBattleSound, cuesForTurn, enginePans, engineLevels } from '../../../web/src/sound';
 import { TANK_IDS } from '../../../web/src/tanks/defs';
 import type { TankImages } from '../../../web/src/tanks/images';
 
@@ -26,6 +27,9 @@ export interface Viewer {
   /** Procedural ground, road and building textures (default on). */
   setTextures(on: boolean): void;
   textures(): boolean;
+  /** Battle sounds: shots, hits, engines (default off; switch on from a user gesture such as a button press). */
+  setSound(on: boolean): void;
+  sound(): boolean;
   /** Daylight instead of night (default off). */
   setDaylight(on: boolean): void;
   daylight(): boolean;
@@ -147,6 +151,7 @@ export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string } = {}): 
   let state: Playback = { turn: 0, last: 0, playing: false, speed: SPEED };
   let mode: Mode = '2d';
   let textures = true;
+  const snd = createBattleSound();
   let daylight = false;
   let timer: ReturnType<typeof setInterval> | null = null;
   let root: Root | null = null;
@@ -179,6 +184,13 @@ export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string } = {}): 
   const dispatch = (a: PlaybackAction) => {
     const before = state;
     state = playbackReducer(state, a);
+    if (snd.enabled() && rec) {
+      // A turn's events are heard when the replay moves on by one turn (playing or stepping), not when it jumps.
+      const advanced = (a.type === 'tick' || a.type === 'step') && state.turn === before.turn + 1;
+      if (advanced) snd.play(cuesForTurn(rec, state.turn));
+      if (state.playing) snd.engines(engineLevels(rec, state.turn), enginePans(rec, state.turn));
+      else snd.silence();
+    }
     if (state.playing && !timer) timer = setInterval(() => dispatch({ type: 'tick' }), 1000 / SPEED);
     if (!state.playing && timer) {
       clearInterval(timer);
@@ -225,6 +237,11 @@ export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string } = {}): 
       draw();
     },
     textures: () => textures,
+    setSound(on) {
+      snd.enable(on);
+      if (!on) snd.silence();
+    },
+    sound: () => snd.enabled(),
     setDaylight(on) {
       daylight = on;
       draw();
@@ -232,7 +249,10 @@ export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string } = {}): 
     daylight: () => daylight,
     seek: (turn) => dispatch({ type: 'seek', turn }),
     step: () => dispatch({ type: 'step', by: 1 }),
-    play: () => dispatch({ type: 'play' }),
+    play: () => {
+      snd.unlock();
+      dispatch({ type: 'play' });
+    },
     pause: () => dispatch({ type: 'pause' }),
     reset: () => dispatch({ type: 'seek', turn: 0 }),
     turn: () => state.turn,
@@ -245,6 +265,7 @@ export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string } = {}): 
     },
     destroy() {
       if (timer) clearInterval(timer);
+      snd.enable(false);
       root?.unmount();
       el.replaceChildren();
     },
