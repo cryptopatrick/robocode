@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { sceneryFor } from '../../../web/src/scenery';
+import type { Recording } from '../../../web/src/recording';
 import { roadDashes, seeded, textureCanvas } from '../../../web/src/textures';
 
 describe('textures', () => {
@@ -31,5 +33,28 @@ describe('textures', () => {
   it('draws nothing without a canvas to draw on (tests, old browsers)', () => {
     // jsdom has no 2D context: the caller keeps its flat colour.
     expect(textureCanvas('ground', '#123456')).toBeNull();
+  });
+
+  const arena = (terrain?: Recording['terrain']) =>
+    ({ battlefield: { width: 1200, height: 600 }, terrain, robots: [], turns: [] }) as unknown as Recording;
+
+  it('scenery is the same every time and keeps off buildings, roads and the starting points', () => {
+    const rec = arena({ buildings: [[500, 200, 120, 120]], roads: [[0, 280, 1200, 40]] });
+    const a = sceneryFor(rec);
+    expect(a.length).toBeGreaterThan(40);
+    expect(sceneryFor(arena({ buildings: [[500, 200, 120, 120]], roads: [[0, 280, 1200, 40]] }))).toEqual(a);
+    for (const p of a) {
+      expect(p.x > 497 - p.r && p.x < 623 + p.r && p.y > 197 - p.r && p.y < 323 + p.r).toBe(false);
+      expect(p.y + p.r > 277 && p.y - p.r < 323).toBe(false);
+      for (const [sx, sy] of [[100, 100], [1100, 500], [1100, 100], [100, 500]]) expect(Math.hypot(p.x - sx, p.y - sy)).toBeGreaterThan(40);
+    }
+  });
+
+  it('trees stand at the walls, and an open arena still gets scenery', () => {
+    const props = sceneryFor(arena());
+    const trees = props.filter((p) => p.kind === 'tree');
+    expect(trees.length).toBeGreaterThan(20);
+    expect(trees.every((t) => Math.min(t.x, t.y, 1200 - t.x, 600 - t.y) < 60)).toBe(true);
+    expect(props.some((p) => p.kind === 'bush' || p.kind === 'rock')).toBe(true);
   });
 });

@@ -37,25 +37,23 @@ function make(kind: TextureKind, base: string): HTMLCanvasElement | null {
     }
   };
   if (kind === 'ground') {
-    // Mottled earth: big soft patches, then grain, then a few hairline cracks.
-    for (let i = 0; i < 14; i++) {
-      const x = rnd() * TILE, y = rnd() * TILE, r = 20 + rnd() * 40;
+    // Grass: soft light and dark patches, then thousands of short blades leaning every which way.
+    for (let i = 0; i < 18; i++) {
+      const x = rnd() * TILE, y = rnd() * TILE, r = 22 + rnd() * 44;
       const grad = g.createRadialGradient(x, y, 0, x, y, r);
-      const light = rnd() > 0.5;
-      grad.addColorStop(0, light ? 'rgba(150,180,215,0.07)' : 'rgba(0,0,0,0.12)');
+      grad.addColorStop(0, rnd() > 0.5 ? 'rgba(150,200,110,0.10)' : 'rgba(5,30,15,0.14)');
       grad.addColorStop(1, 'rgba(0,0,0,0)');
       g.fillStyle = grad;
       g.fillRect(x - r, y - r, 2 * r, 2 * r);
     }
-    speck(900, 0.16, true, 2);
-    speck(900, 0.22, false, 2);
-    g.strokeStyle = 'rgba(0,0,0,0.18)';
-    g.lineWidth = 1;
-    for (let i = 0; i < 5; i++) {
+    g.lineCap = 'round';
+    for (let i = 0; i < 2600; i++) {
+      const x = rnd() * TILE, y = rnd() * TILE, a = -Math.PI / 2 + (rnd() - 0.5) * 1.2, len = 3 + rnd() * 5;
+      g.strokeStyle = rnd() > 0.45 ? `rgba(150,205,105,${0.12 + 0.2 * rnd()})` : `rgba(8,40,20,${0.16 + 0.22 * rnd()})`;
+      g.lineWidth = 1;
       g.beginPath();
-      let x = rnd() * TILE, y = rnd() * TILE;
       g.moveTo(x, y);
-      for (let k = 0; k < 6; k++) g.lineTo((x += (rnd() - 0.5) * 30), (y += (rnd() - 0.5) * 30));
+      g.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
       g.stroke();
     }
   } else if (kind === 'road') {

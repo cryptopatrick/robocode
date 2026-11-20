@@ -1,6 +1,7 @@
 // Draws one turn of a recording onto a canvas. The look is RoboVerus's own:
 // an ink-blue plotting table with instrument-style robots.
 import { roadDashes, texturePattern } from './textures';
+import { sceneryFor, type Prop } from './scenery';
 import { scanArc } from './geometry';
 import { bulletSegment, impactFlashes } from './scene';
 import type { Decision, Recording, RobotSnapshot } from './recording';
@@ -37,7 +38,7 @@ const BUILDING_EDGE = '#56708c';
 /** The two palettes the 2D drawing switches between: night (the default) and daylight. */
 const NIGHT = { arena: ARENA, grid: GRID, road: ROAD, building: BUILDING, edge: BUILDING_EDGE, label: LABEL, tracerGlow: TRACER_GLOW, tracerCore: TRACER_CORE };
 const DAY = {
-  arena: '#b4c3a3', grid: 'rgba(20, 30, 20, 0.10)', road: '#7b828c', building: '#d4d7dd', edge: '#8e95a1', label: '#1b2330',
+  arena: '#86ab62', grid: 'rgba(20, 30, 20, 0.10)', road: '#7b828c', building: '#d4d7dd', edge: '#8e95a1', label: '#1b2330',
   tracerGlow: 'rgba(217, 72, 15, 0.3)', tracerCore: '#d9480f',
 };
 let P = NIGHT;
@@ -85,6 +86,7 @@ function labelFor(r: RobotSnapshot, name: string, view: ViewOptions): string {
 function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number, textures = false) {
   ctx.fillStyle = (textures && texturePattern(ctx, 'ground', P.arena)) || P.arena;
   ctx.fillRect(0, 0, w, h);
+  if (textures) return;  // the scenery replaces the grid
   ctx.strokeStyle = P.grid;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -240,7 +242,18 @@ function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Recording['terrain'
   ctx.fillStyle = (textures && texturePattern(ctx, 'road', P.road)) || P.road;
   for (const [x, y, w, h] of terrain.roads) ctx.fillRect(x, y, w, h);
   if (textures) {
-    ctx.fillStyle = 'rgba(233, 238, 242, 0.45)';
+    // Pavements along both long edges, then the dashed centre line.
+    ctx.fillStyle = 'rgba(215, 218, 226, 0.4)';
+    for (const [x, y, w, h] of terrain.roads) {
+      if (w >= h) {
+        ctx.fillRect(x, y, w, 4);
+        ctx.fillRect(x, y + h - 4, w, 4);
+      } else {
+        ctx.fillRect(x, y, 4, h);
+        ctx.fillRect(x + w - 4, y, 4, h);
+      }
+    }
+    ctx.fillStyle = 'rgba(233, 238, 242, 0.55)';
     for (const road of terrain.roads) for (const [x, y, w, h] of roadDashes(road)) ctx.fillRect(x, y, w, h);
   }
   for (const [x, y, w, h] of terrain.buildings) {
@@ -271,6 +284,67 @@ function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Recording['terrain'
       ctx.stroke();
     }
   }
+}
+
+/** Trees, bushes, rocks and grass tufts, under the tanks. */
+function drawScenery(ctx: CanvasRenderingContext2D, props: Prop[], day: boolean) {
+  const leaf = day ? ['#2d6f30', '#5cad4c'] : ['#173d2a', '#2b6845'];
+  const bush = day ? ['#4a8c3b', '#72ba5f'] : ['#1c4a31', '#2f704a'];
+  const rock = day ? ['#8b8f97', '#bcc0c8'] : ['#464f5d', '#6f7a8b'];
+  const tuft = day ? '#4d8a38' : '#2c6244';
+  const blob = (x: number, y: number, r: number, dark: string, light: string) => {
+    const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+    g.addColorStop(0, light);
+    g.addColorStop(1, dark);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  ctx.save();
+  for (const p of props) {
+    if (p.kind === 'tuft') {
+      ctx.strokeStyle = tuft;
+      ctx.lineWidth = 1;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let k = -2; k <= 2; k++) {
+        ctx.moveTo(p.x + k * 1.4, p.y + 2);
+        ctx.lineTo(p.x + k * 2.4, p.y - p.r);
+      }
+      ctx.stroke();
+      continue;
+    }
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    ctx.beginPath();
+    ctx.ellipse(p.x + p.r * 0.3, p.y + p.r * 0.4, p.r * 1.05, p.r * 0.85, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (p.kind === 'tree') {
+      blob(p.x, p.y, p.r, leaf[0], leaf[1]);
+      // Clumps of leaves on the crown.
+      for (let k = 0; k < 4; k++) {
+        const a = p.v * 6.28 + k * 1.57;
+        blob(p.x + Math.cos(a) * p.r * 0.45, p.y + Math.sin(a) * p.r * 0.45, p.r * 0.42, leaf[0], leaf[1]);
+      }
+    } else if (p.kind === 'bush') {
+      blob(p.x, p.y, p.r, bush[0], bush[1]);
+      blob(p.x + p.r * 0.5, p.y + p.r * 0.2, p.r * 0.65, bush[0], bush[1]);
+    } else {
+      ctx.fillStyle = rock[0];
+      ctx.beginPath();
+      for (let k = 0; k < 7; k++) {
+        const a = (k / 7) * Math.PI * 2 + p.v * 3, rr = p.r * (0.75 + 0.35 * ((k * 37 + p.v * 100) % 10) / 10);
+        k ? ctx.lineTo(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr) : ctx.moveTo(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = rock[1];
+      ctx.beginPath();
+      ctx.arc(p.x - p.r * 0.25, p.y - p.r * 0.3, p.r * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
 }
 
 /** Tracers, muzzle flashes and impact flashes. Only the tracer core ignores `view.effects`. */
@@ -340,6 +414,7 @@ export function drawArena(
   P = view.daylight ? DAY : NIGHT;
   drawGrid(ctx, w, h, view.textures);
   drawTerrain(ctx, rec.terrain, view.textures);
+  if (view.textures) drawScenery(ctx, sceneryFor(rec), !!view.daylight);
 
   if (view.scanArcs) {
     snap.robots.forEach((r, i) => {

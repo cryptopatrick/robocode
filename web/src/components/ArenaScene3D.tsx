@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ROBOT_COLORS } from '../draw';
 import type { Recording } from '../recording';
-import { BUILDING_HEIGHT, bulletSegment, cameraFor, drivenDistances, impactFlashes, sceneKey, HULL_HEIGHT, streakPose, terrainBoxes, tankPose } from '../scene';
+import { sceneryFor } from '../scenery';
+import { BUILDING_HEIGHT, bulletSegment, worldPoint, cameraFor, drivenDistances, impactFlashes, sceneKey, HULL_HEIGHT, streakPose, terrainBoxes, tankPose } from '../scene';
 import { roadDashes, TILE, textureCanvas, type TextureKind } from '../textures';
 import { tankFor } from '../tanks/defs';
 import { createTank3D, type Tank3D } from '../tanks/models3d';
@@ -13,7 +14,7 @@ const GROUND = 0x22395a;
 const ROAD = 0x2e4260;
 const BUILDING = 0x6d86a3;
 /** Daylight: a pale sky, light ground and roofs, a stronger sun. */
-const DAY = { background: 0xa9d0f0, ground: 0x9fb08f, road: 0x6b727c, building: 0xcdd1d8, ambient: 0.95, sun: 1.8, tracer: 0xd9480f };
+const DAY = { background: 0xa9d0f0, ground: 0x86ab62, road: 0x6b727c, building: 0xcdd1d8, ambient: 0.95, sun: 1.8, tracer: 0xd9480f };
 const TRACER = 0xfff6c8;
 const FLASH = 0xfff0be;
 /** Cross-section of a tracer streak, in battlefield pixels. */
@@ -126,6 +127,47 @@ function build(container: HTMLElement, rec: Recording, textures: boolean, daylig
     const building = new THREE.Mesh(new THREE.BoxGeometry(w, BUILDING_HEIGHT, d), materials);
     building.position.set(x, BUILDING_HEIGHT / 2, z);
     scene.add(building);
+  }
+
+  if (textures) {
+    // Scenery: low-poly trees, bushes and rocks, the same places the 2D drawing uses.
+    const flat = (hex: number) => new THREE.MeshLambertMaterial({ color: hex, flatShading: true });
+    const leaf = [flat(daylight ? 0x3a8a3a : 0x1d4a33), flat(daylight ? 0x5cad4c : 0x2b6845)];
+    const bushMat = flat(daylight ? 0x5a9d48 : 0x24583b);
+    const rockMat = flat(daylight ? 0x9a9ea6 : 0x555e6c);
+    const trunkMat = flat(daylight ? 0x7a5a3a : 0x3d2f24);
+    for (const p of sceneryFor(rec)) {
+      if (p.kind === 'tuft') continue;
+      const { x, z } = worldPoint(p.x, p.y, width, height);
+      let mesh: THREE.Object3D;
+      if (p.kind === 'tree') {
+        const s = p.r / 12;
+        const tree = new THREE.Group();
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(1.3 * s, 1.9 * s, 7 * s, 6), trunkMat);
+        trunk.position.y = 3.5 * s;
+        const pine = p.v < 0.5;
+        const crown = new THREE.Mesh(
+          pine ? new THREE.ConeGeometry(p.r * 0.95, p.r * 2.6, 7) : new THREE.IcosahedronGeometry(p.r * 0.95, 0),
+          leaf[p.v < 0.25 || p.v > 0.75 ? 0 : 1],
+        );
+        crown.position.y = 7 * s + (pine ? p.r * 1.2 : p.r * 0.7);
+        tree.add(trunk, crown);
+        mesh = tree;
+      } else if (p.kind === 'bush') {
+        const bush = new THREE.Mesh(new THREE.SphereGeometry(p.r, 6, 4), bushMat);
+        bush.scale.y = 0.7;
+        bush.position.y = p.r * 0.45;
+        mesh = bush;
+      } else {
+        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(p.r * 0.9, 0), rockMat);
+        rock.position.y = p.r * 0.35;
+        rock.rotation.set(p.v * 3, p.v * 7, 0);
+        mesh = rock;
+      }
+      mesh.position.x = x;
+      mesh.position.z = z;
+      scene.add(mesh);
+    }
   }
 
   const tanks = rec.robots.map((_, i) => {
