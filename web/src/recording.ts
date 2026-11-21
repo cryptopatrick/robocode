@@ -76,7 +76,17 @@ export interface Recording {
   robots: { id: number; name: string }[];
   battlefield: { width: number; height: number };
   /** Map objects as [x, y, width, height]. Absent in an empty arena. */
-  terrain?: { buildings: Rect[]; roads: Rect[] };
+  terrain?: {
+    buildings: Rect[];
+    roads: Rect[];
+    /** A real-city map (see tokyo.ts): street polylines to draw, building heights in metres, scale, and credit. Drawing
+     *  only; the engine never reads these. */
+    road_lines?: { class: string; width: number; points: [number, number][] }[];
+    heights?: number[];
+    px_per_m?: number;
+    name?: string;
+    attribution?: string;
+  };
   /** Tank id per robot, when the battle picked them. Unknown ids fall back to the slot default. */
   tanks?: string[];
   /** Bullet speed model. Absent in recordings made before bullet modes: those are arcade. */

@@ -1,6 +1,7 @@
 // Draws one turn of a recording onto a canvas. The look is RoboVerus's own:
 // an ink-blue plotting table with instrument-style robots.
 import { drawMap } from './maplook';
+import { drawTokyo, isCity } from './tokyo';
 import { scanArc } from './geometry';
 import { bulletSegment, impactFlashes } from './scene';
 import type { Decision, Recording, RobotSnapshot } from './recording';
@@ -305,7 +306,7 @@ const staticLayers = new WeakMap<Recording, { key: string; canvas: HTMLCanvasEle
 function drawStatic(ctx: CanvasRenderingContext2D, rec: Recording, view: ViewOptions) {
   const { width: w, height: h } = rec.battlefield;
   const paint = (c: CanvasRenderingContext2D) => {
-    if (view.textures) return drawMap(c, rec, !!view.daylight);
+    if (view.textures) return isCity(rec) ? drawTokyo(c, rec, !!view.daylight) : drawMap(c, rec, !!view.daylight);
     drawGrid(c, w, h);
     drawTerrain(c, rec.terrain);
   };

@@ -11,7 +11,7 @@ use std::time::Duration;
 use robocheck::pipeline::{Options, run};
 use robocheck::verify::CargoVerus;
 
-const BATTLE_USAGE: &str = "usage: robocheck battle <strategy.rs> --out DIR [--opponents A,B,C] [--tanks T,T,T,T] [--width PX --height PX] [--arena open|urban | --buildings x,y,w,h;...] [--bullets realistic|arcade] [--turns N] [--battle-timeout SECS]";
+const BATTLE_USAGE: &str = "usage: robocheck battle <strategy.rs> --out DIR [--opponents A,B,C] [--tanks T,T,T,T] [--width PX --height PX] [--arena open|urban | --buildings x,y,w,h;...] [--spawns x,y;x,y;...] [--bullets realistic|arcade] [--turns N] [--battle-timeout SECS]";
 
 /// `robocheck battle`: fights an already-assembled strategy.rs in a chosen arena, no AI and no Verus.
 /// Writes DIR/recording.json (the battle program's own output) and prints its summary line.
@@ -49,6 +49,7 @@ fn battle(args: &[String], strategy: &str) -> ExitCode {
             "--height",
             "--arena",
             "--buildings",
+            "--spawns",
             "--bullets",
             "--turns",
         ] {

@@ -5,6 +5,7 @@ import { ROBOT_COLORS } from '../draw';
 import type { Recording } from '../recording';
 import { roadsFor, sceneryFor } from '../scenery';
 import { BUILDING_HEIGHT, bulletSegment, worldPoint, cameraFor, drivenDistances, impactFlashes, sceneKey, HULL_HEIGHT, streakPose, terrainBoxes, tankPose } from '../scene';
+import { isCity, roofColor, tokyoPalette } from '../tokyo';
 import { hatchCanvas, mapPalette, meadowsFor, plotsFor } from '../maplook';
 import { tankFor } from '../tanks/defs';
 import { createTank3D, type Tank3D } from '../tanks/models3d';
@@ -105,6 +106,59 @@ function build(container: HTMLElement, rec: Recording, textures: boolean, daylig
       building.position.set(x, BUILDING_HEIGHT / 2, z);
       scene.add(building);
     }
+  } else if (isCity(rec)) {
+    // A real-city map: charcoal ground running to the horizon, street surfaces and linework, extruded cream buildings
+    // at their real heights (at 0.6 of true scale so tanks stay visible between them).
+    const pal = tokyoPalette(daylight);
+    const flat = (css: string) => new THREE.MeshLambertMaterial({ color: new THREE.Color(css) });
+    const sky = daylight ? 0xdfdcd4 : 0x17161a;
+    scene.background = new THREE.Color(sky);
+    scene.fog = new THREE.Fog(sky, 2500, 16000);
+    const horizon = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), flat(pal.ground));
+    horizon.rotation.x = -Math.PI / 2;
+    horizon.position.y = -0.3;
+    scene.add(horizon);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(width, height), flat(pal.ground));
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+
+    // Streets as flat ribbons: one mesh for the surfaces, one for the thin linework.
+    const ribbons = (lines: { points: [number, number][]; width: number }[], y: number, css: string) => {
+      const pos: number[] = [];
+      for (const { points, width: lw } of lines) {
+        for (let k = 0; k + 1 < points.length; k++) {
+          const a = worldPoint(points[k][0], points[k][1], width, height), b = worldPoint(points[k + 1][0], points[k + 1][1], width, height);
+          const dx = b.x - a.x, dz = b.z - a.z, len = Math.hypot(dx, dz);
+          if (len < 0.01) continue;
+          const nx = (-dz / len) * (lw / 2), nz = (dx / len) * (lw / 2);
+          pos.push(a.x + nx, y, a.z + nz, a.x - nx, y, a.z - nz, b.x + nx, y, b.z + nz,
+            b.x + nx, y, b.z + nz, a.x - nx, y, a.z - nz, b.x - nx, y, b.z - nz);
+        }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: new THREE.Color(css), side: THREE.DoubleSide }));
+      scene.add(m);
+    };
+    const all = rec.terrain!.road_lines!;
+    ribbons(all.filter((l) => l.width > 6), 0.2, pal.street);
+    ribbons(all.map((l) => ({ points: l.points, width: l.width > 6 ? 1.4 : 0.9 })), 0.35, pal.line);
+
+    const ppm = rec.terrain!.px_per_m ?? 4;
+    terrain.buildings.forEach(([x, z, w, d], i) => {
+      const m = rec.terrain!.heights?.[i] ?? 25;
+      const hgt = Math.max(8, m * ppm * 0.6);
+      const walls = flat(pal.wall);
+      const roof = flat(roofColor(pal, m));
+      const geometry = new THREE.BoxGeometry(w, hgt, d);
+      const building = new THREE.Mesh(geometry, [walls, walls, roof, walls, walls, walls]);
+      building.position.set(x, hgt / 2, z);
+      scene.add(building);
+      const outline = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), new THREE.LineBasicMaterial({ color: daylight ? 0x6f695c : 0x2a2823 }));
+      outline.position.copy(building.position);
+      scene.add(outline);
+    });
   } else {
     // The planning-map look (see ../maplook): pale ground running to the horizon, darker meadows, peach and pink
     // plots, white roads, cross-hatched buildings with dark outlines, pale round-crowned trees.

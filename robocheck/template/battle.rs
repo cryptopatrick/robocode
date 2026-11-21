@@ -41,6 +41,25 @@ fn parse_buildings(text: &str) -> Vec<robocode::Rect> {
         .collect()
 }
 
+/// `--spawns "x,y;x,y;..."`: where each robot starts (candidate first), for maps whose corners are built over.
+fn parse_spawns(text: &str, robots: usize, w: f64, h: f64) -> Vec<robocode::physics::SpawnSpec> {
+    let pts: Vec<(f64, f64)> = text
+        .split(';')
+        .filter(|r| !r.trim().is_empty())
+        .map(|r| {
+            let v: Vec<f64> = r.split(',').map(|n| n.trim().parse().unwrap_or(f64::NAN)).collect();
+            if v.len() != 2 || v.iter().any(|n| !n.is_finite()) || v[0] < 0.0 || v[0] > w || v[1] < 0.0 || v[1] > h {
+                die(format!("bad spawn {r:?}: want x,y inside the arena"));
+            }
+            (v[0], v[1])
+        })
+        .collect();
+    if pts.len() != robots {
+        die(format!("--spawns gives {} points but {robots} robots fight", pts.len()));
+    }
+    pts.iter().enumerate().map(|(i, &(x, y))| robocode::physics::SpawnSpec::new(i, x, y, 0.0)).collect()
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     // One opponent by default; `--opponents A,B,C` (up to three) fights them all at once.
@@ -94,7 +113,11 @@ fn main() {
         bullet_mode,
         ..BattleConfig::default()
     };
-    let mut battle = Battle::new(config, &roster::spawns(robots.len(), w, h), robots);
+    let spawns = match arg(&args, "--spawns") {
+        Some(text) => parse_spawns(&text, robots.len(), w, h),
+        None => roster::spawns(robots.len(), w, h),
+    };
+    let mut battle = Battle::new(config, &spawns, robots);
     if has_terrain {
         battle.set_terrain(terrain);
     }

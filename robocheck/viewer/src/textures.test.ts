@@ -102,3 +102,14 @@ describe('the planning-map look', () => {
     for (const pts of a) for (const [x, y] of pts) expect(x >= 0 && x <= 1200 && y >= 0 && y <= 600).toBe(true);
   });
 });
+
+describe('the real-city look', () => {
+  it('a recording with street lines is a city, and taller buildings shade lighter', async () => {
+    const { isCity, heightShade, roofColor, TOKYO_NIGHT } = await import('../../../web/src/tokyo');
+    expect(isCity({ terrain: { buildings: [], roads: [] } } as unknown as Recording)).toBe(false);
+    expect(isCity({ terrain: { buildings: [], roads: [], road_lines: [{ class: 'primary', width: 100, points: [[0, 0], [1, 1]] }] } } as unknown as Recording)).toBe(true);
+    expect(heightShade(5)).toBe(0);
+    expect(heightShade(80)).toBe(1);
+    expect(roofColor(TOKYO_NIGHT, 12)).not.toEqual(roofColor(TOKYO_NIGHT, 50));
+  });
+});
