@@ -59,7 +59,7 @@ The 2D view draws a recorded beam as a filled polygon in the robot's color, with
   - `labels`: `{text, x, y, h}`, landmark names with the building height in metres.
   - `name` and `attribution`: the map's name and its credit line, which must be shown wherever the map is.
 
-  The engine never reads these fields. The 3D view reads `road_lines`, `heights` and `px_per_m`.
+  The engine never reads these fields. The 3D view reads `road_lines`, `heights` and `px_per_m`. `cargo robocode export --glb` reads all of them (see `docs/cargo-robocode.md`).
 - Robots spawn at `(100,100)`, `(w−100,h−100)`, `(w−100,100)`, `(100,h−100)`, heading 0°.
 
 ## Not carried over from the Java game

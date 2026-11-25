@@ -60,6 +60,33 @@ fn battle_writes_recording() {
 }
 
 #[test]
+fn battle_writes_glb() {
+    let dir = temp_dir("glb");
+    new_robot(&dir, "my_robot");
+    let out = tool(
+        &[
+            "battle",
+            "my_robot.rs",
+            "--vs",
+            "SittingDuck",
+            "--no-open",
+            "--glb",
+            "out.glb",
+        ],
+        &dir,
+    );
+    assert!(out.status.success(), "{}", stderr(&out));
+    assert!(
+        stderr(&out).contains("Saved the 3D scene to out.glb"),
+        "{}",
+        stderr(&out)
+    );
+    let bytes = std::fs::read(dir.join("out.glb")).unwrap();
+    let g = gltf::Gltf::from_slice(&bytes).unwrap();
+    assert!(g.nodes().any(|n| n.name() == Some("robot0")));
+}
+
+#[test]
 fn path_with_spaces_and_relative() {
     let dir = temp_dir("spaces");
     let sub = dir.join("my robots");

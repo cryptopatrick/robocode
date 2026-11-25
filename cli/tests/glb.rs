@@ -110,3 +110,104 @@ fn ginza_is_deterministic() {
     assert_eq!(a, export(GINZA).unwrap());
     gltf::Gltf::from_slice(&a).unwrap();
 }
+
+#[test]
+fn ginza_acceptance() {
+    let bytes = export(GINZA).unwrap();
+    let (doc, buffers, _) = gltf::import_slice(&bytes).unwrap();
+    let sp = Space::new(Some(4.0));
+    let extras = |n: gltf::Node| -> serde_json::Value {
+        serde_json::from_str(n.extras().as_ref().unwrap().get()).unwrap()
+    };
+    // (a) robots and their names
+    for (i, name) in
+        ["Candidate", "Circler", "Tactician", "SittingDuck"].iter().enumerate()
+    {
+        assert_eq!(extras(node(&doc, &format!("robot{i}")))["name"], *name);
+    }
+    // (b) the dead hold their death positions
+    let r3 = translations(&doc, &buffers, "robot3");
+    assert!(close(r3[65], sp.point(290.0, 490.0, 0.0), 1.0), "{:?}", r3[65]);
+    assert!(r3[65..].iter().all(|&p| p == r3[65]));
+    let r0 = translations(&doc, &buffers, "robot0");
+    assert!(
+        close(r0[209], sp.point(1128.0, 499.0, 0.0), 1.0),
+        "{:?}",
+        r0[209]
+    );
+    assert!(r0[209..].iter().all(|&p| p == r0[209]));
+    // (c) the survivors' last positions
+    assert!(close(
+        translations(&doc, &buffers, "robot1")[2000],
+        sp.point(525.0, 447.0, 0.0),
+        1.0
+    ));
+    assert!(close(
+        translations(&doc, &buffers, "robot2")[2000],
+        sp.point(715.0, 263.0, 0.0),
+        1.0
+    ));
+    // (d) 40 bullets, each hidden after its last turn, nothing past the clip
+    let end = 2000.0f32 / 30.0;
+    let bullets: Vec<_> = doc
+        .nodes()
+        .filter(|n| n.name().is_some_and(|s| s.starts_with("bullet")))
+        .collect();
+    assert_eq!(bullets.len(), 40);
+    let anim = doc.animations().next().unwrap();
+    for b in &bullets {
+        let ch = anim
+            .channels()
+            .find(|c| {
+                c.target().node().index() == b.index()
+                    && c.target().property()
+                        == gltf::animation::Property::Scale
+            })
+            .unwrap();
+        let reader = ch.reader(|x| Some(&buffers[x.index()]));
+        let times: Vec<f32> = reader.read_inputs().unwrap().collect();
+        let gltf::animation::util::ReadOutputs::Scales(scales) =
+            reader.read_outputs().unwrap()
+        else {
+            unreachable!()
+        };
+        let last = scales.last().unwrap();
+        assert!(
+            last == [0.0; 3] || *times.last().unwrap() <= end,
+            "{:?}",
+            b.name()
+        );
+        assert!(times.iter().all(|&t| t <= end + 1e-4));
+    }
+    // (e) the map
+    let count = |p: &str| {
+        doc.nodes()
+            .filter(|n| {
+                n.name()
+                    .and_then(|s| s.strip_prefix(p))
+                    .is_some_and(|r| r.parse::<usize>().is_ok())
+            })
+            .count()
+    };
+    let counts: Vec<_> =
+        ["building", "road", "crossing", "signal", "entrance"]
+            .iter()
+            .map(|p| count(p))
+            .collect();
+    assert_eq!(counts, [77, 166, 34, 7, 16]);
+    // (f) the clip ends at turn 2000
+    let max = anim
+        .samplers()
+        .map(|s| s.input().max().unwrap()[0].as_f64().unwrap())
+        .fold(0.0, f64::max);
+    assert!((max - f64::from(end)).abs() < 1e-4, "{max}");
+    // (g) a tank is 9 m long
+    assert_eq!(node(&doc, "robot0/body").transform().decomposed().2[2], 9.0);
+    // (h) no winner, and the map's credit travels with the file
+    let scene: serde_json::Value = serde_json::from_str(
+        doc.scenes().next().unwrap().extras().as_ref().unwrap().get(),
+    )
+    .unwrap();
+    assert!(scene["winner"].is_null());
+    assert!(scene["attribution"].as_str().unwrap().contains("PLATEAU"));
+}

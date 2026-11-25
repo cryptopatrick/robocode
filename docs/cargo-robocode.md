@@ -24,6 +24,8 @@ cargo robocode battle hunter.rs --live --tps max               # live, as fast a
 cargo robocode battle hunter.rs --urban                         # fight on the city map (buildings block tanks and bullets)
 cargo robocode battle hunter.rs --bullets arcade                # classic Robocode bullet speed (default: realistic)
 cargo robocode battle hunter.rs --output battle.json --no-open   # just save the recording
+cargo robocode battle hunter.rs --no-open --glb battle.glb      # save the battle as a 3D scene
+cargo robocode export battle.json --glb battle.glb             # turn a saved recording into a 3D scene
 cargo robocode verify hunter.rs                        # run Verus on it
 cargo robocode list                                    # built-in robots
 ```
@@ -31,6 +33,15 @@ cargo robocode list                                    # built-in robots
 - **`battle`** takes 2 to 4 robots in total. Opponents are built-in names or `.rs` files, and the same file may appear twice. Compile errors print as normal `cargo` errors, and the tool exits 1. The browser page serves only on `127.0.0.1`; press Ctrl+C to stop it. `--verbose` shows cargo's build output.
 - The **first battle** compiles the robocode library, which takes a little while. Later battles reuse it. The cache lives in your platform's cache folder under `robocode/build` (or `ROBOCODE_BUILD_DIR`).
 - **Exit codes:** 0 for success, 1 for a robot that won't compile, crashes or fails verification, 2 for usage or setup problems.
+
+## 3D export
+
+`--glb` (on `battle`) and `export` write the battle as a glTF 2.0 binary (`.glb`): the arena, the map, the tanks and one animation clip, `battle`, with a keyframe every turn at 30 turns per second. It opens in Unity through the free glTFast package (`com.unity.cloud.gltfast`), and in Godot, Blender, Unreal and three.js. `export` reads any saved recording, including real-city maps such as the Ginza recordings from robocheck. `--glb` cannot be combined with `--live`.
+
+- **Scale and axes:** metres, Y up. The scale is the map's `px_per_m`, or 4 px per metre without one, so a tank is 9 m across. Arena `x` is `+X` and arena `y` (south) is `+Z`, with the arena's north-west corner at the origin.
+- **What is in it:** ground and walls. Buildings are extruded footprints at their measured heights when the map has them, otherwise boxes. The file also holds road strips clipped to the arena, crossings, traffic lights and subway entrances. Tanks are a box body with a gun and a radar in their slot colour. Bullets are small spheres, and a bullet that is fired and hits on the same turn is a one-turn tracer. Bullets appear and disappear through their scale, because glTF cannot animate visibility.
+- **Names and metadata:** nodes have stable names (`robot0`, `robot0/gun`, `robot0/radar`, `bullet17`, `building3`, `road12`), so a Unity script can find them and swap in its own models. The scene's `extras` hold the robot names, the winner, the scale, the bullet mode and, for a map, its name, labels and `attribution`. **A viewer that shows a map must show its attribution.**
+- **Not exported yet:** sounds, explosions and hit sparks, the radar beam, label text, the five tank models and rounds after the first.
 
 ## Robot files
 

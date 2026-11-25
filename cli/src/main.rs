@@ -6,7 +6,7 @@ mod serve;
 mod template;
 mod verify;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
@@ -54,6 +54,9 @@ enum Command {
         /// Also save the recording to this file.
         #[arg(long)]
         output: Option<PathBuf>,
+        /// Also save the battle as a 3D scene (glTF .glb) for Unity, Godot, Blender or three.js.
+        #[arg(long, value_name = "FILE", conflicts_with = "live")]
+        glb: Option<PathBuf>,
         /// Don't open a browser (print the address instead; with --output, just save and exit).
         #[arg(long)]
         no_open: bool,
@@ -75,6 +78,14 @@ enum Command {
         /// The robocode source to compile against.
         #[arg(long)]
         robocode_path: Option<PathBuf>,
+    },
+    /// Convert a saved recording into a 3D scene (glTF .glb) for Unity, Godot, Blender or three.js.
+    Export {
+        /// A recording saved with `battle --output`.
+        recording: PathBuf,
+        /// The .glb file to write.
+        #[arg(long, value_name = "FILE")]
+        glb: PathBuf,
     },
     /// Run Verus on a robot file (needs cargo verus on PATH).
     Verify {
@@ -126,6 +137,26 @@ fn new_robot(name: &str) -> Result<(), Failure> {
     Ok(())
 }
 
+/// Writes `json` (a recording read from `source`) as a `.glb` file.
+fn write_glb(json: &str, source: &str, out: &Path) -> Result<(), Failure> {
+    let bytes = cargo_robocode::glb::export(json).map_err(|e| {
+        let why = e.strip_prefix("not a robocode recording: ").unwrap_or(&e);
+        Failure::usage(format!("{source} is not a robocode recording: {why}"))
+    })?;
+    std::fs::write(out, bytes).map_err(|e| {
+        Failure::usage(format!("could not write {}: {e}", out.display()))
+    })?;
+    eprintln!("Saved the 3D scene to {}", out.display());
+    Ok(())
+}
+
+fn export(recording: &Path, out: &Path) -> Result<(), Failure> {
+    let json = std::fs::read_to_string(recording).map_err(|e| {
+        Failure::usage(format!("could not read {}: {e}", recording.display()))
+    })?;
+    write_glb(&json, &recording.display().to_string(), out)
+}
+
 fn main() -> ExitCode {
     // `cargo robocode …` runs us as `cargo-robocode robocode …`.
     let mut args: Vec<String> = std::env::args().collect();
@@ -149,6 +180,7 @@ fn main() -> ExitCode {
             turns,
             rounds,
             output,
+            glb,
             no_open,
             verbose,
             live,
@@ -173,7 +205,9 @@ fn main() -> ExitCode {
             match tps {
                 Err(f) => Err(f),
                 Ok(tps) => {
-                    let save_only = no_open && output.is_some() && !live;
+                    let save_only = no_open
+                        && (output.is_some() || glb.is_some())
+                        && !live;
                     let args = battle::BattleArgs {
                         robot,
                         vs,
@@ -199,6 +233,13 @@ fn main() -> ExitCode {
                         })
                     } else {
                         battle::run(&args).and_then(|json| {
+                            if let Some(path) = &glb {
+                                write_glb(
+                                    &json,
+                                    &path.display().to_string(),
+                                    path,
+                                )?;
+                            }
                             if save_only {
                                 Ok(())
                             } else {
@@ -209,6 +250,7 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Command::Export { recording, glb } => export(&recording, &glb),
         Command::Verify { robot, robocode_path } => {
             verify::run(&robot, robocode_path.as_deref())
         }
