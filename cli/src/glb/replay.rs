@@ -306,7 +306,12 @@ fn turn(t: RawTurn) -> Turn {
     let mut bullets: Vec<BulletFrame> = t
         .bullets
         .into_iter()
-        .map(|b| BulletFrame { id: b.id, x: b.position.x, y: b.position.y, alive: b.alive })
+        .map(|b| BulletFrame {
+            id: b.id,
+            x: b.position.x,
+            y: b.position.y,
+            alive: b.alive,
+        })
         .collect();
     bullets.sort_by_key(|b| b.id);
     let e = t.events;
@@ -327,7 +332,11 @@ fn turn(t: RawTurn) -> Turn {
             obstacle_hits: e
                 .bullet_hit_obstacles
                 .into_iter()
-                .map(|o| ObstacleHit { bullet_id: o.bullet_id, x: o.position.x, y: o.position.y })
+                .map(|o| ObstacleHit {
+                    bullet_id: o.bullet_id,
+                    x: o.position.x,
+                    y: o.position.y,
+                })
                 .collect(),
         },
     }
@@ -337,8 +346,10 @@ fn turn(t: RawTurn) -> Turn {
 mod tests {
     use super::*;
 
-    const V1: &str = include_str!("../../../tests/fixtures/open_arena_0_5_0.json");
-    const GINZA: &str = include_str!("../../tests/fixtures/ginzabattle02.json");
+    const V1: &str =
+        include_str!("../../../tests/fixtures/open_arena_0_5_0.json");
+    const GINZA: &str =
+        include_str!("../../tests/fixtures/ginzabattle02.json");
 
     fn tiny(extra_header: &str, events: &str, winner: &str) -> String {
         format!(
@@ -372,18 +383,31 @@ mod tests {
         assert_eq!(r.turns.len(), 2001);
         assert_eq!((r.width, r.height), (1200.0, 600.0));
         let names: Vec<_> = r.robots.iter().map(|r| r.name.as_str()).collect();
-        assert_eq!(names, ["Candidate", "Circler", "Tactician", "SittingDuck"]);
+        assert_eq!(
+            names,
+            ["Candidate", "Circler", "Tactician", "SittingDuck"]
+        );
         assert_eq!(r.winner, None);
         assert_eq!(r.bullet_mode, "realistic");
         assert_eq!(r.tanks.as_ref().unwrap().len(), 4);
         let m = &r.map;
         assert_eq!(m.px_per_m, Some(4.0));
         assert_eq!(
-            (m.buildings.len(), m.heights.len(), m.shapes.len(), m.road_lines.len()),
+            (
+                m.buildings.len(),
+                m.heights.len(),
+                m.shapes.len(),
+                m.road_lines.len()
+            ),
             (45, 45, 77, 198)
         );
         assert_eq!(
-            (m.crossings.len(), m.signals.len(), m.entrances.len(), m.labels.len()),
+            (
+                m.crossings.len(),
+                m.signals.len(),
+                m.entrances.len(),
+                m.labels.len()
+            ),
             (39, 8, 16, 27)
         );
         assert_eq!(m.name.as_deref(), Some("Ginza, Tokyo"));
@@ -412,8 +436,14 @@ mod tests {
         let e = &r.turns[1].events;
         assert_eq!(e.fired, vec![Fired { shooter: 0, bullet_id: 3 }]);
         assert_eq!(e.hits, vec![Hit { victim: 1, bullet_id: 3 }]);
-        assert_eq!(e.obstacle_hits, vec![ObstacleHit { bullet_id: 4, x: 10.0, y: 20.0 }]);
-        assert_eq!(r.turns[1].bullets, vec![BulletFrame { id: 3, x: 5.0, y: 6.0, alive: true }]);
+        assert_eq!(
+            e.obstacle_hits,
+            vec![ObstacleHit { bullet_id: 4, x: 10.0, y: 20.0 }]
+        );
+        assert_eq!(
+            r.turns[1].bullets,
+            vec![BulletFrame { id: 3, x: 5.0, y: 6.0, alive: true }]
+        );
         assert_eq!(r.turns[0].events, Events::default());
     }
 
@@ -425,13 +455,20 @@ mod tests {
 
     #[test]
     fn rejects_non_json() {
-        assert!(parse("not json").unwrap_err().contains("not a robocode recording"));
+        assert!(
+            parse("not json")
+                .unwrap_err()
+                .contains("not a robocode recording")
+        );
     }
 
     #[test]
     fn rejects_wrong_format() {
-        let json = tiny("", "{}", "null").replace("roboverus-recording", "other");
-        assert!(parse(&json).unwrap_err().contains("not a robocode recording"));
+        let json =
+            tiny("", "{}", "null").replace("roboverus-recording", "other");
+        assert!(
+            parse(&json).unwrap_err().contains("not a robocode recording")
+        );
         assert!(parse("{}").unwrap_err().contains("not a robocode recording"));
     }
 
