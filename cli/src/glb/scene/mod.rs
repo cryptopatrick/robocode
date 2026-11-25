@@ -210,6 +210,21 @@ mod tests {
     }
 
     #[test]
+    fn every_material_is_used() {
+        let r = replay(vec![turn(vec![
+            frame(0, 100.0, 100.0, 0.0),
+            frame(1, 700.0, 500.0, 0.0),
+        ])]);
+        let s = build(&r);
+        for (i, (name, _)) in s.materials.iter().enumerate() {
+            assert!(
+                s.nodes.iter().any(|n| n.mesh.is_some_and(|m| m.1 == i)),
+                "material {name} unused"
+            );
+        }
+    }
+
+    #[test]
     fn same_replay_same_scene() {
         let r = replay(vec![
             turn(vec![

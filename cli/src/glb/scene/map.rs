@@ -16,13 +16,25 @@ const ROAD_TOP_M: f64 = 0.03;
 const CROSSING_TOP_M: f32 = 0.04;
 const CROSSING_THICK_M: f32 = 0.01;
 
+/// `(material name, sRGB hex)`; the material is created the first time something uses it.
+type Colour = (&'static str, &'static str);
+
+const GROUND: Colour = ("ground", "#0f1e2e");
+const WALL: Colour = ("wall", "#e9eef2");
+const BUILDING: Colour = ("building", "#4a5866");
+const ROAD: Colour = ("road", "#1e2b3a");
+const CROSSING: Colour = ("crossing", "#e9eef2");
+const SIGNAL: Colour = ("signal", "#c9d6e2");
+const ENTRANCE: Colour = ("entrance", "#3fb6c9");
+
 fn boxed(
     scene: &mut Scene,
     name: String,
-    material: usize,
+    colour: Colour,
     at: [f32; 3],
     size: [f32; 3],
 ) -> usize {
+    let material = scene.material(colour.0, colour.1);
     let mut n = Node::new(name);
     n.mesh = Some((MeshRef::Box, material));
     n.translation = at;
@@ -37,15 +49,13 @@ pub(crate) fn add_arena_and_map(
 ) {
     let (w, h) =
         (space.len(replay.width) as f32, space.len(replay.height) as f32);
-    let ground = scene.material("ground", "#0f1e2e");
     boxed(
         scene,
         "ground".into(),
-        ground,
+        GROUND,
         [w / 2.0, -GROUND_THICK_M / 2.0, h / 2.0],
         [w, GROUND_THICK_M, h],
     );
-    let wall = scene.material("wall", "#e9eef2");
     let (t, y) = (WALL_THICK_M, WALL_HIGH_M / 2.0);
     for (name, at, size) in [
         ("north", [w / 2.0, y, -t / 2.0], [w + 2.0 * t, WALL_HIGH_M, t]),
@@ -53,11 +63,10 @@ pub(crate) fn add_arena_and_map(
         ("west", [-t / 2.0, y, h / 2.0], [t, WALL_HIGH_M, h]),
         ("east", [w + t / 2.0, y, h / 2.0], [t, WALL_HIGH_M, h]),
     ] {
-        boxed(scene, format!("wall/{name}"), wall, at, size);
+        boxed(scene, format!("wall/{name}"), WALL, at, size);
     }
 
     let map = &replay.map;
-    let building = scene.material("building", "#4a5866");
     if map.shapes.is_empty() {
         for (i, b) in map.buildings.iter().enumerate() {
             let height =
@@ -72,7 +81,7 @@ pub(crate) fn add_arena_and_map(
                 height as f32,
                 space.len(b[3]) as f32,
             ];
-            boxed(scene, format!("building{i}"), building, at, size);
+            boxed(scene, format!("building{i}"), BUILDING, at, size);
         }
     } else {
         for (i, shape) in map.shapes.iter().enumerate() {
@@ -83,12 +92,13 @@ pub(crate) fn add_arena_and_map(
                 .collect();
             scene.meshes.push(extrude(&ring, shape.h));
             let mut n = Node::new(format!("building{i}"));
-            n.mesh = Some((MeshRef::Own(scene.meshes.len() - 1), building));
+            n.mesh = Some((
+                MeshRef::Own(scene.meshes.len() - 1),
+                scene.material(BUILDING.0, BUILDING.1),
+            ));
             scene.add(n, None);
         }
     }
-
-    let road = scene.material("road", "#1e2b3a");
     for (i, line) in map.road_lines.iter().enumerate() {
         if let Some(mesh) = strip(
             &line.points,
@@ -99,7 +109,10 @@ pub(crate) fn add_arena_and_map(
         ) {
             scene.meshes.push(mesh);
             let mut n = Node::new(format!("road{i}"));
-            n.mesh = Some((MeshRef::Own(scene.meshes.len() - 1), road));
+            n.mesh = Some((
+                MeshRef::Own(scene.meshes.len() - 1),
+                scene.material(ROAD.0, ROAD.1),
+            ));
             scene.add(n, None);
         }
     }
@@ -117,7 +130,7 @@ pub(crate) fn add_arena_and_map(
         boxed(
             scene,
             format!("road{}", map.road_lines.len() + i),
-            road,
+            ROAD,
             at,
             size,
         );
@@ -126,7 +139,6 @@ pub(crate) fn add_arena_and_map(
     let inside = |x: f64, y: f64| {
         (0.0..=replay.width).contains(&x) && (0.0..=replay.height).contains(&y)
     };
-    let crossing = scene.material("crossing", "#e9eef2");
     for (i, c) in
         map.crossings.iter().enumerate().filter(|(_, c)| inside(c.x, c.y))
     {
@@ -139,33 +151,31 @@ pub(crate) fn add_arena_and_map(
         let n = boxed(
             scene,
             format!("crossing{i}"),
-            crossing,
+            CROSSING,
             at,
             [0.3 * len, CROSSING_THICK_M, len],
         );
         let a = c.angle.to_radians();
         scene.nodes[n].rotation = yaw_toward(a.cos(), a.sin());
     }
-    let signal = scene.material("signal", "#c9d6e2");
     for (i, s) in
         map.signals.iter().enumerate().filter(|(_, s)| inside(s.x, s.y))
     {
         boxed(
             scene,
             format!("signal{i}"),
-            signal,
+            SIGNAL,
             space.point(s.x, s.y, 2.5),
             [0.3, 5.0, 0.3],
         );
     }
-    let entrance = scene.material("entrance", "#3fb6c9");
     for (i, e) in
         map.entrances.iter().enumerate().filter(|(_, e)| inside(e.x, e.y))
     {
         let n = boxed(
             scene,
             format!("entrance{i}"),
-            entrance,
+            ENTRANCE,
             space.point(e.x, e.y, 1.0),
             [3.0, 2.0, 3.0],
         );

@@ -230,8 +230,8 @@ pub(crate) fn add_bullets(scene: &mut Scene, replay: &Replay, space: &Space) {
         }
     }
 
-    let colour = scene.material("bullet", BULLET_COLOUR);
     for (id, bullet) in bullets {
+        let colour = scene.material("bullet", BULLET_COLOUR);
         let mut node = Node::new(format!("bullet{id}"));
         match bullet {
             Bullet::Tracked(frames) => {
