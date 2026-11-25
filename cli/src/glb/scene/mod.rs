@@ -1,5 +1,6 @@
 //! The glTF scene in memory: nodes, meshes, materials and the `battle` animation clip.
 
+mod map;
 mod robots;
 
 use serde_json::{Value, json};
@@ -117,6 +118,7 @@ pub fn build(replay: &Replay) -> Scene {
         }),
         ..Scene::default()
     };
+    map::add_arena_and_map(&mut scene, replay, &space);
     robots::add_robots(&mut scene, replay, &space);
     robots::add_bullets(&mut scene, replay, &space);
     scene
