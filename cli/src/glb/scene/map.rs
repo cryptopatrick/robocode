@@ -90,7 +90,12 @@ pub(crate) fn add_arena_and_map(
                 .iter()
                 .map(|p| [space.len(p[0]), space.len(p[1])])
                 .collect();
-            scene.meshes.push(extrude(&ring, shape.h));
+            let mesh = extrude(&ring, shape.h);
+            if mesh.indices.is_empty() {
+                // Fewer than two distinct points: nothing to draw, and an empty mesh is invalid glTF.
+                continue;
+            }
+            scene.meshes.push(mesh);
             let mut n = Node::new(format!("building{i}"));
             n.mesh = Some((
                 MeshRef::Own(scene.meshes.len() - 1),
@@ -155,8 +160,9 @@ pub(crate) fn add_arena_and_map(
             at,
             [0.3 * len, CROSSING_THICK_M, len],
         );
-        let a = c.angle.to_radians();
-        scene.nodes[n].rotation = yaw_toward(a.cos(), a.sin());
+        // `angle` is the road's direction in radians; the zebra spans the road.
+        let a = c.angle;
+        scene.nodes[n].rotation = yaw_toward(-a.sin(), a.cos());
     }
     for (i, s) in
         map.signals.iter().enumerate().filter(|(_, s)| inside(s.x, s.y))
@@ -323,13 +329,18 @@ mod tests {
 
     #[test]
     fn crossing_pose() {
+        // `angle` is the road's direction in radians, like atan2(dy, dx); `len` is the
+        // road's width, so the zebra's long axis (local −Z) runs across the road.
         let s = with_map(Map {
-            crossings: vec![Crossing {
-                x: 100.0,
-                y: 100.0,
-                angle: 90.0,
-                len: 40.0,
-            }],
+            crossings: vec![
+                Crossing { x: 100.0, y: 100.0, angle: 0.0, len: 40.0 },
+                Crossing {
+                    x: 200.0,
+                    y: 100.0,
+                    angle: std::f64::consts::FRAC_PI_2,
+                    len: 40.0,
+                },
+            ],
             ..Map::default()
         });
         let c = &s.nodes[find(&s, "crossing0")];
@@ -338,11 +349,31 @@ mod tests {
             &Space::new(None).point(100.0, 100.0, 0.035)
         ));
         assert!(close(&c.scale, &[3.0, 0.01, 10.0]));
-        // The long axis (local −Z) points south, glTF +Z.
-        assert!(close(
-            &rotate(c.rotation, [0.0, 0.0, -1.0]),
-            &[0.0, 0.0, 1.0]
-        ));
+        // A road running east: the zebra spans it north–south (glTF ±Z).
+        let d = rotate(c.rotation, [0.0, 0.0, -1.0]);
+        assert!(d[0].abs() < 1e-5 && (d[2].abs() - 1.0).abs() < 1e-5, "{d:?}");
+        // A road running south: the zebra spans it east–west (glTF ±X).
+        let c = &s.nodes[find(&s, "crossing1")];
+        let d = rotate(c.rotation, [0.0, 0.0, -1.0]);
+        assert!(d[2].abs() < 1e-5 && (d[0].abs() - 1.0).abs() < 1e-5, "{d:?}");
+    }
+
+    #[test]
+    fn degenerate_shapes_dropped() {
+        let shape =
+            |ring: Vec<[f64; 2]>| Shape2d { ring, h: 10.0, id: "d".into() };
+        let s = with_map(Map {
+            shapes: vec![
+                shape(vec![]),
+                shape(vec![[5.0, 5.0]]),
+                shape(vec![[0.0, 0.0], [40.0, 0.0], [40.0, 40.0]]),
+            ],
+            ..Map::default()
+        });
+        assert_eq!(count(&s, "building"), 1);
+        for m in &s.meshes {
+            assert!(!m.indices.is_empty());
+        }
     }
 
     #[test]

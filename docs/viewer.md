@@ -53,7 +53,7 @@ The 2D view draws a recorded beam as a filled polygon in the robot's color, with
   - `heights`: one height in metres per entry of `buildings`, the collision proxies' heights.
   - `shapes`: the drawn buildings, `{ring, h, id}`. `ring` is the open footprint polygon `[[x,y],...]` (first point not repeated), with a positive shoelace area in px coordinates. `h` is the measured height in metres. The collision rectangles are not drawn when shapes exist.
   - `road_lines`: `{class, width, points}`, street centre lines with their width in px. Classes seen: `trunk`, `primary`, `secondary`, `residential`, `service`, `unclassified`, `footway`, `steps`. Lines run well outside the arena and are clipped when drawn.
-  - `crossings`: `{x, y, angle, len}`, pedestrian crossings. `angle` is in degrees, measured like `atan2(dy, dx)` on screen (0 = east). `len` in px matches the width of the road crossed.
+  - `crossings`: `{x, y, angle, len}`, pedestrian crossings. `angle` is the direction of the road crossed, in radians, measured like `atan2(dy, dx)` on screen (0 = east). `len` in px matches the width of that road; the crossing spans it.
   - `signals`: `{x, y}`, traffic lights.
   - `entrances`: `{x, y, name}`, subway entrances.
   - `labels`: `{text, x, y, h}`, landmark names with the building height in metres.

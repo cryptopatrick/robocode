@@ -240,7 +240,7 @@ A node with a non-uniform `scale` is always a leaf, so scale never reaches anima
   - `rect_buildings_use_heights`: `buildings [[10,20,30,40]]` with `heights [12.0]` → `building0` box of size `[7.5, 12.0, 10.0]` at `point(25., 40., 6.0)`. Without `heights` the height is 7.0.
   - `shapes_replace_rects`: a map with 2 rects and 1 shape → exactly one building node, `building0`, using an `Own` mesh whose max y equals the shape's `h`.
   - `road_outside_arena_dropped`: lines 0 and 2 inside and line 1 outside → nodes `road0` and `road2` only.
-  - `crossing_pose`: crossing `{x:100, y:100, angle:90, len:40}` → `crossing0` at `point(100,100,0.04 − half thickness)`, length `len · s` along screen direction 90° (south, +Z). Its width is `0.3 · len · s` (stripes are drawn as one pale rectangle in this version).
+  - `crossing_pose`: crossing `{x:100, y:100, angle:0, len:40}` → `crossing0` at `point(100,100,0.04 − half thickness)`, length `len · s` across the road (`angle` is the road's direction in radians, so an east-running road gives a north–south zebra, ±Z). Its width is `0.3 · len · s` (stripes are drawn as one pale rectangle in this version).
   - `point_items_outside_dropped`: a signal at (−5, 10) gets no node.
   - `ginza_map`: building nodes 77, road 166, crossing 34, signal 7, entrance 16. `extras.attribution` equals the recording's string, and `extras.labels.len() == 27`.
 - [ ] **Step 2:** run → FAIL.
