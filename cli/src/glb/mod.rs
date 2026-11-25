@@ -2,4 +2,5 @@
 
 pub mod geometry;
 pub mod replay;
+pub mod scene;
 pub mod space;
