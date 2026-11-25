@@ -51,11 +51,9 @@ fn poses(replay: &Replay, id: usize) -> Vec<RobotFrame> {
         .turns
         .iter()
         .map(|t| {
-            if !dead {
-                if let Some(f) = t.robots.iter().find(|f| f.id == id) {
-                    current = f.clone();
-                    dead = !f.alive;
-                }
+            if !dead && let Some(f) = t.robots.iter().find(|f| f.id == id) {
+                current = f.clone();
+                dead = !f.alive;
             }
             current.clone()
         })
@@ -506,8 +504,7 @@ mod tests {
             &node.rotation,
             &yaw_toward(to.0 - from.0, to.1 - from.1)
         ));
-        let dist =
-            sp.len(((to.0 - from.0) as f64).hypot(to.1 - from.1)) as f32;
+        let dist = sp.len((to.0 - from.0).hypot(to.1 - from.1)) as f32;
         let sc = track(&s, n, Path::Scale);
         assert_eq!(sc.interp, Interp::Step);
         assert_eq!(sc.times, vec![0.0, turn_time(2), turn_time(3)]);
