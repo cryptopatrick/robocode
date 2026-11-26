@@ -7,6 +7,9 @@ import ArenaScene3D from '../../../web/src/components/ArenaScene3D';
 import { drawArena, type ViewOptions } from '../../../web/src/draw';
 import { playbackReducer, type Playback, type PlaybackAction } from '../../../web/src/playback';
 import { parseRecording, type Recording } from '../../../web/src/recording';
+import { createBattleSound, cuesForTurn, enginePans, engineLevels } from '../../../web/src/sound';
+import { TANK_IDS } from '../../../web/src/tanks/defs';
+import type { TankImages } from '../../../web/src/tanks/images';
 
 export type { Recording };
 export type Mode = '2d' | '3d';
@@ -21,6 +24,15 @@ export interface Viewer {
   recording(): Recording | null;
   setMode(m: Mode): void;
   mode(): Mode;
+  /** Procedural ground, road and building textures (default on). */
+  setTextures(on: boolean): void;
+  textures(): boolean;
+  /** Battle sounds: shots, hits, engines (default off; switch on from a user gesture such as a button press). */
+  setSound(on: boolean): void;
+  sound(): boolean;
+  /** Daylight instead of night (default off). */
+  setDaylight(on: boolean): void;
+  daylight(): boolean;
   seek(turn: number): void;
   step(): void;
   play(): void;
@@ -68,6 +80,29 @@ export async function loadRecording(url: string): Promise<Recording> {
   }
 }
 
+/** Loads <base><id>-hull.png and <id>-turret.png for the five tanks; one whose images fail is left out (2D then draws the plain hull). */
+async function loadTankArt(base: string): Promise<TankImages> {
+  const load = (url: string) =>
+    new Promise<HTMLImageElement>((ok, no) => {
+      const img = new Image();
+      img.onload = () => ok(img);
+      img.onerror = () => no(new Error(`failed to load ${url}`));
+      img.src = url;
+    });
+  const out: TankImages = {};
+  await Promise.all(
+    TANK_IDS.map(async (id) => {
+      try {
+        const [hull, turret] = await Promise.all([load(`${base}${id}-hull.png`), load(`${base}${id}-turret.png`)]);
+        out[id] = { hull, turret };
+      } catch {
+        /* this tank keeps the plain hull */
+      }
+    }),
+  );
+  return out;
+}
+
 function hasWebGL(): boolean {
   try {
     const c = document.createElement('canvas');
@@ -90,7 +125,7 @@ class Guard extends Component<{ onError: () => void; children: ReactNode }, { fa
   }
 }
 
-export function mountViewer(el: HTMLElement): Viewer {
+export function mountViewer(el: HTMLElement, opts: { tanksUrl?: string; soundsUrl?: string } = {}): Viewer {
   el.classList.add('rcv');
   const canvas = document.createElement('canvas');
   canvas.className = 'rcv-2d';
@@ -107,8 +142,17 @@ export function mountViewer(el: HTMLElement): Viewer {
   el.append(canvas, box3d, note, marker);
 
   let rec: Recording | null = null;
+  // The five tanks' art, loaded once in the background; until it arrives 2D draws the plain hull.
+  let tankImages: TankImages = {};
+  loadTankArt(opts.tanksUrl ?? new URL('tanks/', import.meta.url).href).then((t) => {
+    tankImages = t;
+    draw();
+  });
   let state: Playback = { turn: 0, last: 0, playing: false, speed: SPEED };
   let mode: Mode = '2d';
+  let textures = true;
+  const snd = createBattleSound(opts.soundsUrl ?? new URL('sounds/', import.meta.url).href);
+  let daylight = false;
   let timer: ReturnType<typeof setInterval> | null = null;
   let root: Root | null = null;
   const listeners: ((turn: number) => void)[] = [];
@@ -122,12 +166,12 @@ export function mountViewer(el: HTMLElement): Viewer {
     if (!rec) return;
     if (mode === '2d') {
       const ctx = canvas.getContext('2d');
-      if (ctx) drawArena(ctx, rec, state.turn, VIEW);
+      if (ctx) drawArena(ctx, rec, state.turn, { ...VIEW, textures, daylight }, {}, tankImages);
       canvas.setAttribute('aria-label', `Battle arena, turn ${state.turn}`);
     } else {
       root ??= createRoot(box3d);
       root.render(
-        createElement(Guard, { onError: () => fallback() }, createElement(ArenaScene3D, { recording: rec, turn: state.turn })),
+        createElement(Guard, { onError: () => fallback() }, createElement(ArenaScene3D, { recording: rec, turn: state.turn, textures, daylight })),
       );
     }
   };
@@ -140,6 +184,13 @@ export function mountViewer(el: HTMLElement): Viewer {
   const dispatch = (a: PlaybackAction) => {
     const before = state;
     state = playbackReducer(state, a);
+    if (snd.enabled() && rec) {
+      // A turn's events are heard when the replay moves on by one turn (playing or stepping), not when it jumps.
+      const advanced = (a.type === 'tick' || a.type === 'step') && state.turn === before.turn + 1;
+      if (advanced) snd.play(cuesForTurn(rec, state.turn));
+      if (state.playing) snd.engines(engineLevels(rec, state.turn), enginePans(rec, state.turn));
+      else snd.silence();
+    }
     if (state.playing && !timer) timer = setInterval(() => dispatch({ type: 'tick' }), 1000 / SPEED);
     if (!state.playing && timer) {
       clearInterval(timer);
@@ -181,9 +232,27 @@ export function mountViewer(el: HTMLElement): Viewer {
     recording: () => rec,
     setMode,
     mode: () => mode,
+    setTextures(on) {
+      textures = on;
+      draw();
+    },
+    textures: () => textures,
+    setSound(on) {
+      snd.enable(on);
+      if (!on) snd.silence();
+    },
+    sound: () => snd.enabled(),
+    setDaylight(on) {
+      daylight = on;
+      draw();
+    },
+    daylight: () => daylight,
     seek: (turn) => dispatch({ type: 'seek', turn }),
     step: () => dispatch({ type: 'step', by: 1 }),
-    play: () => dispatch({ type: 'play' }),
+    play: () => {
+      snd.unlock();
+      dispatch({ type: 'play' });
+    },
     pause: () => dispatch({ type: 'pause' }),
     reset: () => dispatch({ type: 'seek', turn: 0 }),
     turn: () => state.turn,
@@ -196,6 +265,7 @@ export function mountViewer(el: HTMLElement): Viewer {
     },
     destroy() {
       if (timer) clearInterval(timer);
+      snd.enable(false);
       root?.unmount();
       el.replaceChildren();
     },

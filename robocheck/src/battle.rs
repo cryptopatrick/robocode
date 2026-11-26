@@ -333,6 +333,27 @@ mod tests {
     }
 
     #[test]
+    fn battle_recording_names_the_tanks() {
+        let _guard = shared_target();
+        let (dir, _) = ready("battle-tanks");
+        run_battle(
+            &dir,
+            &plain_target_dir(),
+            "SittingDuck",
+            Arena::Open,
+            50,
+            &dir.join("tanks.json"),
+            LIMIT,
+        )
+        .unwrap();
+        let rec = std::fs::read_to_string(dir.join("tanks.json")).unwrap();
+        assert!(
+            rec.contains(r#""tanks":["leopard2a8","abrams"]"#),
+            "no tanks in the recording header"
+        );
+    }
+
+    #[test]
     fn open_battle_has_no_terrain() {
         let _guard = shared_target();
         let (dir, _) = ready("battle-open");

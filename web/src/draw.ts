@@ -1,5 +1,7 @@
 // Draws one turn of a recording onto a canvas. The look is RoboVerus's own:
 // an ink-blue plotting table with instrument-style robots.
+import { drawMap } from './maplook';
+import { drawTokyo, isCity } from './tokyo';
 import { scanArc } from './geometry';
 import { bulletSegment, impactFlashes } from './scene';
 import type { Decision, Recording, RobotSnapshot } from './recording';
@@ -8,6 +10,10 @@ import { TANKS, tankFor, type TankId } from './tanks/defs';
 import type { TankImages } from './tanks/images';
 
 export interface ViewOptions {
+  /** Procedural ground, road and roof textures instead of flat colours (default off). */
+  textures?: boolean;
+  /** Daylight palette (light ground, dark labels) instead of the night one (default off). */
+  daylight?: boolean;
   names: boolean;
   energy: boolean;
   scanArcs: boolean;
@@ -25,6 +31,17 @@ const EFFECT_TURNS = 8;
 const BODY = 36;
 const TRACER_GLOW = 'rgba(255,200,80,0.35)';
 const TRACER_CORE = '#fff6c8';
+const ROAD = '#1e2b3a';
+const BUILDING = '#34465c';
+const BUILDING_EDGE = '#56708c';
+
+/** The two palettes the 2D drawing switches between: night (the default) and daylight. */
+const NIGHT = { arena: ARENA, grid: GRID, road: ROAD, building: BUILDING, edge: BUILDING_EDGE, label: LABEL, tracerGlow: TRACER_GLOW, tracerCore: TRACER_CORE };
+const DAY = {
+  arena: '#668f4c', grid: 'rgba(20, 30, 20, 0.10)', road: '#7b828c', building: '#d4d7dd', edge: '#8e95a1', label: '#1b2330',
+  tracerGlow: 'rgba(217, 72, 15, 0.3)', tracerCore: '#d9480f',
+};
+let P = NIGHT;
 const MUZZLE_FLASH_TURNS = 2;
 const IMPACT_TURNS = 4;
 /** Muzzle distance of the plain (sprite or vector) robot's gun. */
@@ -67,9 +84,9 @@ function labelFor(r: RobotSnapshot, name: string, view: ViewOptions): string {
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  ctx.fillStyle = ARENA;
+  ctx.fillStyle = P.arena;
   ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = GRID;
+  ctx.strokeStyle = P.grid;
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = 50; x < w; x += 50) {
@@ -189,7 +206,7 @@ function drawRobot(
     ctx.moveTo(0, 0);
     ctx.lineTo(0, -27);
     ctx.stroke();
-    ctx.fillStyle = ARENA;
+    ctx.fillStyle = P.arena;
     ctx.beginPath();
     ctx.arc(0, 0, 8, 0, Math.PI * 2);
     ctx.fill();
@@ -217,22 +234,17 @@ function drawRobot(
   ctx.restore();
 }
 
-const ROAD = '#1e2b3a';
-const BUILDING = '#34465c';
-const BUILDING_EDGE = '#56708c';
 
 /** Roads, then buildings. Map objects only: they are drawn under the robots. */
 function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Recording['terrain']) {
   if (!terrain) return;
-  ctx.fillStyle = ROAD;
+  ctx.fillStyle = P.road;
   for (const [x, y, w, h] of terrain.roads) ctx.fillRect(x, y, w, h);
-  for (const [x, y, w, h] of terrain.buildings) {
-    ctx.fillStyle = BUILDING;
-    ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = BUILDING_EDGE;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-  }
+  ctx.fillStyle = P.building;
+  for (const [x, y, w, h] of terrain.buildings) ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = P.edge;
+  ctx.lineWidth = 1;
+  for (const [x, y, w, h] of terrain.buildings) ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
 }
 
 /** Tracers, muzzle flashes and impact flashes. Only the tracer core ignores `view.effects`. */
@@ -287,7 +299,36 @@ function drawShots(ctx: CanvasRenderingContext2D, rec: Recording, turn: number, 
   ctx.restore();
 }
 
-/** Draws turn `turn` of `rec`. */
+const staticLayers = new WeakMap<Recording, { key: string; canvas: HTMLCanvasElement }>();
+
+/** Ground, map and scenery: the same every frame. With scenery on it is drawn once into an offscreen canvas and copied
+ *  (hundreds of shaded trees and bushes per frame made the replay crawl); otherwise it is drawn directly. */
+function drawStatic(ctx: CanvasRenderingContext2D, rec: Recording, view: ViewOptions) {
+  const { width: w, height: h } = rec.battlefield;
+  const paint = (c: CanvasRenderingContext2D) => {
+    if (view.textures) return isCity(rec) ? drawTokyo(c, rec, !!view.daylight) : drawMap(c, rec, !!view.daylight);
+    drawGrid(c, w, h);
+    drawTerrain(c, rec.terrain);
+  };
+  if (!view.textures || typeof document === 'undefined') return paint(ctx);
+  const t = ctx.getTransform();
+  const scale = Math.max(1, Math.hypot(t.a, t.b));
+  const key = `${!!view.daylight}|${scale.toFixed(2)}`;
+  let layer = staticLayers.get(rec);
+  if (!layer || layer.key !== key) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(w * scale);
+    canvas.height = Math.ceil(h * scale);
+    const c = canvas.getContext('2d');
+    if (!c) return paint(ctx);
+    c.scale(scale, scale);
+    paint(c);
+    layer = { key, canvas };
+    staticLayers.set(rec, layer);
+  }
+  ctx.drawImage(layer.canvas, 0, 0, w, h);
+}
+
 export function drawArena(
   ctx: CanvasRenderingContext2D,
   rec: Recording,
@@ -299,8 +340,8 @@ export function drawArena(
   const { width: w, height: h } = rec.battlefield;
   const snap = rec.turns[turn];
   const prev = rec.turns[Math.max(turn - 1, 0)];
-  drawGrid(ctx, w, h);
-  drawTerrain(ctx, rec.terrain);
+  P = view.daylight ? DAY : NIGHT;
+  drawStatic(ctx, rec, view);
 
   if (view.scanArcs) {
     snap.robots.forEach((r, i) => {
@@ -364,7 +405,7 @@ export function drawArena(
   if (view.names || view.energy) {
     ctx.font = '11px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = LABEL;
+    ctx.fillStyle = P.label;
     snap.robots.forEach((r, i) => {
       const text = labelFor(r, rec.robots[i]?.name ?? `Robot ${i}`, view);
       const intent = r.alive ? intentLabel(rec.decisions?.[turn]?.[i]) : '';

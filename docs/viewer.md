@@ -48,6 +48,18 @@ npm run dev      # open the printed http://localhost:5173 address
 The 2D view draws a recorded beam as a filled polygon in the robot's color, with the same faint fill as the old scan wedge, exactly as recorded (no clipping or reshaping). A recording without `beam` (version 1, or no buildings) still gets the 1200 px wedge, and an empty beam draws nothing. Shadows behind buildings are left undrawn. The 3D view does not draw the beam yet.
 - `tanks` is an optional header field, a list of tank ids (`leopard2a8`, `abrams`, `k2`, `leclerc`, `merkava`), one per robot, as in `"tanks":["k2","abrams"]`. It is written only when tanks were picked; without it, or for an unknown id, the viewer uses the default tank for that robot's slot. The engine never reads it, so it is decoration only.
 - `bullets` is a header field, `"realistic"` or `"arcade"`: how fast bullets fly (see `docs/robot-api.md`). New recordings always write it, and the version stays 2. A recording without it was made before bullet modes and is read as arcade. New battle has a Bullets picker, Realistic by default.
+- `terrain` is an optional header field. The engine writes `buildings` and `roads`, collision and display rectangles `[x, y, w, h]` in px. Recordings with a real-city map (written by the robocheck pipeline, e.g. Ginza) carry more fields, all in the same px frame as the robots, where `y` grows south:
+  - `px_per_m`: pixels per metre (Ginza: 4).
+  - `heights`: one height in metres per entry of `buildings`, the collision proxies' heights.
+  - `shapes`: the drawn buildings, `{ring, h, id}`. `ring` is the open footprint polygon `[[x,y],...]` (first point not repeated), with a positive shoelace area in px coordinates. `h` is the measured height in metres. The collision rectangles are not drawn when shapes exist.
+  - `road_lines`: `{class, width, points}`, street centre lines with their width in px. Classes seen: `trunk`, `primary`, `secondary`, `residential`, `service`, `unclassified`, `footway`, `steps`. Lines run well outside the arena and are clipped when drawn.
+  - `crossings`: `{x, y, angle, len}`, pedestrian crossings. `angle` is the direction of the road crossed, in radians, measured like `atan2(dy, dx)` on screen (0 = east). `len` in px matches the width of that road; the crossing spans it.
+  - `signals`: `{x, y}`, traffic lights.
+  - `entrances`: `{x, y, name}`, subway entrances.
+  - `labels`: `{text, x, y, h}`, landmark names with the building height in metres.
+  - `name` and `attribution`: the map's name and its credit line, which must be shown wherever the map is.
+
+  The engine never reads these fields. The 3D view reads `road_lines`, `heights` and `px_per_m`. `cargo robocode export --glb` reads all of them (see `docs/cargo-robocode.md`).
 - Robots spawn at `(100,100)`, `(w−100,h−100)`, `(w−100,100)`, `(100,h−100)`, heading 0°.
 
 ## Not carried over from the Java game

@@ -1,13 +1,13 @@
 {
   "format": "robocheck-evidence",
   "version": 2,
-  "run_id": "f8a5432f40fe-1795106424",
-  "created_at": "2026-11-19T16:40:24Z",
+  "run_id": "f8a5432f40fe-1795119268",
+  "created_at": "2026-11-19T20:14:28Z",
   "candidate": {
     "path": "candidate.rs",
-    "sha256": "9ce1bb4488c5b524be48211285223bcec4d7e563e5ab6c1b35e59da1aad62555"
+    "sha256": "155763488ceb36e134376d5f0a813858b35da13bf88af737d99918436cdddf65"
   },
-  "artifact_hash": "fad9b466f6cb7dae434e72cda02599bf69c4b0a76ce64d4f071b13a4a9df1c13",
+  "artifact_hash": "0e4f5e4dd975cfb4d120fa0b0daed7f1094c0a8e03af585b06bc77cf020624ee",
   "spec_hash": "ad54a45edfe9e6f72a4f024364b2c6db471500f0bb7cfdbc5a52c12e6a393fb6",
   "validation": {
     "ok": true,
@@ -43,12 +43,12 @@
       "arena": "open",
       "status": "ok",
       "opponent": "Circler",
-      "turns": 147,
+      "turns": 133,
       "winner": "Candidate",
-      "artifact_hash": "fad9b466f6cb7dae434e72cda02599bf69c4b0a76ce64d4f071b13a4a9df1c13",
+      "artifact_hash": "0e4f5e4dd975cfb4d120fa0b0daed7f1094c0a8e03af585b06bc77cf020624ee",
       "same_artifact": true,
       "recording_file": "recording-open.json",
-      "recording_sha256": "a019460de5a274d705dad5e8b8d97e4bca3f04f02be2b4515dbbfcc20150fa59",
+      "recording_sha256": "78f965e8bb7dca405403811941b0cf052932073758e084f4f939195a3bf4fa47",
       "decisions_file": "decisions-open.jsonl",
       "error": null
     },
@@ -58,10 +58,10 @@
       "opponent": "Circler",
       "turns": 738,
       "winner": "Candidate",
-      "artifact_hash": "fad9b466f6cb7dae434e72cda02599bf69c4b0a76ce64d4f071b13a4a9df1c13",
+      "artifact_hash": "0e4f5e4dd975cfb4d120fa0b0daed7f1094c0a8e03af585b06bc77cf020624ee",
       "same_artifact": true,
       "recording_file": "recording-urban.json",
-      "recording_sha256": "db810b2b079c1cbecdd4be1c109de3d118d5255cf9f74d691abaa9da42113795",
+      "recording_sha256": "cc21c5db0d7a93cbca55c9140e6d580e0969c9fc78ab1cadb003d8fc04441eef",
       "decisions_file": "decisions-urban.jsonl",
       "error": null
     }
