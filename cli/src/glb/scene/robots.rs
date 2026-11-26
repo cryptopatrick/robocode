@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use serde_json::json;
 
 use super::{Interp, MeshRef, Node, Path, Scene, Space, Track};
-use crate::glb::geometry::Mesh;
+use crate::glb::geometry::{self, Mesh};
 use crate::glb::replay::{Replay, RobotFrame};
 use crate::glb::space::{continuous, turn_time, yaw, yaw_toward};
 use crate::glb::tanks::{self, Paint, Tank, TankModel, tank_for};
@@ -106,16 +106,28 @@ fn models(
         .collect()
 }
 
+/// Geometry already in the scene for a tank's part list, keyed by tank id and part group.
+type Shared = BTreeMap<(&'static str, &'static str), Vec<MeshRef>>;
+
 /// A node drawing `parts`, painted with the tank's materials and the robot's `team` material.
+/// Robots driving the same tank share its geometry; only the team material differs.
 fn part_node(
     scene: &mut Scene,
+    shared: &mut Shared,
     name: String,
+    group: &'static str,
     parts: &[(Mesh, Paint)],
-    tank: &Tank,
+    tank: &'static Tank,
     team: usize,
 ) -> Node {
+    let geometry = shared
+        .entry((tank.id, group))
+        .or_insert_with(|| {
+            parts.iter().map(|(m, _)| scene.own(m.clone())).collect()
+        })
+        .clone();
     let mut n = Node::new(name);
-    for (mesh, paint) in parts {
+    for ((_, paint), g) in parts.iter().zip(geometry) {
         let material = match paint {
             Paint::Team => team,
             p => {
@@ -123,14 +135,14 @@ fn part_node(
                 scene.material(&name, &hex)
             }
         };
-        let geometry = scene.own(mesh.clone());
-        n.mesh.push((geometry, material));
+        n.mesh.push((g, material));
     }
     n
 }
 
 pub(crate) fn add_robots(scene: &mut Scene, replay: &Replay, space: &Space) {
     let models = models(replay, space);
+    let mut shared = Shared::new();
     for (slot, info) in replay.robots.iter().enumerate() {
         let poses = poses(replay, info.id);
         if poses.is_empty() {
@@ -148,16 +160,32 @@ pub(crate) fn add_robots(scene: &mut Scene, replay: &Replay, space: &Space) {
             Some(json!({ "name": info.name, "slot": slot, "tank": tank.id }));
         let root = scene.add(root, None);
 
-        let hull =
-            part_node(scene, format!("{name}/hull"), &model.hull, tank, team);
+        let hull = part_node(
+            scene,
+            &mut shared,
+            format!("{name}/hull"),
+            "hull",
+            &model.hull,
+            tank,
+            team,
+        );
         scene.add(hull, Some(root));
-        let mut gun =
-            part_node(scene, format!("{name}/gun"), &model.turret, tank, team);
+        let mut gun = part_node(
+            scene,
+            &mut shared,
+            format!("{name}/gun"),
+            "gun",
+            &model.turret,
+            tank,
+            team,
+        );
         gun.translation = model.gun_at;
         let gun = scene.add(gun, Some(root));
         let barrel = part_node(
             scene,
+            &mut shared,
             format!("{name}/gun/barrel"),
+            "barrel",
             &model.barrel,
             tank,
             team,
@@ -165,7 +193,9 @@ pub(crate) fn add_robots(scene: &mut Scene, replay: &Replay, space: &Space) {
         scene.add(barrel, Some(gun));
         let mut radar = part_node(
             scene,
+            &mut shared,
             format!("{name}/radar"),
+            "radar",
             &model.radar,
             tank,
             team,
@@ -225,14 +255,8 @@ pub(crate) fn add_robots(scene: &mut Scene, replay: &Replay, space: &Space) {
     }
 }
 
-/// A STEP scale track that shows `full` on turns `first..=last` and 0 otherwise.
-fn visibility(
-    node: usize,
-    first: usize,
-    last: usize,
-    turns: usize,
-    full: [f32; 3],
-) -> Track {
+/// A STEP scale track: full size (1) on turns `first..=last` and 0 otherwise.
+fn visibility(node: usize, first: usize, last: usize, turns: usize) -> Track {
     let mut times = Vec::new();
     let mut values = Vec::new();
     if first > 0 {
@@ -240,7 +264,7 @@ fn visibility(
         values.extend([0.0; 3]);
     }
     times.push(turn_time(first));
-    values.extend(full);
+    values.extend([1.0; 3]);
     if last + 1 < turns {
         times.push(turn_time(last + 1));
         values.extend([0.0; 3]);
@@ -262,12 +286,20 @@ pub(crate) fn add_bullets(scene: &mut Scene, replay: &Replay, space: &Space) {
         .into_iter()
         .map(|(id, (_, m))| (id, f64::from(m.muzzle_height)))
         .collect();
-    let shooter: BTreeMap<u64, usize> = replay
+    // The shooter from the snapshots' owner_id, then from bullet_fired events.
+    let mut shooter: BTreeMap<u64, usize> = replay
         .turns
         .iter()
-        .flat_map(|t| &t.events.fired)
-        .map(|f| (f.bullet_id, f.shooter))
+        .flat_map(|t| &t.bullets)
+        .filter_map(|b| b.owner.map(|o| (b.id, o)))
         .collect();
+    shooter.extend(
+        replay
+            .turns
+            .iter()
+            .flat_map(|t| &t.events.fired)
+            .map(|f| (f.bullet_id, f.shooter)),
+    );
     let fallback = replay
         .robots
         .first()
@@ -329,6 +361,7 @@ pub(crate) fn add_bullets(scene: &mut Scene, replay: &Replay, space: &Space) {
         }
     }
 
+    let mut sphere: Option<MeshRef> = None;
     for (id, bullet) in bullets {
         let colour = scene.material("bullet", BULLET_COLOUR);
         let mut node = Node::new(format!("bullet{id}"));
@@ -336,8 +369,11 @@ pub(crate) fn add_bullets(scene: &mut Scene, replay: &Replay, space: &Space) {
             Bullet::Tracked(frames) => {
                 let Some(&(first, ..)) = frames.first() else { continue };
                 let last = frames.last().map_or(first, |f| f.0);
-                let r = 0.08 * d;
-                node.mesh = vec![(MeshRef::Sphere, colour)];
+                // Built at its radius (and shared), so its texture coordinates are in metres.
+                let sphere = *sphere.get_or_insert_with(|| {
+                    scene.own(geometry::sphere(0.08 * d))
+                });
+                node.mesh = vec![(sphere, colour)];
                 let n = scene.add(node, None);
                 let translation = Track {
                     node: n,
@@ -349,7 +385,7 @@ pub(crate) fn add_bullets(scene: &mut Scene, replay: &Replay, space: &Space) {
                         .flat_map(|f| space.point(f.1, f.2, up(id)))
                         .collect(),
                 };
-                let scale = visibility(n, first, last, turns, [r; 3]);
+                let scale = visibility(n, first, last, turns);
                 scene.nodes[n].translation = first_key(&translation);
                 scene.nodes[n].scale = first_key(&scale);
                 scene.tracks.extend([translation, scale]);
@@ -357,7 +393,8 @@ pub(crate) fn add_bullets(scene: &mut Scene, replay: &Replay, space: &Space) {
             Bullet::Tracer { turn, from, to } => {
                 let (dx, dy) = (to.0 - from.0, to.1 - from.1);
                 let w = 0.05 * d;
-                node.mesh = vec![(MeshRef::Box, colour)];
+                let length = space.len(dx.hypot(dy)) as f32;
+                node.mesh = vec![(scene.sized_box([w, w, length]), colour)];
                 node.translation = space.point(
                     (from.0 + to.0) / 2.0,
                     (from.1 + to.1) / 2.0,
@@ -365,13 +402,7 @@ pub(crate) fn add_bullets(scene: &mut Scene, replay: &Replay, space: &Space) {
                 );
                 node.rotation = yaw_toward(dx, dy);
                 let n = scene.add(node, None);
-                let scale = visibility(
-                    n,
-                    turn,
-                    turn,
-                    turns,
-                    [w, w, space.len(dx.hypot(dy)) as f32],
-                );
+                let scale = visibility(n, turn, turn, turns);
                 scene.nodes[n].scale = first_key(&scale);
                 scene.tracks.push(scale);
             }
@@ -580,23 +611,40 @@ mod tests {
                 x: 200.0 + k as f64,
                 y: 100.0,
                 alive: true,
+                owner: None,
             });
         }
         ts
+    }
+
+    /// `(size, is shared)` of a node's single primitive: built at size, so the node is unscaled.
+    fn mesh_size(s: &crate::glb::scene::Scene, n: usize) -> [f32; 3] {
+        let [(MeshRef(m), _)] = s.nodes[n].mesh[..] else {
+            panic!("{} is not one own mesh", s.nodes[n].name)
+        };
+        let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
+        for p in &s.meshes[m].positions {
+            for c in 0..3 {
+                lo[c] = lo[c].min(p[c]);
+                hi[c] = hi[c].max(p[c]);
+            }
+        }
+        [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]]
     }
 
     #[test]
     fn tracked_bullet_scale_keys() {
         let s = build(&replay(with_bullet(5, &[2], 7)));
         let n = find(&s, "bullet7");
-        assert!(matches!(s.nodes[n].mesh.first(), Some((MeshRef::Sphere, _))));
+        // A sphere built at its radius, so its texture coordinates are in metres.
+        let d = 2.0 * 0.08 * D;
+        assert!(close(&mesh_size(&s, n), &[d, d, d]));
         let sc = track(&s, n, Path::Scale);
         assert_eq!(sc.interp, Interp::Step);
         assert_eq!(sc.times, vec![0.0, turn_time(2), turn_time(3)]);
-        let full = 0.08 * D;
         assert!(close(
             &sc.values,
-            &[0.0, 0.0, 0.0, full, full, full, 0.0, 0.0, 0.0]
+            &[0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
         ));
         let tr = track(&s, n, Path::Translation);
         assert_eq!(tr.times, vec![turn_time(2)]);
@@ -624,6 +672,7 @@ mod tests {
             x: 0.0,
             y: 0.0,
             alive: false,
+            owner: None,
         });
         let s = build(&replay(ts));
         let sc = track(&s, find(&s, "bullet4"), Path::Scale);
@@ -658,8 +707,9 @@ mod tests {
         let w = 0.05 * D;
         assert!(close(
             &sc.values,
-            &[0.0, 0.0, 0.0, w, w, dist, 0.0, 0.0, 0.0]
+            &[0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
         ));
+        assert!(close(&mesh_size(&s, n), &[w, w, dist]));
         // The tracer's long axis points from shooter to victim.
         let dir = rotate(node.rotation, [0.0, 0.0, -1.0]);
         let want = sp.point(to.0 - from.0, to.1 - from.1, 0.0);
@@ -705,11 +755,49 @@ mod tests {
         let bullets =
             s.nodes.iter().filter(|n| n.name.starts_with("bullet")).count();
         assert_eq!(bullets, 40);
+        // Tracked spheres are the bullets that move.
         let spheres = s
-            .nodes
+            .tracks
             .iter()
-            .filter(|n| matches!(n.mesh.first(), Some((MeshRef::Sphere, _))))
+            .filter(|t| {
+                t.path == Path::Translation
+                    && s.nodes[t.node].name.starts_with("bullet")
+            })
             .count();
         assert_eq!(spheres, 19);
+    }
+
+    #[test]
+    fn bullet_height_from_snapshot_owner() {
+        // No bullet_fired event: the shooter comes from the snapshot's owner_id.
+        let mut ts = with_bullet(3, &[1], 6);
+        ts[1].bullets[0].owner = Some(1);
+        let s = build(&replay(ts));
+        let tr = track(&s, find(&s, "bullet6"), Path::Translation);
+        let abrams = tanks::build(&tanks::TANKS[1], 0.25).muzzle_height;
+        assert!((tr.values[1] - abrams).abs() < 1e-5, "{}", tr.values[1]);
+    }
+
+    #[test]
+    fn same_tank_shares_geometry() {
+        let mut r = replay(two(1));
+        r.tanks = Some(vec!["k2".into(), "k2".into()]);
+        let s = build(&r);
+        let geom = |n: &str| -> Vec<MeshRef> {
+            s.nodes[find(&s, n)].mesh.iter().map(|&(g, _)| g).collect()
+        };
+        for part in ["hull", "gun", "gun/barrel", "radar"] {
+            assert_eq!(
+                geom(&format!("robot0/{part}")),
+                geom(&format!("robot1/{part}")),
+                "{part}"
+            );
+        }
+        // Only the team colour differs.
+        let mats = |n: &str| -> Vec<usize> {
+            s.nodes[find(&s, n)].mesh.iter().map(|&(_, m)| m).collect()
+        };
+        assert_ne!(mats("robot0/gun/barrel"), mats("robot1/gun/barrel"));
+        assert_eq!(mats("robot0/hull"), mats("robot1/hull"));
     }
 }

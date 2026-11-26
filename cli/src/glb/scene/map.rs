@@ -235,9 +235,7 @@ mod tests {
         assert_eq!(n.scale, [1.0; 3], "{name} is scaled");
         let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
         for &(g, _) in &n.mesh {
-            let MeshRef::Own(m) = g else {
-                panic!("{name}: shared unit mesh")
-            };
+            let MeshRef(m) = g;
             for p in &s.meshes[m].positions {
                 for c in 0..3 {
                     lo[c] = lo[c].min(p[c]);

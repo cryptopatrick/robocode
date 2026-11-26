@@ -268,7 +268,8 @@ mod shape {
     /// A rounded-rectangle track belt in the x/y plane, `straight` long between the arc
     /// centres, from radius `inner` to `outer`, extruded `depth` along +z from z 0.
     pub fn belt(straight: f64, inner: f64, outer: f64, depth: f64) -> Mesh {
-        const ARC: usize = 8;
+        // three.js ExtrudeGeometry: 12 curve segments per arc.
+        const ARC: usize = 12;
         let half = straight / 2.0;
         // The loop's centres and outward directions, counter-clockwise from the bottom left.
         let mut path: Vec<([f64; 2], [f64; 2])> = Vec::new();
@@ -761,6 +762,16 @@ mod tests {
                 "belt triangle {t}"
             );
         }
+    }
+
+    #[test]
+    fn belt_ends_match_the_viewer() {
+        // three.js ExtrudeGeometry uses 12 curve segments per arc: 2 × 13 loop points,
+        // each with one front-cap quad (4 vertices facing +z).
+        let b = shape::belt(3.0, 0.4, 0.6, 0.2);
+        let front =
+            b.normals.iter().filter(|n| **n == [0.0, 0.0, 1.0]).count();
+        assert_eq!(front, 2 * 13 * 4);
     }
 
     #[test]

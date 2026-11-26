@@ -11,16 +11,9 @@ use super::geometry::{Mesh, cuboid};
 use super::replay::Replay;
 use super::space::{DEFAULT_PX_PER_M, Space, srgb_hex};
 
-/// Which geometry a node draws.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum MeshRef {
-    /// The shared unit box.
-    Box,
-    /// The shared unit sphere.
-    Sphere,
-    /// An index into `Scene::meshes`.
-    Own(usize),
-}
+/// An index into `Scene::meshes`. Meshes are built at size, so they share by index.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MeshRef(pub usize);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Node {
@@ -100,19 +93,17 @@ impl Scene {
     pub fn sized_box(&mut self, size: [f32; 3]) -> MeshRef {
         let key = size.map(f32::to_bits);
         if let Some(&i) = self.boxes.get(&key) {
-            return MeshRef::Own(i);
+            return MeshRef(i);
         }
         let r = self.own(cuboid(size));
-        if let MeshRef::Own(i) = r {
-            self.boxes.insert(key, i);
-        }
+        self.boxes.insert(key, r.0);
         r
     }
 
     /// Adds `mesh` to `meshes` and returns its reference.
     pub fn own(&mut self, mesh: Mesh) -> MeshRef {
         self.meshes.push(mesh);
-        MeshRef::Own(self.meshes.len() - 1)
+        MeshRef(self.meshes.len() - 1)
     }
 
     /// Adds a node under `parent` (or as a root) and returns its index.

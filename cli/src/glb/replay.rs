@@ -51,6 +51,8 @@ pub struct BulletFrame {
     pub x: f64,
     pub y: f64,
     pub alive: bool,
+    /// The shooter's robot id (`owner_id`), when the snapshot has it.
+    pub owner: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -214,6 +216,8 @@ fn default_radius() -> f64 {
 #[derive(Deserialize)]
 struct RawBullet {
     id: u64,
+    #[serde(default)]
+    owner_id: Option<usize>,
     position: RawPoint,
     alive: bool,
 }
@@ -311,6 +315,7 @@ fn turn(t: RawTurn) -> Turn {
             x: b.position.x,
             y: b.position.y,
             alive: b.alive,
+            owner: b.owner_id,
         })
         .collect();
     bullets.sort_by_key(|b| b.id);
@@ -442,7 +447,13 @@ mod tests {
         );
         assert_eq!(
             r.turns[1].bullets,
-            vec![BulletFrame { id: 3, x: 5.0, y: 6.0, alive: true }]
+            vec![BulletFrame {
+                id: 3,
+                x: 5.0,
+                y: 6.0,
+                alive: true,
+                owner: Some(0)
+            }]
         );
         assert_eq!(r.turns[0].events, Events::default());
     }

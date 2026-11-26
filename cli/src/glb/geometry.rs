@@ -1,4 +1,4 @@
-//! Triangle meshes: the shared unit box and sphere, extruded footprints and road strips.
+//! Triangle meshes: boxes, spheres, extruded footprints and road strips, built at size in metres.
 //!
 //! Every triangle is wound counter-clockwise seen from outside, as glTF requires for front faces.
 
@@ -100,11 +100,6 @@ fn signed_area(ring: &[[f64; 2]]) -> f64 {
         / 2.0
 }
 
-/// A cube with 1 m edges, centred on the origin: 24 vertices, flat normals.
-pub fn unit_box() -> Mesh {
-    cuboid([1.0; 3])
-}
-
 /// A box of `size` metres centred on the origin: 24 vertices, flat normals.
 pub fn cuboid(size: [f32; 3]) -> Mesh {
     let mut m = Mesh::default();
@@ -134,8 +129,8 @@ pub fn cuboid(size: [f32; 3]) -> Mesh {
     m
 }
 
-/// A sphere of radius 1: 12 segments × 8 rings.
-pub fn unit_sphere() -> Mesh {
+/// A sphere of radius `r` metres: 12 segments × 8 rings.
+pub fn sphere(radius: f32) -> Mesh {
     const SEGMENTS: usize = 12;
     const RINGS: usize = 8;
     let mut m = Mesh::default();
@@ -148,7 +143,7 @@ pub fn unit_sphere() -> Mesh {
                 polar.cos(),
                 polar.sin() * azimuth.sin(),
             ];
-            m.vertex(p, p);
+            m.vertex(p.map(|c| c * radius), p);
         }
     }
     for r in 0..RINGS {
@@ -397,7 +392,7 @@ mod tests {
         assert!((span - 4.0).abs() < 1e-5, "{span}");
         let e = extrude(&[[0.0, 0.0], [5.0, 0.0], [5.0, 5.0]], 3.0);
         assert_eq!(e.uvs.len(), e.positions.len());
-        assert_eq!(unit_sphere().uvs.len(), unit_sphere().positions.len());
+        assert_eq!(sphere(1.0).uvs.len(), sphere(1.0).positions.len());
     }
 
     #[test]
@@ -412,12 +407,12 @@ mod tests {
 
     #[test]
     fn box_and_sphere_are_closed() {
-        let b = unit_box();
+        let b = cuboid([1.0; 3]);
         check_closed(&b);
         assert_eq!((b.positions.len(), b.indices.len()), (24, 36));
         assert!(b.positions.iter().all(|p| p.iter().all(|c| c.abs() == 0.5)));
         faces_out(&b, [0.0; 3]);
-        let s = unit_sphere();
+        let s = sphere(1.0);
         check_closed(&s);
         assert!(s.positions.iter().all(|p| (dot3(*p, *p) - 1.0).abs() < 1e-4));
         faces_out(&s, [0.0; 3]);

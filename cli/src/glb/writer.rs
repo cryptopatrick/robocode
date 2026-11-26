@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 
-use super::geometry::{Mesh, unit_box, unit_sphere};
-use super::scene::{Interp, MeshRef, Path, Scene};
+use super::geometry::Mesh;
+use super::scene::{Interp, Path, Scene};
 
 const ARRAY_BUFFER: u32 = 34962;
 const ELEMENT_ARRAY_BUFFER: u32 = 34963;
@@ -105,11 +105,11 @@ fn is_identity(v: &[f32], identity: &[f32]) -> bool {
 pub fn write_glb(scene: &Scene) -> Vec<u8> {
     let mut b = Builder::default();
 
-    // Geometry: the shared shapes once each, then the scene's own meshes, in order of first use.
-    let mut geometry: BTreeMap<GeomKey, (usize, usize, usize, usize)> =
+    // Geometry: each mesh once, in order of first use.
+    let mut geometry: BTreeMap<usize, (usize, usize, usize, usize)> =
         BTreeMap::new();
     let mut meshes: Vec<Value> = Vec::new();
-    let mut mesh_of: BTreeMap<Vec<(GeomKey, usize)>, usize> = BTreeMap::new();
+    let mut mesh_of: BTreeMap<Vec<(usize, usize)>, usize> = BTreeMap::new();
     let mut nodes: Vec<Value> = Vec::with_capacity(scene.nodes.len());
     for node in &scene.nodes {
         let mut n = json!({ "name": node.name });
@@ -117,16 +117,10 @@ pub fn write_glb(scene: &Scene) -> Vec<u8> {
             let mut prims = Vec::with_capacity(node.mesh.len());
             let mut key = Vec::with_capacity(node.mesh.len());
             for &(shape, material) in &node.mesh {
-                let g = GeomKey::from(shape);
-                let (p, nrm, uv, i) =
-                    *geometry.entry(g).or_insert_with(|| {
-                        let mesh = match shape {
-                            MeshRef::Box => unit_box(),
-                            MeshRef::Sphere => unit_sphere(),
-                            MeshRef::Own(i) => scene.meshes[i].clone(),
-                        };
-                        b.geometry(&mesh)
-                    });
+                let g = shape.0;
+                let (p, nrm, uv, i) = *geometry
+                    .entry(g)
+                    .or_insert_with(|| b.geometry(&scene.meshes[g]));
                 key.push((g, material));
                 prims.push(json!({
                     "attributes": { "POSITION": p, "NORMAL": nrm, "TEXCOORD_0": uv },
@@ -239,22 +233,4 @@ pub fn write_glb(scene: &Scene) -> Vec<u8> {
     out.extend_from_slice(&0x004E_4942u32.to_le_bytes()); // "BIN\0"
     out.extend_from_slice(&b.bin);
     out
-}
-
-/// `MeshRef` as an ordered key.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum GeomKey {
-    Box,
-    Sphere,
-    Own(usize),
-}
-
-impl From<MeshRef> for GeomKey {
-    fn from(m: MeshRef) -> GeomKey {
-        match m {
-            MeshRef::Box => GeomKey::Box,
-            MeshRef::Sphere => GeomKey::Sphere,
-            MeshRef::Own(i) => GeomKey::Own(i),
-        }
-    }
 }
