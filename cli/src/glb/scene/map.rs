@@ -2,8 +2,8 @@
 
 use serde_json::{Value, json};
 
-use super::{MeshRef, Node, Scene, Space};
-use crate::glb::geometry::{extrude, strip};
+use super::{Node, Scene, Space};
+use crate::glb::geometry::{extrude_parts, strip};
 use crate::glb::replay::Replay;
 use crate::glb::space::yaw_toward;
 
@@ -22,6 +22,7 @@ type Colour = (&'static str, &'static str);
 const GROUND: Colour = ("ground", "#0f1e2e");
 const WALL: Colour = ("wall", "#e9eef2");
 const BUILDING: Colour = ("building", "#4a5866");
+const ROOF: Colour = ("roof", "#3b4652");
 const ROAD: Colour = ("road", "#1e2b3a");
 const CROSSING: Colour = ("crossing", "#e9eef2");
 const SIGNAL: Colour = ("signal", "#c9d6e2");
@@ -36,10 +37,32 @@ fn boxed(
 ) -> usize {
     let material = scene.material(colour.0, colour.1);
     let mut n = Node::new(name);
-    n.mesh = Some((MeshRef::Box, material));
+    n.mesh = vec![(scene.sized_box(size), material)];
     n.translation = at;
-    n.scale = size;
     scene.add(n, None)
+}
+
+/// A building node: the footprint (glTF metres) extruded to `height_m`, walls and roof as two
+/// primitives. `None` for a ring too degenerate to draw (an empty mesh is invalid glTF).
+fn building(
+    scene: &mut Scene,
+    name: String,
+    ring_m: &[[f64; 2]],
+    height_m: f64,
+) {
+    let (walls, roof) = extrude_parts(ring_m, height_m);
+    if walls.indices.is_empty() && roof.indices.is_empty() {
+        return;
+    }
+    let mut n = Node::new(name);
+    for (mesh, colour) in [(walls, BUILDING), (roof, ROOF)] {
+        if !mesh.indices.is_empty() {
+            let material = scene.material(colour.0, colour.1);
+            let geometry = scene.own(mesh);
+            n.mesh.push((geometry, material));
+        }
+    }
+    scene.add(n, None);
 }
 
 pub(crate) fn add_arena_and_map(
@@ -71,17 +94,10 @@ pub(crate) fn add_arena_and_map(
         for (i, b) in map.buildings.iter().enumerate() {
             let height =
                 map.heights.get(i).copied().unwrap_or(FALLBACK_BUILDING_M);
-            let at = space.point(
-                b[0] + b[2] / 2.0,
-                b[1] + b[3] / 2.0,
-                height / 2.0,
-            );
-            let size = [
-                space.len(b[2]) as f32,
-                height as f32,
-                space.len(b[3]) as f32,
-            ];
-            boxed(scene, format!("building{i}"), BUILDING, at, size);
+            let [x0, z0] = [space.len(b[0]), space.len(b[1])];
+            let [x1, z1] = [space.len(b[0] + b[2]), space.len(b[1] + b[3])];
+            let ring = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+            building(scene, format!("building{i}"), &ring, height);
         }
     } else {
         for (i, shape) in map.shapes.iter().enumerate() {
@@ -90,18 +106,7 @@ pub(crate) fn add_arena_and_map(
                 .iter()
                 .map(|p| [space.len(p[0]), space.len(p[1])])
                 .collect();
-            let mesh = extrude(&ring, shape.h);
-            if mesh.indices.is_empty() {
-                // Fewer than two distinct points: nothing to draw, and an empty mesh is invalid glTF.
-                continue;
-            }
-            scene.meshes.push(mesh);
-            let mut n = Node::new(format!("building{i}"));
-            n.mesh = Some((
-                MeshRef::Own(scene.meshes.len() - 1),
-                scene.material(BUILDING.0, BUILDING.1),
-            ));
-            scene.add(n, None);
+            building(scene, format!("building{i}"), &ring, shape.h);
         }
     }
     for (i, line) in map.road_lines.iter().enumerate() {
@@ -112,12 +117,9 @@ pub(crate) fn add_arena_and_map(
             space,
             ROAD_TOP_M,
         ) {
-            scene.meshes.push(mesh);
             let mut n = Node::new(format!("road{i}"));
-            n.mesh = Some((
-                MeshRef::Own(scene.meshes.len() - 1),
-                scene.material(ROAD.0, ROAD.1),
-            ));
+            let material = scene.material(ROAD.0, ROAD.1);
+            n.mesh = vec![(scene.own(mesh), material)];
             scene.add(n, None);
         }
     }
@@ -227,6 +229,30 @@ mod tests {
         build(&r)
     }
 
+    /// `(min, max)` corners of a node's primitives in its own frame. Map nodes carry no scale.
+    fn bounds(s: &Scene, name: &str) -> ([f32; 3], [f32; 3]) {
+        let n = &s.nodes[find(s, name)];
+        assert_eq!(n.scale, [1.0; 3], "{name} is scaled");
+        let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
+        for &(g, _) in &n.mesh {
+            let MeshRef::Own(m) = g else {
+                panic!("{name}: shared unit mesh")
+            };
+            for p in &s.meshes[m].positions {
+                for c in 0..3 {
+                    lo[c] = lo[c].min(p[c]);
+                    hi[c] = hi[c].max(p[c]);
+                }
+            }
+        }
+        (lo, hi)
+    }
+
+    fn size(s: &Scene, name: &str) -> [f32; 3] {
+        let (lo, hi) = bounds(s, name);
+        [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]]
+    }
+
     fn count(s: &Scene, prefix: &str) -> usize {
         s.nodes
             .iter()
@@ -242,8 +268,7 @@ mod tests {
     fn ground_and_walls() {
         let s = with_map(Map::default());
         let g = &s.nodes[find(&s, "ground")];
-        assert!(matches!(g.mesh, Some((MeshRef::Box, _))));
-        assert!(close(&g.scale, &[200.0, 0.05, 150.0]));
+        assert!(close(&size(&s, "ground"), &[200.0, 0.05, 150.0]));
         assert!(close(&g.translation, &[100.0, -0.025, 75.0]));
         for w in ["north", "south", "east", "west"] {
             find(&s, &format!("wall/{w}"));
@@ -262,13 +287,17 @@ mod tests {
             heights: vec![12.0],
             ..Map::default()
         });
-        let b = &s.nodes[find(&s, "building0")];
-        assert!(close(&b.scale, &[7.5, 12.0, 10.0]));
-        assert!(close(
-            &b.translation,
-            &Space::new(None).point(25.0, 40.0, 6.0)
-        ));
-        assert_eq!(s.nodes[find(&s, "building1")].scale[1], 7.0);
+        let (lo, hi) = bounds(&s, "building0");
+        assert!(
+            close(&lo, &[2.5, 0.0, 5.0]) && close(&hi, &[10.0, 12.0, 15.0])
+        );
+        assert_eq!(size(&s, "building1")[1], 7.0);
+        let mats: Vec<&str> = s.nodes[find(&s, "building0")]
+            .mesh
+            .iter()
+            .map(|&(_, m)| s.materials[m].0.as_str())
+            .collect();
+        assert_eq!(mats, ["building", "roof"]);
     }
 
     #[test]
@@ -283,16 +312,8 @@ mod tests {
             ..Map::default()
         });
         assert_eq!(count(&s, "building"), 1);
-        let Some((MeshRef::Own(m), _)) = s.nodes[find(&s, "building0")].mesh
-        else {
-            panic!("building0 has no own mesh")
-        };
-        let mesh = &s.meshes[m];
-        let max_y =
-            mesh.positions.iter().map(|p| p[1]).fold(f32::MIN, f32::max);
-        let max_x =
-            mesh.positions.iter().map(|p| p[0]).fold(f32::MIN, f32::max);
-        assert_eq!((max_y, max_x), (33.0, 10.0));
+        let (_, hi) = bounds(&s, "building0");
+        assert_eq!((hi[1], hi[0]), (33.0, 10.0));
     }
 
     #[test]
@@ -323,8 +344,7 @@ mod tests {
             roads: vec![[0.0, 0.0, 800.0, 20.0]],
             ..Map::default()
         });
-        let r = &s.nodes[find(&s, "road1")];
-        assert!(close(&r.scale, &[200.0, 0.03, 5.0]));
+        assert!(close(&size(&s, "road1"), &[200.0, 0.03, 5.0]));
     }
 
     #[test]
@@ -348,7 +368,7 @@ mod tests {
             &c.translation,
             &Space::new(None).point(100.0, 100.0, 0.035)
         ));
-        assert!(close(&c.scale, &[3.0, 0.01, 10.0]));
+        assert!(close(&size(&s, "crossing0"), &[3.0, 0.01, 10.0]));
         // A road running east: the zebra spans it north–south (glTF ±Z).
         let d = rotate(c.rotation, [0.0, 0.0, -1.0]);
         assert!(d[0].abs() < 1e-5 && (d[2].abs() - 1.0).abs() < 1e-5, "{d:?}");

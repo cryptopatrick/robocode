@@ -91,6 +91,38 @@ fn materials_and_extras() {
 }
 
 #[test]
+fn every_primitive_has_uvs() {
+    for json in [OPEN_ARENA, GINZA] {
+        let bytes = export(json).unwrap();
+        let (doc, buffers, _) = gltf::import_slice(&bytes).unwrap();
+        for mesh in doc.meshes() {
+            for p in mesh.primitives() {
+                let r = p.reader(|b| Some(&buffers[b.index()]));
+                let n = r.read_positions().unwrap().count();
+                let uv = r
+                    .read_tex_coords(0)
+                    .expect("TEXCOORD_0")
+                    .into_f32()
+                    .count();
+                assert_eq!(n, uv);
+            }
+        }
+    }
+}
+
+#[test]
+fn buildings_have_wall_and_roof_materials() {
+    let bytes = export(GINZA).unwrap();
+    let g = gltf::Gltf::from_slice(&bytes).unwrap();
+    let mesh = node(&g, "building0").mesh().unwrap();
+    let mats: Vec<_> = mesh
+        .primitives()
+        .map(|p| p.material().name().unwrap().to_string())
+        .collect();
+    assert_eq!(mats, ["building", "roof"]);
+}
+
+#[test]
 fn golden_bytes() {
     let bytes = export(OPEN_ARENA).unwrap();
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -201,8 +233,45 @@ fn ginza_acceptance() {
         .map(|s| s.input().max().unwrap()[0].as_f64().unwrap())
         .fold(0.0, f64::max);
     assert!((max - f64::from(end)).abs() < 1e-4, "{max}");
-    // (g) a tank is 9 m long
-    assert_eq!(node(&doc, "robot0/body").transform().decomposed().2[2], 9.0);
+    // (g) Candidate drives a Leopard 2A8: hull 11.6 m long, 7 m wide (within 10%)
+    assert_eq!(extras(node(&doc, "robot0"))["tank"], "leopard2a8");
+    let hull = node(&doc, "robot0/hull").mesh().unwrap();
+    let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
+    for p in hull.primitives() {
+        let b = p.bounding_box();
+        for c in 0..3 {
+            lo[c] = lo[c].min(b.min[c]);
+            hi[c] = hi[c].max(b.max[c]);
+        }
+    }
+    let (len, width) = (hi[2] - lo[2], hi[0] - lo[0]);
+    assert!((len - 11.6).abs() / 11.6 < 0.1, "length {len}");
+    assert!((width - 7.0).abs() / 7.0 < 0.1, "width {width}");
+    // (g2) the dead are squashed from the turns they die
+    for (robot, turn) in [("robot3", 65), ("robot0", 209)] {
+        let n = node(&doc, robot).index();
+        let ch = anim
+            .channels()
+            .find(|c| {
+                c.target().node().index() == n
+                    && c.target().property()
+                        == gltf::animation::Property::Scale
+            })
+            .unwrap();
+        let reader = ch.reader(|x| Some(&buffers[x.index()]));
+        let times: Vec<f32> = reader.read_inputs().unwrap().collect();
+        let gltf::animation::util::ReadOutputs::Scales(scales) =
+            reader.read_outputs().unwrap()
+        else {
+            unreachable!()
+        };
+        assert_eq!(times, [0.0, turn as f32 / 30.0], "{robot}");
+        assert_eq!(
+            scales.collect::<Vec<_>>(),
+            [[1.0; 3], [1.0, 0.4, 1.0]],
+            "{robot}"
+        );
+    }
     // (h) no winner, and the map's credit travels with the file
     let scene: serde_json::Value = serde_json::from_str(
         doc.scenes().next().unwrap().extras().as_ref().unwrap().get(),

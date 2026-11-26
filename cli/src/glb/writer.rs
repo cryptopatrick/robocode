@@ -83,16 +83,18 @@ impl Builder {
         self.accessors.len() - 1
     }
 
-    /// `(POSITION, NORMAL, indices)` accessors for a mesh.
-    fn geometry(&mut self, mesh: &Mesh) -> (usize, usize, usize) {
+    /// `(POSITION, NORMAL, TEXCOORD_0, indices)` accessors for a mesh.
+    fn geometry(&mut self, mesh: &Mesh) -> (usize, usize, usize, usize) {
         let positions: Vec<f32> =
             mesh.positions.iter().flatten().copied().collect();
         let normals: Vec<f32> =
             mesh.normals.iter().flatten().copied().collect();
         let p = self.floats(&positions, 3, "VEC3", Some(ARRAY_BUFFER), true);
         let n = self.floats(&normals, 3, "VEC3", Some(ARRAY_BUFFER), false);
+        let uvs: Vec<f32> = mesh.uvs.iter().flatten().copied().collect();
+        let uv = self.floats(&uvs, 2, "VEC2", Some(ARRAY_BUFFER), false);
         let i = self.indices(&mesh.indices);
-        (p, n, i)
+        (p, n, uv, i)
     }
 }
 
@@ -104,32 +106,36 @@ pub fn write_glb(scene: &Scene) -> Vec<u8> {
     let mut b = Builder::default();
 
     // Geometry: the shared shapes once each, then the scene's own meshes, in order of first use.
-    let mut geometry: BTreeMap<GeomKey, (usize, usize, usize)> =
+    let mut geometry: BTreeMap<GeomKey, (usize, usize, usize, usize)> =
         BTreeMap::new();
     let mut meshes: Vec<Value> = Vec::new();
-    let mut mesh_of: BTreeMap<(GeomKey, usize), usize> = BTreeMap::new();
+    let mut mesh_of: BTreeMap<Vec<(GeomKey, usize)>, usize> = BTreeMap::new();
     let mut nodes: Vec<Value> = Vec::with_capacity(scene.nodes.len());
     for node in &scene.nodes {
         let mut n = json!({ "name": node.name });
-        if let Some((shape, material)) = node.mesh {
-            let key = GeomKey::from(shape);
-            let accessors = *geometry.entry(key).or_insert_with(|| {
-                let mesh = match shape {
-                    MeshRef::Box => unit_box(),
-                    MeshRef::Sphere => unit_sphere(),
-                    MeshRef::Own(i) => scene.meshes[i].clone(),
-                };
-                b.geometry(&mesh)
-            });
-            let index = *mesh_of.entry((key, material)).or_insert_with(|| {
-                let (p, nrm, i) = accessors;
-                meshes.push(json!({
-                    "primitives": [{
-                        "attributes": { "POSITION": p, "NORMAL": nrm },
-                        "indices": i,
-                        "material": material,
-                    }]
+        if !node.mesh.is_empty() {
+            let mut prims = Vec::with_capacity(node.mesh.len());
+            let mut key = Vec::with_capacity(node.mesh.len());
+            for &(shape, material) in &node.mesh {
+                let g = GeomKey::from(shape);
+                let (p, nrm, uv, i) =
+                    *geometry.entry(g).or_insert_with(|| {
+                        let mesh = match shape {
+                            MeshRef::Box => unit_box(),
+                            MeshRef::Sphere => unit_sphere(),
+                            MeshRef::Own(i) => scene.meshes[i].clone(),
+                        };
+                        b.geometry(&mesh)
+                    });
+                key.push((g, material));
+                prims.push(json!({
+                    "attributes": { "POSITION": p, "NORMAL": nrm, "TEXCOORD_0": uv },
+                    "indices": i,
+                    "material": material,
                 }));
+            }
+            let index = *mesh_of.entry(key).or_insert_with(|| {
+                meshes.push(json!({ "primitives": prims }));
                 meshes.len() - 1
             });
             n["mesh"] = json!(index);

@@ -5,7 +5,9 @@ mod robots;
 
 use serde_json::{Value, json};
 
-use super::geometry::Mesh;
+use std::collections::BTreeMap;
+
+use super::geometry::{Mesh, cuboid};
 use super::replay::Replay;
 use super::space::{DEFAULT_PX_PER_M, Space, srgb_hex};
 
@@ -23,8 +25,8 @@ pub enum MeshRef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Node {
     pub name: String,
-    /// `(geometry, material index)`.
-    pub mesh: Option<(MeshRef, usize)>,
+    /// The node's mesh as primitives, `(geometry, material index)`; empty for none.
+    pub mesh: Vec<(MeshRef, usize)>,
     pub translation: [f32; 3],
     pub rotation: [f32; 4],
     pub scale: [f32; 3],
@@ -37,7 +39,7 @@ impl Node {
     pub fn new(name: impl Into<String>) -> Node {
         Node {
             name: name.into(),
-            mesh: None,
+            mesh: Vec::new(),
             translation: [0.0; 3],
             rotation: [0.0, 0.0, 0.0, 1.0],
             scale: [1.0; 3],
@@ -80,6 +82,8 @@ pub struct Scene {
     /// All tracks belong to the one clip, `battle`.
     pub tracks: Vec<Track>,
     pub extras: Value,
+    /// Sized boxes already in `meshes`, by the bits of their size.
+    boxes: BTreeMap<[u32; 3], usize>,
 }
 
 impl Scene {
@@ -90,6 +94,25 @@ impl Scene {
         }
         self.materials.push((name.to_string(), srgb_hex(hex)));
         self.materials.len() - 1
+    }
+
+    /// A box of `size` metres in `meshes`, shared by every node of that size.
+    pub fn sized_box(&mut self, size: [f32; 3]) -> MeshRef {
+        let key = size.map(f32::to_bits);
+        if let Some(&i) = self.boxes.get(&key) {
+            return MeshRef::Own(i);
+        }
+        let r = self.own(cuboid(size));
+        if let MeshRef::Own(i) = r {
+            self.boxes.insert(key, i);
+        }
+        r
+    }
+
+    /// Adds `mesh` to `meshes` and returns its reference.
+    pub fn own(&mut self, mesh: Mesh) -> MeshRef {
+        self.meshes.push(mesh);
+        MeshRef::Own(self.meshes.len() - 1)
     }
 
     /// Adds a node under `parent` (or as a root) and returns its index.
@@ -205,7 +228,7 @@ mod tests {
         );
         assert_eq!(
             s.nodes[find(&s, "robot0")].extras,
-            Some(json!({"name": "A", "slot": 0}))
+            Some(json!({"name": "A", "slot": 0, "tank": "leopard2a8"}))
         );
     }
 
@@ -218,7 +241,7 @@ mod tests {
         let s = build(&r);
         for (i, (name, _)) in s.materials.iter().enumerate() {
             assert!(
-                s.nodes.iter().any(|n| n.mesh.is_some_and(|m| m.1 == i)),
+                s.nodes.iter().any(|n| n.mesh.iter().any(|m| m.1 == i)),
                 "material {name} unused"
             );
         }

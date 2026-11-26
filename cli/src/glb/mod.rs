@@ -4,6 +4,7 @@ pub mod geometry;
 pub mod replay;
 pub mod scene;
 pub mod space;
+pub mod tanks;
 pub mod writer;
 
 /// Turns a recording (JSON) into `.glb` bytes.

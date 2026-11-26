@@ -8,18 +8,51 @@ use super::space::Space;
 pub struct Mesh {
     pub positions: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
+    /// `TEXCOORD_0`: metres on the surface, see [`planar_uv`].
+    pub uvs: Vec<[f32; 2]>,
     pub indices: Vec<u32>,
 }
 
+/// Texture coordinates in metres in the mesh's own frame: faces pointing mostly up or down
+/// use `(X, Z)`; other faces use the horizontal distance along the face and the height `Y`.
+pub fn planar_uv(p: [f32; 3], n: [f32; 3]) -> [f32; 2] {
+    if n[1].abs() >= 0.5 {
+        return [p[0], p[2]];
+    }
+    // The horizontal tangent up × n, normalised.
+    let (tx, tz) = (n[2], -n[0]);
+    let len = tx.hypot(tz);
+    if len < 1e-6 {
+        return [p[0], p[1]];
+    }
+    [(p[0] * tx + p[2] * tz) / len, p[1]]
+}
+
 impl Mesh {
-    fn vertex(&mut self, p: [f32; 3], n: [f32; 3]) -> u32 {
+    /// Appends `other`'s triangles.
+    pub fn append(&mut self, other: &Mesh) {
+        let base = self.positions.len() as u32;
+        self.positions.extend_from_slice(&other.positions);
+        self.normals.extend_from_slice(&other.normals);
+        self.uvs.extend_from_slice(&other.uvs);
+        self.indices.extend(other.indices.iter().map(|i| i + base));
+    }
+
+    pub(crate) fn vertex(&mut self, p: [f32; 3], n: [f32; 3]) -> u32 {
         self.positions.push(p);
         self.normals.push(n);
+        self.uvs.push(planar_uv(p, n));
         (self.positions.len() - 1) as u32
     }
 
     /// Adds a triangle, wound so that its face points along `facing`.
-    fn triangle(&mut self, a: u32, b: u32, c: u32, facing: [f32; 3]) {
+    pub(crate) fn triangle(
+        &mut self,
+        a: u32,
+        b: u32,
+        c: u32,
+        facing: [f32; 3],
+    ) {
         let (pa, pb, pc) = (
             self.positions[a as usize],
             self.positions[b as usize],
@@ -34,7 +67,7 @@ impl Mesh {
     }
 
     /// Adds a flat quad (corners in order around it) facing along `normal`.
-    fn quad(&mut self, corners: [[f32; 3]; 4], normal: [f32; 3]) {
+    pub(crate) fn quad(&mut self, corners: [[f32; 3]; 4], normal: [f32; 3]) {
         let i = corners.map(|p| self.vertex(p, normal));
         self.triangle(i[0], i[1], i[2], normal);
         self.triangle(i[0], i[2], i[3], normal);
@@ -69,6 +102,11 @@ fn signed_area(ring: &[[f64; 2]]) -> f64 {
 
 /// A cube with 1 m edges, centred on the origin: 24 vertices, flat normals.
 pub fn unit_box() -> Mesh {
+    cuboid([1.0; 3])
+}
+
+/// A box of `size` metres centred on the origin: 24 vertices, flat normals.
+pub fn cuboid(size: [f32; 3]) -> Mesh {
     let mut m = Mesh::default();
     for axis in 0..3 {
         for sign in [-1.0f32, 1.0] {
@@ -77,9 +115,9 @@ pub fn unit_box() -> Mesh {
             let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
             let corner = |su: f32, sv: f32| {
                 let mut p = [0.0; 3];
-                p[axis] = 0.5 * sign;
-                p[u] = 0.5 * su;
-                p[v] = 0.5 * sv;
+                p[axis] = 0.5 * sign * size[axis];
+                p[u] = 0.5 * su * size[u];
+                p[v] = 0.5 * sv * size[v];
                 p
             };
             m.quad(
@@ -180,6 +218,13 @@ pub fn triangulate(ring: &[[f64; 2]]) -> Vec<[usize; 3]> {
 
 /// A footprint in glTF `(X, Z)` metres extruded from y 0 to `height_m`: walls and roof, no floor.
 pub fn extrude(ring_m: &[[f64; 2]], height_m: f64) -> Mesh {
+    let (mut m, roof) = extrude_parts(ring_m, height_m);
+    m.append(&roof);
+    m
+}
+
+/// [`extrude`] as two meshes: `(walls, roof)`.
+pub fn extrude_parts(ring_m: &[[f64; 2]], height_m: f64) -> (Mesh, Mesh) {
     let mut m = Mesh::default();
     let h = height_m as f32;
     let sign = if signed_area(ring_m) < 0.0 { -1.0 } else { 1.0 };
@@ -200,15 +245,16 @@ pub fn extrude(ring_m: &[[f64; 2]], height_m: f64) -> Mesh {
             normal,
         );
     }
+    let mut top = Mesh::default();
     let up = [0.0, 1.0, 0.0];
     let roof: Vec<u32> = ring_m
         .iter()
-        .map(|p| m.vertex([p[0] as f32, h, p[1] as f32], up))
+        .map(|p| top.vertex([p[0] as f32, h, p[1] as f32], up))
         .collect();
     for [a, b, c] in triangulate(ring_m) {
-        m.triangle(roof[a], roof[b], roof[c], up);
+        top.triangle(roof[a], roof[b], roof[c], up);
     }
-    m
+    (m, top)
 }
 
 /// Clips the segment `a`–`b` to the rectangle `[0, w] × [0, h]` (Liang–Barsky).
@@ -328,6 +374,40 @@ mod tests {
             let out = [p[0] - centre[0], p[1] - centre[1], p[2] - centre[2]];
             assert!(dot3(n, out) > 0.0, "triangle {t} faces inward");
         }
+    }
+
+    #[test]
+    fn uvs_are_surface_metres() {
+        let b = cuboid([2.0, 3.0, 4.0]);
+        assert_eq!(b.uvs.len(), b.positions.len());
+        for ((p, n), uv) in b.positions.iter().zip(&b.normals).zip(&b.uvs) {
+            if n[1].abs() > 0.5 {
+                assert_eq!(*uv, [p[0], p[2]]);
+            } else {
+                assert_eq!(uv[1], p[1]);
+            }
+        }
+        // A side face spans its own width in u: the +X face is 4 m across (along Z).
+        let side: Vec<f32> = (0..b.positions.len())
+            .filter(|&i| b.normals[i] == [1.0, 0.0, 0.0])
+            .map(|i| b.uvs[i][0])
+            .collect();
+        let span = side.iter().cloned().fold(f32::MIN, f32::max)
+            - side.iter().cloned().fold(f32::MAX, f32::min);
+        assert!((span - 4.0).abs() < 1e-5, "{span}");
+        let e = extrude(&[[0.0, 0.0], [5.0, 0.0], [5.0, 5.0]], 3.0);
+        assert_eq!(e.uvs.len(), e.positions.len());
+        assert_eq!(unit_sphere().uvs.len(), unit_sphere().positions.len());
+    }
+
+    #[test]
+    fn cuboid_is_sized_box() {
+        let b = cuboid([2.0, 3.0, 4.0]);
+        check_closed(&b);
+        faces_out(&b, [0.0; 3]);
+        assert!(b.positions.iter().all(|p| p[0].abs() == 1.0
+            && p[1].abs() == 1.5
+            && p[2].abs() == 2.0));
     }
 
     #[test]

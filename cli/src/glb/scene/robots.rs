@@ -5,13 +5,17 @@ use std::collections::BTreeMap;
 use serde_json::json;
 
 use super::{Interp, MeshRef, Node, Path, Scene, Space, Track};
+use crate::glb::geometry::Mesh;
 use crate::glb::replay::{Replay, RobotFrame};
 use crate::glb::space::{continuous, turn_time, yaw, yaw_toward};
+use crate::glb::tanks::{self, Paint, Tank, TankModel, tank_for};
 
 /// Slot colours, as in the viewer's `ROBOT_COLORS`.
 const ROBOT_COLOURS: [&str; 4] = ["#e0a526", "#3fb6c9", "#ef5d79", "#9c7cf4"];
 const BULLET_COLOUR: &str = "#fff6c8";
 const DEFAULT_RADIUS_PX: f64 = 18.0;
+/// A dead robot's height, as a share of its own (the viewer's `setDead`).
+const WRECK_HEIGHT: f32 = 0.4;
 
 /// A robot's diameter in metres, from its first recorded frame.
 fn diameter(replay: &Replay, id: usize, space: &Space) -> f32 {
@@ -85,40 +89,88 @@ fn first_key<const N: usize>(t: &Track) -> [f32; N] {
     t.values[..N].try_into().expect("a track has at least one key")
 }
 
+/// The tank model each robot drives, by robot id.
+fn models(
+    replay: &Replay,
+    space: &Space,
+) -> BTreeMap<usize, (&'static Tank, TankModel)> {
+    let header = replay.tanks.as_deref().unwrap_or(&[]);
+    replay
+        .robots
+        .iter()
+        .enumerate()
+        .map(|(slot, r)| {
+            let tank = tank_for(header, slot);
+            (r.id, (tank, tanks::build(tank, space.len(1.0))))
+        })
+        .collect()
+}
+
+/// A node drawing `parts`, painted with the tank's materials and the robot's `team` material.
+fn part_node(
+    scene: &mut Scene,
+    name: String,
+    parts: &[(Mesh, Paint)],
+    tank: &Tank,
+    team: usize,
+) -> Node {
+    let mut n = Node::new(name);
+    for (mesh, paint) in parts {
+        let material = match paint {
+            Paint::Team => team,
+            p => {
+                let (name, hex) = p.material(tank);
+                scene.material(&name, &hex)
+            }
+        };
+        let geometry = scene.own(mesh.clone());
+        n.mesh.push((geometry, material));
+    }
+    n
+}
+
 pub(crate) fn add_robots(scene: &mut Scene, replay: &Replay, space: &Space) {
+    let models = models(replay, space);
     for (slot, info) in replay.robots.iter().enumerate() {
         let poses = poses(replay, info.id);
         if poses.is_empty() {
             continue;
         }
-        let d = diameter(replay, info.id, space);
-        let colour = scene.material(
+        let (tank, model) = &models[&info.id];
+        let team = scene.material(
             &format!("robot{slot}"),
             ROBOT_COLOURS[slot % ROBOT_COLOURS.len()],
         );
         let name = format!("robot{}", info.id);
 
         let mut root = Node::new(&name);
-        root.extras = Some(json!({ "name": info.name, "slot": slot }));
+        root.extras =
+            Some(json!({ "name": info.name, "slot": slot, "tank": tank.id }));
         let root = scene.add(root, None);
 
-        let mut body = Node::new(format!("{name}/body"));
-        body.mesh = Some((MeshRef::Box, colour));
-        body.translation = [0.0, 0.14 * d, 0.0];
-        body.scale = [d, 0.28 * d, d];
-        scene.add(body, Some(root));
-
-        let gun = scene.add(Node::new(format!("{name}/gun")), Some(root));
-        let mut barrel = Node::new(format!("{name}/gun/barrel"));
-        barrel.mesh = Some((MeshRef::Box, colour));
-        barrel.translation = [0.0, 0.33 * d, -0.325 * d];
-        barrel.scale = [0.1 * d, 0.1 * d, 0.65 * d];
+        let hull =
+            part_node(scene, format!("{name}/hull"), &model.hull, tank, team);
+        scene.add(hull, Some(root));
+        let mut gun =
+            part_node(scene, format!("{name}/gun"), &model.turret, tank, team);
+        gun.translation = model.gun_at;
+        let gun = scene.add(gun, Some(root));
+        let barrel = part_node(
+            scene,
+            format!("{name}/gun/barrel"),
+            &model.barrel,
+            tank,
+            team,
+        );
         scene.add(barrel, Some(gun));
-
-        let mut radar = Node::new(format!("{name}/radar"));
-        radar.mesh = Some((MeshRef::Box, colour));
-        radar.translation = [0.0, 0.4 * d, 0.0];
-        radar.scale = [0.28 * d, 0.08 * d, 0.1 * d];
+        let mut radar = part_node(
+            scene,
+            format!("{name}/radar"),
+            &model.radar,
+            tank,
+            team,
+        );
+        radar.translation = model.radar_at;
         let radar = scene.add(radar, Some(root));
 
         let translation = Track {
@@ -146,6 +198,30 @@ pub(crate) fn add_robots(scene: &mut Scene, replay: &Replay, space: &Space) {
         scene.nodes[gun].rotation = first_key(&gun_rot);
         scene.nodes[radar].rotation = first_key(&radar_rot);
         scene.tracks.extend([translation, body_rot, gun_rot, radar_rot]);
+
+        // A wreck is squashed to 40% of its height from the turn it dies.
+        if let Some(death) = poses.iter().position(|p| !p.alive) {
+            let squashed = [1.0, WRECK_HEIGHT, 1.0];
+            let (times, values) = if death == 0 {
+                (vec![0.0], squashed.to_vec())
+            } else {
+                (vec![0.0, turn_time(death)], [[1.0; 3], squashed].concat())
+            };
+            scene.nodes[root].scale = first_key(&Track {
+                node: root,
+                path: Path::Scale,
+                interp: Interp::Step,
+                times: times.clone(),
+                values: values.clone(),
+            });
+            scene.tracks.push(Track {
+                node: root,
+                path: Path::Scale,
+                interp: Interp::Step,
+                times,
+                values,
+            });
+        }
     }
 }
 
@@ -181,7 +257,30 @@ enum Bullet {
 
 pub(crate) fn add_bullets(scene: &mut Scene, replay: &Replay, space: &Space) {
     let d = bullet_diameter(replay, space);
-    let up = f64::from(0.33 * d);
+    // Bullets fly at their shooter's muzzle height (the first robot's when the shooter is unknown).
+    let muzzle: BTreeMap<usize, f64> = models(replay, space)
+        .into_iter()
+        .map(|(id, (_, m))| (id, f64::from(m.muzzle_height)))
+        .collect();
+    let shooter: BTreeMap<u64, usize> = replay
+        .turns
+        .iter()
+        .flat_map(|t| &t.events.fired)
+        .map(|f| (f.bullet_id, f.shooter))
+        .collect();
+    let fallback = replay
+        .robots
+        .first()
+        .and_then(|r| muzzle.get(&r.id))
+        .copied()
+        .unwrap_or(0.0);
+    let up = |bullet: u64| {
+        shooter
+            .get(&bullet)
+            .and_then(|s| muzzle.get(s))
+            .copied()
+            .unwrap_or(fallback)
+    };
     let turns = replay.turns.len();
     let mut bullets: BTreeMap<u64, Bullet> = BTreeMap::new();
     let mut seen = std::collections::BTreeSet::new();
@@ -238,7 +337,7 @@ pub(crate) fn add_bullets(scene: &mut Scene, replay: &Replay, space: &Space) {
                 let Some(&(first, ..)) = frames.first() else { continue };
                 let last = frames.last().map_or(first, |f| f.0);
                 let r = 0.08 * d;
-                node.mesh = Some((MeshRef::Sphere, colour));
+                node.mesh = vec![(MeshRef::Sphere, colour)];
                 let n = scene.add(node, None);
                 let translation = Track {
                     node: n,
@@ -247,7 +346,7 @@ pub(crate) fn add_bullets(scene: &mut Scene, replay: &Replay, space: &Space) {
                     times: frames.iter().map(|f| turn_time(f.0)).collect(),
                     values: frames
                         .iter()
-                        .flat_map(|f| space.point(f.1, f.2, up))
+                        .flat_map(|f| space.point(f.1, f.2, up(id)))
                         .collect(),
                 };
                 let scale = visibility(n, first, last, turns, [r; 3]);
@@ -258,11 +357,11 @@ pub(crate) fn add_bullets(scene: &mut Scene, replay: &Replay, space: &Space) {
             Bullet::Tracer { turn, from, to } => {
                 let (dx, dy) = (to.0 - from.0, to.1 - from.1);
                 let w = 0.05 * d;
-                node.mesh = Some((MeshRef::Box, colour));
+                node.mesh = vec![(MeshRef::Box, colour)];
                 node.translation = space.point(
                     (from.0 + to.0) / 2.0,
                     (from.1 + to.1) / 2.0,
-                    up,
+                    up(id),
                 );
                 node.rotation = yaw_toward(dx, dy);
                 let n = scene.add(node, None);
@@ -286,6 +385,7 @@ mod tests {
     use super::super::{Interp, MeshRef, Path, build};
     use crate::glb::replay::{BulletFrame, Fired, Hit, ObstacleHit};
     use crate::glb::space::{Space, rotate, turn_time, yaw, yaw_toward};
+    use crate::glb::tanks;
 
     const D: f32 = 9.0;
 
@@ -314,7 +414,7 @@ mod tests {
         let s = build(&replay(two(2)));
         for name in [
             "robot0",
-            "robot0/body",
+            "robot0/hull",
             "robot0/gun",
             "robot0/gun/barrel",
             "robot0/radar",
@@ -340,21 +440,54 @@ mod tests {
         );
     }
 
+    fn materials(s: &crate::glb::scene::Scene, node: &str) -> Vec<String> {
+        s.nodes[find(s, node)]
+            .mesh
+            .iter()
+            .map(|&(_, m)| s.materials[m].0.clone())
+            .collect()
+    }
+
     #[test]
-    fn body_is_robot_diameter() {
+    fn robots_drive_their_tanks() {
         let s = build(&replay(two(1)));
-        let body = &s.nodes[find(&s, "robot0/body")];
-        assert!(close(&body.scale, &[9.0, 2.52, 9.0]));
-        assert!(close(&body.translation, &[0.0, 0.14 * D, 0.0]));
-        assert!(matches!(body.mesh, Some((MeshRef::Box, _))));
-        let barrel = &s.nodes[find(&s, "robot0/gun/barrel")];
-        assert!(close(&barrel.scale, &[0.1 * D, 0.1 * D, 0.65 * D]));
-        assert!(close(&barrel.translation, &[0.0, 0.33 * D, -0.325 * D]));
-        let radar = &s.nodes[find(&s, "robot0/radar")];
-        assert!(close(&radar.scale, &[0.28 * D, 0.08 * D, 0.1 * D]));
-        assert!(close(&radar.translation, &[0.0, 0.4 * D, 0.0]));
-        let colour = |n: &str| s.nodes[find(&s, n)].mesh.unwrap().1;
-        assert_ne!(colour("robot0/body"), colour("robot1/body"));
+        let extras = |n: &str| s.nodes[find(&s, n)].extras.clone().unwrap();
+        assert_eq!(extras("robot0")["tank"], "leopard2a8");
+        assert_eq!(extras("robot1")["tank"], "abrams");
+        assert!(
+            materials(&s, "robot0/hull")
+                .contains(&"leopard2a8/base".to_string())
+        );
+        assert!(
+            materials(&s, "robot1/hull").contains(&"abrams/base".to_string())
+        );
+        // The team colour is on the muzzle cap and the dish only.
+        assert!(
+            materials(&s, "robot0/gun/barrel").contains(&"robot0".to_string())
+        );
+        assert!(materials(&s, "robot1/radar").contains(&"robot1".to_string()));
+        assert!(!materials(&s, "robot0/hull").contains(&"robot0".to_string()));
+        let model = tanks::build(&tanks::TANKS[0], 0.25);
+        assert_eq!(s.nodes[find(&s, "robot0/gun")].translation, model.gun_at);
+        assert_eq!(
+            s.nodes[find(&s, "robot0/radar")].translation,
+            model.radar_at
+        );
+        // No node is scaled: tanks are built at size.
+        assert!(
+            s.nodes
+                .iter()
+                .filter(|n| n.name.starts_with("robot"))
+                .all(|n| n.scale == [1.0; 3])
+        );
+
+        let mut r = replay(two(1));
+        r.tanks = Some(vec!["k2".into()]);
+        let s = build(&r);
+        assert_eq!(
+            s.nodes[find(&s, "robot0")].extras.as_ref().unwrap()["tank"],
+            "k2"
+        );
     }
 
     #[test]
@@ -421,6 +554,18 @@ mod tests {
             );
             assert!(close(&key::<4>(&r.values, k), &yaw(20.0)));
         }
+        // The wreck is squashed from the turn it dies (turn 2).
+        let sc = track(&s, n, Path::Scale);
+        assert_eq!(sc.interp, Interp::Step);
+        assert_eq!(sc.times, vec![0.0, turn_time(2)]);
+        assert!(close(&sc.values, &[1.0, 1.0, 1.0, 1.0, 0.4, 1.0]));
+        // A robot that never dies has no scale track.
+        let alive = find(&s, "robot0");
+        assert!(
+            s.tracks
+                .iter()
+                .all(|t| !(t.node == alive && t.path == Path::Scale))
+        );
     }
 
     fn with_bullet(
@@ -444,7 +589,7 @@ mod tests {
     fn tracked_bullet_scale_keys() {
         let s = build(&replay(with_bullet(5, &[2], 7)));
         let n = find(&s, "bullet7");
-        assert!(matches!(s.nodes[n].mesh, Some((MeshRef::Sphere, _))));
+        assert!(matches!(s.nodes[n].mesh.first(), Some((MeshRef::Sphere, _))));
         let sc = track(&s, n, Path::Scale);
         assert_eq!(sc.interp, Interp::Step);
         assert_eq!(sc.times, vec![0.0, turn_time(2), turn_time(3)]);
@@ -455,9 +600,10 @@ mod tests {
         ));
         let tr = track(&s, n, Path::Translation);
         assert_eq!(tr.times, vec![turn_time(2)]);
+        let muzzle = tanks::build(&tanks::TANKS[0], 0.25).muzzle_height;
         assert!(close(
             &tr.values,
-            &Space::new(None).point(202.0, 100.0, (0.33 * D) as f64)
+            &Space::new(None).point(202.0, 100.0, muzzle as f64)
         ));
         assert_eq!(s.nodes[n].scale, [0.0; 3]);
     }
@@ -494,10 +640,11 @@ mod tests {
         let node = &s.nodes[n];
         let sp = Space::new(None);
         let (from, to) = ((102.0, 100.0), (700.0, 500.0));
+        let muzzle = tanks::build(&tanks::TANKS[0], 0.25).muzzle_height;
         let mid = sp.point(
             (from.0 + to.0) / 2.0,
             (from.1 + to.1) / 2.0,
-            (0.33 * D) as f64,
+            muzzle as f64,
         );
         assert!(close(&node.translation, &mid));
         assert!(close(
@@ -531,10 +678,11 @@ mod tests {
         });
         let s = build(&replay(ts));
         let node = &s.nodes[find(&s, "bullet5")];
+        let muzzle = tanks::build(&tanks::TANKS[0], 0.25).muzzle_height;
         let mid = Space::new(None).point(
             (101.0 + 301.0) / 2.0,
             (100.0 + 40.0) / 2.0,
-            (0.33 * D) as f64,
+            muzzle as f64,
         );
         assert!(close(&node.translation, &mid));
     }
@@ -560,7 +708,7 @@ mod tests {
         let spheres = s
             .nodes
             .iter()
-            .filter(|n| matches!(n.mesh, Some((MeshRef::Sphere, _))))
+            .filter(|n| matches!(n.mesh.first(), Some((MeshRef::Sphere, _))))
             .count();
         assert_eq!(spheres, 19);
     }
